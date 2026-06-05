@@ -59,11 +59,13 @@ const INDEX_TTL_DAYS = Ref(30)
 
 include("catalog/sources.jl")
 include("catalog/catalog.jl")
+include("catalog/query.jl")
 include("download/cache.jl")
 include("download/fetch.jl")
 include("catalog/index_cache.jl")
 include("catalog/mridata_catalog.jl")
 include("catalog/ocmr_catalog.jl")
+include("catalog/tui.jl")
 include("load/ismrmrd.jl")
 include("load/to_acquisition_info.jl")
 include("api.jl")
@@ -75,7 +77,7 @@ end
 
 export AbstractSource, MridataOrg, OCMR, MRIDATA, OCMR_SOURCE
 export DatasetEntry, DatasetHandle
-export list_sources, list_datasets, dataset
+export list_sources, list_datasets, dataset, query, search_datasets
 export download_dataset, cache_path, is_cached, clear_cache
 export refresh_index, index_path, index_age_days
 export load_raw, load_acq, acq_spec

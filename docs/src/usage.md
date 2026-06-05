@@ -18,6 +18,32 @@ list_datasets(MRIDATA; coils = c -> c !== nothing && c >= 8)
 list_datasets(OCMR_SOURCE; field_strength = (1.5, 3.0))
 ```
 
+### Searching across sources
+
+[`query`](@ref) searches **one or several** sources at once with the same filter
+vocabulary. Unknown keywords are matched against each entry's `extra` metadata, and
+`text` does a case-insensitive substring (or `Regex`/predicate) search over the
+name, id, and string-valued `extra` fields:
+
+```julia
+query(; anatomy = :knee, fully_sampled = true)        # both sources
+query(; sources = OCMR_SOURCE, field_strength = (1.5, 3.0))
+query(; text = "prisma")                              # free-text
+query(; subject = "patient")                          # an OCMR `extra` field
+```
+
+### Interactive search (TUI)
+
+[`search_datasets`](@ref) opens a terminal menu (built on the stdlib
+`REPL.TerminalMenus`) over the same query, lets you refine the free-text filter
+live, and returns the selected [`DatasetEntry`](@ref). Pass `multiselect = true` to
+return several:
+
+```julia
+entry = search_datasets(; anatomy = :knee)
+entries = search_datasets(; sources = OCMR_SOURCE, multiselect = true)
+```
+
 ## The self-updating index
 
 Each source's catalog is backed by an **index** that is fetched from upstream and

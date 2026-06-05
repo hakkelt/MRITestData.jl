@@ -25,6 +25,8 @@ list_sources
 DatasetEntry
 DatasetHandle
 list_datasets
+query
+search_datasets
 dataset
 ```
 
