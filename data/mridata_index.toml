@@ -1,0 +1,37 @@
+# Curated catalog of mridata.org datasets.
+#
+# Each [[dataset]] entry is downloaded as an ISMRMRD .h5 from
+#   https://mridata.org/download/{uuid}
+#
+# Fields mirror `DatasetEntry`. `id` is the mridata UUID. Unknown attributes may
+# be omitted. `approx_size_bytes` is a rough hint used by the `max_bytes` guard;
+# it does not need to be exact. To add datasets, copy a UUID from the dataset's
+# mridata.org page and fill in what you know.
+#
+# NOTE: the entries below are seed examples from the widely-cited Stanford
+# fully-sampled 3D FSE knee collection (Sawyer et al.) hosted on mridata.org.
+# Verify/extend this list against https://mridata.org for your needs.
+
+[[dataset]]
+id = "52c2fd53-d233-4444-8bfd-7c454240d314"
+name = "Stanford fully-sampled 3D FSE knee (subject 1)"
+anatomy = "knee"
+vendor = "ge"
+field_strength = 3.0
+trajectory = "cartesian"
+coils = 8
+fully_sampled = true
+is3D = true
+approx_size_bytes = 1500000000
+
+[[dataset]]
+id = "b65b9167-a0d0-4295-9dd5-74641b3dd7e6"
+name = "Stanford fully-sampled 3D FSE knee (subject 2)"
+anatomy = "knee"
+vendor = "ge"
+field_strength = 3.0
+trajectory = "cartesian"
+coils = 8
+fully_sampled = true
+is3D = true
+approx_size_bytes = 1500000000

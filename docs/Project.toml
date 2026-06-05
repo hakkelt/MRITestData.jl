@@ -1,0 +1,5 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+MRIBase = "f7771a9a-6e57-4e71-863b-6e4b6a2f17df"
+MRIFiles = "5a6f062f-bf45-497d-b654-ad17aae2a530"
+MRITestData = "b3f1a2c4-5d6e-4a7b-9c8d-0e1f2a3b4c5d"

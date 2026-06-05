@@ -1,0 +1,10 @@
+file name,scn,smp,ech,dur,viw,sli,fov,sub,,slices
+fs_0001_1_5T.h5,15avan,fs,asy,shr,lax,ind,noa,vol,,1
+fs_0002_1_5T.h5,15avan,fs,asy,shr,lax,ind,noa,vol,,1
+fs_0003_1_5T.h5,15avan,fs,asy,shr,lax,ind,noa,vol,,1
+fs_0004_1_5T.h5,15avan,fs,asy,shr,sax,ind,noa,vol,,1
+fs_0005_1_5T.h5,15avan,fs,asy,shr,sax,ind,noa,vol,,1
+fs_0009_3T.h5,30pris,fs,asy,shr,sax,ind,noa,vol,,1
+fs_0010_3T.h5,30pris,fs,asy,shr,sax,ind,noa,vol,,1
+us_0001_1_5T.h5,15avan,pse,asy,lng,sax,mul,noa,vol,,5
+us_0014_3T.h5,30pris,pse,asy,lng,sax,mul,noa,vol,,8
