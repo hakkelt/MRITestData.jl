@@ -36,12 +36,12 @@ _index_meta_path(s::AbstractSource) = joinpath(_index_dir(), string(source_name(
 
 function _read_index_meta(s::AbstractSource)
     mp = _index_meta_path(s)
-    isfile(mp) || return Dict{String,Any}()
+    isfile(mp) || return Dict{String, Any}()
     return TOML.parsefile(mp)
 end
 
 function _write_index_meta(s::AbstractSource, url::AbstractString, ok::Bool)
-    meta = Dict{String,Any}("fetched_at" => round(Int, time()), "url" => url, "ok" => ok)
+    meta = Dict{String, Any}("fetched_at" => round(Int, time()), "url" => url, "ok" => ok)
     open(_index_meta_path(s), "w") do io
         TOML.print(io, meta)
     end
@@ -121,19 +121,23 @@ end
 
 # ---- mridata.org: scrape the HTML list page ---------------------------------
 
-_index_source_url(::MridataOrg) = "https://mridata.org/list"
+_index_source_url(::MridataOrg) = "http://mridata.org/list"
 
-# mridata has no JSON API; the /list page renders one card per dataset, with the
-# UUID embedded in element ids (e.g. `collapse<uuid>`) and download links
-# (`/download/<uuid>`). We fetch pages until no new UUID appears (or a cap), parse
-# what metadata we can, and write a TOML in the same shape as the bundled index.
+# mridata has no JSON API, but the /list page renders one *fully-populated* card
+# per dataset: a `<div class="card my-2">` block holding a summary table
+# (Project / Anatomy / Fullysampled / Uploader) and a collapsible detail table of
+# `<th>Field</th><td>value</td>` pairs (System Vendor, Number of Channels, Matrix
+# Size, Trajectory, TE/TR, …). We split the page into card blocks, parse every
+# field we can, and write a TOML in the same shape as the bundled index — so a
+# successful scrape carries the same rich metadata a human would read off the page,
+# with no per-dataset request and no dataset download. We page until no new UUID
+# appears (or a cap).
 const _UUID_RE = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 const _MRIDATA_PAGE_CAP = 50
 
 function _fetch_index(s::MridataOrg, dest::AbstractString; progress::Bool = false)
     base = _index_source_url(s)
-    seen = String[]
-    entries = Dict{String,Dict{String,Any}}()
+    entries = Dict{String, Dict{String, Any}}()
     for page in 1:_MRIDATA_PAGE_CAP
         url = page == 1 ? base : string(base, "?page=", page)
         html = try
@@ -141,13 +145,15 @@ function _fetch_index(s::MridataOrg, dest::AbstractString; progress::Bool = fals
         catch
             break
         end
-        page_uuids = unique(lowercase.([m.match for m in eachmatch(_UUID_RE, html)]))
-        new_uuids = filter(u -> !(u in seen), page_uuids)
-        isempty(new_uuids) && break
-        for u in new_uuids
-            push!(seen, u)
-            entries[u] = _scrape_mridata_card(html, u)
+        new_on_page = 0
+        for card in _split_mridata_cards(html)
+            d = _scrape_mridata_card(card)
+            d === nothing && continue
+            haskey(entries, d["id"]) && continue
+            entries[d["id"]] = d
+            new_on_page += 1
         end
+        new_on_page == 0 && break
     end
 
     isempty(entries) && error("mridata.org list page yielded no datasets")
@@ -155,44 +161,172 @@ function _fetch_index(s::MridataOrg, dest::AbstractString; progress::Bool = fals
     return dest
 end
 
-# Best-effort per-card metadata. The card text near the UUID may mention the
-# anatomy and a "fully sampled" flag; we extract conservatively and leave unknowns
-# blank so the bundled/default values apply.
-function _scrape_mridata_card(html::AbstractString, uuid::AbstractString)
-    d = Dict{String,Any}("id" => uuid)
-    # window of text around the uuid occurrence
-    idx = findfirst(uuid, lowercase(html))
-    if idx !== nothing
-        lo = max(firstindex(html), first(idx) - 600)
-        hi = min(lastindex(html), last(idx) + 600)
-        window = lowercase(html[lo:hi])
-        for a in ("knee", "brain", "abdomen", "cardiac", "ankle", "prostate", "chest", "phantom")
-            if occursin(a, window)
-                d["anatomy"] = a
-                break
-            end
-        end
-        occursin("fully sampled", window) && (d["fully_sampled"] = true)
-        for v in ("siemens", "ge", "philips")
-            if occursin(v, window)
-                d["vendor"] = v
-                break
-            end
+# Split the page into per-dataset card blocks. Each dataset is wrapped in
+# `<div class="card my-2">`; splitting on that marker gives one block per card
+# (the first chunk is page chrome and is dropped by the no-UUID guard downstream).
+_split_mridata_cards(html::AbstractString) = split(html, "<div class=\"card my-2\">")
+
+# Pull a single field out of a card block. mridata renders two shapes:
+#   detail table:  <th ...>Label</th> <td>value</td>
+#   summary table: >Label:</td> <td ...>value</td>
+# We try the detail form first, then the summary form, and collapse whitespace.
+function _card_field(card::AbstractString, label::AbstractString)
+    th = Regex("<th[^>]*>\\s*" * _re_escape(label) * "\\s*</th>\\s*<td>\\s*(.*?)\\s*</td>", "is")
+    m = match(th, card)
+    if m === nothing
+        td = Regex(">\\s*" * _re_escape(label) * ":\\s*</td>\\s*<td[^>]*>\\s*(.*?)\\s*</td>", "is")
+        m = match(td, card)
+    end
+    m === nothing && return nothing
+    val = strip(replace(m.captures[1], r"\s+" => " "))
+    return isempty(val) ? nothing : val
+end
+
+# Minimal regex-escape for field labels (they contain only word chars/spaces today,
+# but escaping keeps the matcher correct if a label ever gains punctuation).
+_re_escape(s::AbstractString) = replace(s, r"([\\^$.|?*+()\[\]{}])" => s"\\\1")
+
+# Map mridata's free-text vendor string to our vendor Symbol vocabulary.
+function _normalize_vendor(s::AbstractString)
+    v = lowercase(s)
+    occursin("siemens", v) && return "siemens"
+    occursin("philips", v) && return "philips"
+    (occursin("ge ", v) || v == "ge" || occursin("general electric", v)) && return "ge"
+    return v
+end
+
+# Map mridata's anatomy label to our anatomy vocabulary (lowercased; multi-word
+# labels like "Fruits/Vegetables" are kept verbatim, lowercased).
+_normalize_anatomy(s::AbstractString) = lowercase(s)
+
+# "Yes"/"No" -> Bool; anything else (e.g. "Unknown") -> nothing.
+function _yesno(s::AbstractString)
+    v = lowercase(strip(s))
+    v == "yes" && return true
+    v == "no" && return false
+    return nothing
+end
+
+# Parse "512 x 512 x 240" -> (512, 512, 240). Returns an empty vector if unparseable.
+function _parse_matrix_size(s::AbstractString)
+    dims = Int[]
+    for m in eachmatch(r"\d+", s)
+        push!(dims, parse(Int, m.match))
+    end
+    return dims
+end
+
+# "trajectoryType.CARTESIAN" / "cartesian" -> "cartesian"; "...RADIAL" -> "radial".
+function _normalize_trajectory(s::AbstractString)
+    v = lowercase(s)
+    occursin("cartesian", v) && return "cartesian"
+    occursin("radial", v) && return "radial"
+    occursin("spiral", v) && return "spiral"
+    return v
+end
+
+# Parse a full card block into a metadata dict in the bundled-TOML shape. Returns
+# `nothing` for blocks with no UUID (page chrome). Unknown fields are simply left
+# out, so the catalog reader's defaults apply.
+function _scrape_mridata_card(card::AbstractString)
+    um = match(_UUID_RE, card)
+    um === nothing && return nothing
+    d = Dict{String, Any}("id" => lowercase(um.match))
+
+    anat = _card_field(card, "Anatomy")
+    anat === nothing || (d["anatomy"] = _normalize_anatomy(anat))
+
+    vend = _card_field(card, "System Vendor")
+    vend === nothing || (d["vendor"] = _normalize_vendor(vend))
+
+    fs = _card_field(card, "Fullysampled")
+    if fs !== nothing
+        b = _yesno(fs)
+        b === nothing || (d["fully_sampled"] = b)
+    end
+
+    fld = _card_field(card, "System Field Strength")  # e.g. "2.89362 T"
+    if fld !== nothing
+        fm = match(r"[-+]?\d*\.?\d+", fld)
+        fm === nothing || (d["field_strength"] = parse(Float64, fm.match))
+    end
+
+    ch = _card_field(card, "Number of Channels")
+    if ch !== nothing
+        cm = match(r"\d+", ch)
+        cm === nothing || (d["coils"] = parse(Int, cm.match))
+    end
+
+    traj = _card_field(card, "Trajectory")
+    traj === nothing || (d["trajectory"] = _normalize_trajectory(traj))
+
+    # Matrix size drives is3D and provides a useful size hint. Some cards carry a
+    # placeholder "2 x 2 x 1" (metadata not populated upstream) — treat a degenerate
+    # matrix as "unknown" rather than asserting 2D.
+    msz = _card_field(card, "Matrix Size")
+    if msz !== nothing
+        dims = _parse_matrix_size(msz)
+        if length(dims) >= 3 && maximum(dims) > 2
+            d["matrix_size"] = join(dims, "x")
+            d["is3D"] = dims[3] > 1
         end
     end
+
+    # Everything else is preserved verbatim under `extra` for downstream filtering
+    # and display. These are optional and skipped when absent.
+    for (key, label) in (
+            "project" => "Project",
+            "model" => "System Model",
+            "coil_name" => "Coil Name",
+            "institution" => "Institution Name",
+            "protocol" => "Protocol Name",
+            "series_description" => "Series Description",
+            "sequence_type" => "Sequence Type",
+            "slices" => "Number of Slices",
+            "repetitions" => "Number of Repetition",
+            "contrasts" => "Number of Contrasts",
+            "field_of_view" => "Field Of View",
+            "echo_time" => "Echo Time",
+            "repetition_time" => "Repetition Time",
+            "flip_angle" => "Flip Angle",
+            "downloads" => "Downloads",
+            "upload_date" => "Upload Date",
+        )
+        v = _card_field(card, label)
+        v === nothing || (d[key] = v)
+    end
+
     return d
 end
+
+# Keys written as native TOML types (not quoted strings).
+const _MRIDATA_NUMERIC_KEYS = ("coils", "field_strength")
+const _MRIDATA_BOOL_KEYS = ("fully_sampled", "is3D")
 
 function _write_mridata_index_toml(dest::AbstractString, entries::AbstractDict)
     tmp = dest * ".part"
     open(tmp, "w") do io
         println(io, "# mridata.org dataset index (auto-generated by refresh_index).")
+        println(io, "# One [[dataset]] per card scraped from mridata.org/list.")
         for (_, d) in sort(collect(entries); by = first)
             println(io, "\n[[dataset]]")
             println(io, "id = ", repr(d["id"]))
-            haskey(d, "anatomy") && println(io, "anatomy = ", repr(d["anatomy"]))
-            haskey(d, "vendor") && println(io, "vendor = ", repr(d["vendor"]))
-            haskey(d, "fully_sampled") && println(io, "fully_sampled = ", d["fully_sampled"])
+            # Stable field order: the typed catalog fields first, then extras.
+            for k in ("name", "anatomy", "vendor", "trajectory", "matrix_size")
+                haskey(d, k) && println(io, k, " = ", repr(String(d[k])))
+            end
+            for k in _MRIDATA_NUMERIC_KEYS
+                haskey(d, k) && println(io, k, " = ", d[k])
+            end
+            for k in _MRIDATA_BOOL_KEYS
+                haskey(d, k) && println(io, k, " = ", d[k])
+            end
+            # Remaining string-valued extras, sorted for a stable diff.
+            handled = Set(["id", "name", "anatomy", "vendor", "trajectory", "matrix_size", _MRIDATA_NUMERIC_KEYS..., _MRIDATA_BOOL_KEYS...])
+            for k in sort(collect(keys(d)))
+                k in handled && continue
+                println(io, k, " = ", repr(string(d[k])))
+            end
         end
     end
     mv(tmp, dest; force = true)

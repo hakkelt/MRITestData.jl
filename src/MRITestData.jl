@@ -31,6 +31,7 @@ using DelimitedFiles: readdlm
 using NamedDims: NamedDimsArray
 using ProgressMeter: ProgressMeter
 
+import MRIFiles
 using MRIFiles: ISMRMRDFile
 using MRIBase:
     RawAcquisitionData,

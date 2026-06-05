@@ -21,7 +21,7 @@ way to the toolbox type.
 function acq_spec(acq::AcquisitionData; echo::Int = 1, rep::Int = 1, slice::Int = 1)
     tr = trajectory(acq, echo)
     return isCartesian(tr) ? _cartesian_spec(acq; echo, rep) :
-           _noncartesian_spec(acq; echo, rep, slice)
+        _noncartesian_spec(acq; echo, rep, slice)
 end
 
 acq_spec(path::AbstractString; kwargs...) = acq_spec(load_acq(path); kwargs...)
@@ -32,7 +32,7 @@ acq_spec(path::AbstractString; kwargs...) = acq_spec(load_acq(path); kwargs...)
 #  * undersampled  -> the samples *compressed* at the masked positions, with the
 #    spatial axes flattened into a single :kxy (2D) / :kxyz (3D) dimension and the
 #    Bool mask supplied as a 1-tuple `(mask,)`.
-function _cartesian_spec(acq::AcquisitionData{T,D}; echo::Int, rep::Int) where {T,D}
+function _cartesian_spec(acq::AcquisitionData{T, D}; echo::Int, rep::Int) where {T, D}
     # Dense, zero-filled encoded grid: [x, y, z*slices, channels, echoes, reps].
     grid = kDataCart(acq)
     N = encodingSize(acq)
@@ -80,7 +80,7 @@ function _cartesian_spec(acq::AcquisitionData{T,D}; echo::Int, rep::Int) where {
     )
 end
 
-function _noncartesian_spec(acq::AcquisitionData{T,D}; echo::Int, rep::Int, slice::Int) where {T,D}
+function _noncartesian_spec(acq::AcquisitionData{T, D}; echo::Int, rep::Int, slice::Int) where {T, D}
     tr = trajectory(acq, echo)
     nodes = kspaceNodes(tr)                       # D × Nsamples, normalized to [-0.5,0.5)
     ncoil = numChannels(acq)
@@ -116,7 +116,7 @@ real implementation lives in the `MRITestDataMRTExt` package extension.
 function to_acquisition_info(::NamedTuple)
     error(
         "to_acquisition_info requires MriReconstructionToolbox to be loaded.\n" *
-        "Run `using MriReconstructionToolbox` to enable conversion to AcquisitionInfo,\n" *
-        "or use `acq_spec`/`load_acq` to work with the raw MRIBase data instead.",
+            "Run `using MriReconstructionToolbox` to enable conversion to AcquisitionInfo,\n" *
+            "or use `acq_spec`/`load_acq` to work with the raw MRIBase data instead.",
     )
 end

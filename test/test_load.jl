@@ -26,7 +26,7 @@
 
             @test spec.kind === :cartesian
             # undersampled -> compressed samples + Bool mask tuple
-            @test spec.subsampling isa Tuple{<:AbstractArray{Bool,2}}
+            @test spec.subsampling isa Tuple{<:AbstractArray{Bool, 2}}
             mask = spec.subsampling[1]
             @test count(mask) < prod(spec.image_size)
             @test count(mask) == length(unique(acq.subsampleIndices[1]))
@@ -48,7 +48,7 @@
 
             # trajectory: 2 coords, normalized to [-0.5, 0.5)
             @test size(spec.trajectory, dim(spec.trajectory, :coord)) == 2
-            @test maximum(abs, spec.trajectory) <= 0.5 + 1e-4
+            @test maximum(abs, spec.trajectory) <= 0.5 + 1.0e-4
 
             # samples axis of k-space matches trajectory sample count
             nsamp = size(spec.trajectory, dim(spec.trajectory, :sample))
@@ -70,8 +70,10 @@ end
 
     # MriReconstructionToolbox is NOT loaded by the default test suite, so the
     # stub must throw a helpful error pointing at the toolbox.
-    spec = (; kind = :cartesian,
+    spec = (;
+        kind = :cartesian,
         kspace_data = NamedDimsArray(zeros(ComplexF32, 4, 4, 1, 1), (:kx, :ky, :coil, :z)),
-        image_size = (4, 4), is3D = false, subsampling = nothing, coils = 1)
+        image_size = (4, 4), is3D = false, subsampling = nothing, coils = 1,
+    )
     @test_throws ErrorException MRITestData.to_acquisition_info(spec)
 end

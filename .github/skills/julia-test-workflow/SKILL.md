@@ -99,10 +99,11 @@ MRITESTDATA_MRT_TESTS=true \
 
 ## Known issues
 
-- **mridata.org** is sometimes unreachable from this network (connection timeout).
-  The network test detects this and skips gracefully.
-- **OCMR some files** have non-standard XML headers (e.g. `"ECG"` where a `Float64`
-  is expected). The OCMR test iterates candidates and skips unloadable files.
+- **mridata.org over HTTPS**: outbound port 443 is blocked on this HPC. All
+  mridata.org URLs use `http://` so downloads go over port 80.
+- **OCMR ECG header bug**: MRIFiles parses `<waveformName>` as `Float64`, but
+  cardiac OCMR files store `"ECG"` there. `load_raw`/`load_acq` strip
+  `<waveformInformation>` blocks from the cached HDF5 before MRIFiles reads it.
 - **MRT tests** (`MriReconstructionToolbox`) fail to precompile in the merged dev
   environment due to `ProximalAlgorithms` version conflicts; always tag `:mrt`.
 

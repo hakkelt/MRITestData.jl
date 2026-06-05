@@ -19,9 +19,11 @@ function _coerce_kind(spec::NamedTuple, as::Symbol)
     as === :auto && return spec
     as in (:cartesian, :noncartesian) ||
         throw(ArgumentError("`as` must be :auto, :cartesian or :noncartesian, got $(as)"))
-    spec.kind === as || throw(ArgumentError(
-        "requested as=$(as) but the dataset's trajectory is $(spec.kind)",
-    ))
+    spec.kind === as || throw(
+        ArgumentError(
+            "requested as=$(as) but the dataset's trajectory is $(spec.kind)",
+        )
+    )
     return spec
 end
 
@@ -36,16 +38,16 @@ Download-related keywords are forwarded to [`download_dataset`](@ref); loading
 keywords (`as`, `echo`, `rep`, `slice`) to [`load`](@ref).
 """
 function load_dataset(
-    x::Union{DatasetEntry,DatasetHandle};
-    as::Symbol = :auto,
-    echo::Int = 1,
-    rep::Int = 1,
-    slice::Int = 1,
-    force::Bool = false,
-    verify::Bool = true,
-    progress::Bool = true,
-    max_bytes::Union{Integer,Nothing} = nothing,
-)
+        x::Union{DatasetEntry, DatasetHandle};
+        as::Symbol = :auto,
+        echo::Int = 1,
+        rep::Int = 1,
+        slice::Int = 1,
+        force::Bool = false,
+        verify::Bool = true,
+        progress::Bool = true,
+        max_bytes::Union{Integer, Nothing} = nothing,
+    )
     path = download_dataset(x; force, verify, progress, max_bytes)
     return load(path; echo, rep, slice, as)
 end
@@ -56,13 +58,13 @@ end
 recon(path::AbstractString; kwargs...) = recon(load_acq(path); kwargs...)
 
 function recon(
-    x::Union{DatasetEntry,DatasetHandle};
-    force::Bool = false,
-    verify::Bool = true,
-    progress::Bool = true,
-    max_bytes::Union{Integer,Nothing} = nothing,
-    kwargs...,
-)
+        x::Union{DatasetEntry, DatasetHandle};
+        force::Bool = false,
+        verify::Bool = true,
+        progress::Bool = true,
+        max_bytes::Union{Integer, Nothing} = nothing,
+        kwargs...,
+    )
     path = download_dataset(x; force, verify, progress, max_bytes)
     return recon(path; kwargs...)
 end

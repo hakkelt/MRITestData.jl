@@ -47,12 +47,12 @@ is_cached(h::DatasetHandle) = is_cached(h.entry)
 
 function _read_meta(e::DatasetEntry)
     mp = _meta_path(e)
-    isfile(mp) || return Dict{String,Any}()
+    isfile(mp) || return Dict{String, Any}()
     return TOML.parsefile(mp)
 end
 
 function _write_meta(e::DatasetEntry, path::AbstractString, digest::AbstractString)
-    meta = Dict{String,Any}(
+    meta = Dict{String, Any}(
         "id" => e.id,
         "url" => e.url,
         "sha256" => digest,
@@ -71,7 +71,7 @@ end
 Delete cached files. With `source = nothing` (default) clears every source;
 otherwise clears only that source's subdirectory.
 """
-function clear_cache(; source::Union{AbstractSource,Nothing} = nothing)
+function clear_cache(; source::Union{AbstractSource, Nothing} = nothing)
     isempty(CACHE_DIR[]) && return nothing
     if source === nothing
         for s in list_sources()

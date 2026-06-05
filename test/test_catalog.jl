@@ -13,7 +13,7 @@
         all = list_datasets(MRIDATA; offline = true)
         @test !isempty(all)
         @test all isa Vector{DatasetEntry}
-        @test all[1].url == "https://mridata.org/download/$(all[1].id)"
+        @test endswith(all[1].url, "mridata.org/download/$(all[1].id)")
 
         knees = list_datasets(MRIDATA; offline = true, anatomy = :knee)
         @test all_of(e -> e.anatomy === :knee, knees)
@@ -47,7 +47,7 @@
 
         # arbitrary UUID not in the index -> synthesised entry
         h = dataset(MRIDATA, "00000000-1111-2222-3333-444444444444"; offline = true)
-        @test h.entry.url == "https://mridata.org/download/00000000-1111-2222-3333-444444444444"
+        @test endswith(h.entry.url, "mridata.org/download/00000000-1111-2222-3333-444444444444")
 
         # OCMR synthesis derives field strength / fully-sampled from the stem
         ho = dataset(OCMR_SOURCE, "fs_9999_3T"; offline = true)

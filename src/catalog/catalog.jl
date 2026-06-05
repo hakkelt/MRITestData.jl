@@ -25,16 +25,16 @@ Base.@kwdef struct DatasetEntry
     id::String
     name::String
     anatomy::Symbol = :unknown
-    vendor::Union{Symbol,Nothing} = nothing
-    field_strength::Union{Float64,Nothing} = nothing
+    vendor::Union{Symbol, Nothing} = nothing
+    field_strength::Union{Float64, Nothing} = nothing
     trajectory::Symbol = :unknown
-    coils::Union{Int,Nothing} = nothing
-    fully_sampled::Union{Bool,Nothing} = nothing
-    is3D::Union{Bool,Nothing} = nothing
-    approx_size_bytes::Union{Int,Nothing} = nothing
-    sha256::Union{String,Nothing} = nothing
+    coils::Union{Int, Nothing} = nothing
+    fully_sampled::Union{Bool, Nothing} = nothing
+    is3D::Union{Bool, Nothing} = nothing
+    approx_size_bytes::Union{Int, Nothing} = nothing
+    sha256::Union{String, Nothing} = nothing
     url::String
-    extra::Dict{String,Any} = Dict{String,Any}()
+    extra::Dict{String, Any} = Dict{String, Any}()
 end
 
 function Base.show(io::IO, e::DatasetEntry)
@@ -42,7 +42,7 @@ function Base.show(io::IO, e::DatasetEntry)
     e.anatomy === :unknown || print(io, ", ", e.anatomy)
     e.trajectory === :unknown || print(io, ", ", e.trajectory)
     e.field_strength === nothing || print(io, ", ", e.field_strength, "T")
-    print(io, ")")
+    return print(io, ")")
 end
 
 """

@@ -8,9 +8,18 @@
 # it does not need to be exact. To add datasets, copy a UUID from the dataset's
 # mridata.org page and fill in what you know.
 #
-# NOTE: the entries below are seed examples from the widely-cited Stanford
-# fully-sampled 3D FSE knee collection (Sawyer et al.) hosted on mridata.org.
-# Verify/extend this list against https://mridata.org for your needs.
+# NOTE: curated entries are always surfaced even when a live index is available
+# (the live scrape has no size metadata). Keep the is3D flag accurate — the test
+# suite prefers 2D entries for reconstruction.
+
+[[dataset]]
+id = "9270505a-8d77-4e43-ac43-0d9910b81510"
+name = "Fully-sampled 2D Cartesian brain/body (15 coils, 41 slices)"
+trajectory = "cartesian"
+coils = 15
+fully_sampled = true
+is3D = false
+approx_size_bytes = 1372000000
 
 [[dataset]]
 id = "52c2fd53-d233-4444-8bfd-7c454240d314"

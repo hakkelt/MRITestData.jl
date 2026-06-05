@@ -22,13 +22,17 @@
             @test is_cached(e)               # no pinned sha256 -> existence suffices
 
             # Pinned-but-mismatched checksum must invalidate the cache.
-            e_bad = MRITestData.DatasetEntry(; source = e.source, id = e.id,
-                name = e.name, url = e.url, sha256 = "deadbeef")
+            e_bad = MRITestData.DatasetEntry(;
+                source = e.source, id = e.id,
+                name = e.name, url = e.url, sha256 = "deadbeef"
+            )
             @test !is_cached(e_bad)
 
             # Pinned-and-matching checksum is cached.
-            e_ok = MRITestData.DatasetEntry(; source = e.source, id = e.id,
-                name = e.name, url = e.url, sha256 = digest)
+            e_ok = MRITestData.DatasetEntry(;
+                source = e.source, id = e.id,
+                name = e.name, url = e.url, sha256 = digest
+            )
             @test is_cached(e_ok)
 
             # clear_cache removes it.

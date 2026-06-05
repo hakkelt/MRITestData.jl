@@ -70,4 +70,8 @@ facilitates access; it grants no rights to the data.
 - Julia naming: `lower_snake_case` functions, `CamelCase` types. Type-stable code.
 - Comment only when the code isn't self-evident.
 - Keep network failure non-fatal where a fallback exists (`@warn`, don't throw).
+- mridata.org URLs use `http://` (port 80) — outbound HTTPS (443) is blocked on this HPC.
+- OCMR files with cardiac ECG headers: `load_raw`/`load_acq` strip `<waveformInformation>`
+  from the cached HDF5 in-place before MRIFiles reads it (workaround for a MRIFiles bug
+  where `<waveformName>` is parsed as `Float64` instead of `String`).
 - Update docstrings and `docs/` when changing public API; `checkdocs=:public` is on.

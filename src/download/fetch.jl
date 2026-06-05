@@ -4,7 +4,7 @@
 
 """Stream the SHA-256 of a file as a lowercase hex string."""
 function _sha256_hex(path::AbstractString)
-    open(path, "r") do io
+    return open(path, "r") do io
         return bytes2hex(sha256(io))
     end
 end
@@ -21,7 +21,7 @@ end
 # `Downloads` reports (total, now) in bytes; `total` is 0 until headers arrive, so
 # the bar is created lazily on the first callback with a known total.
 function _progress_callback(desc::AbstractString)
-    bar = Ref{Union{Nothing,ProgressMeter.Progress}}(nothing)
+    bar = Ref{Union{Nothing, ProgressMeter.Progress}}(nothing)
     return (total, now) -> begin
         total == 0 && return
         p = bar[]
@@ -77,12 +77,12 @@ The download goes to `<path>.part` and is atomically renamed on success; a sidec
 `.meta.toml` records the url, size and computed checksum.
 """
 function download_dataset(
-    e::DatasetEntry;
-    force::Bool = false,
-    verify::Bool = true,
-    progress::Bool = true,
-    max_bytes::Union{Integer,Nothing} = nothing,
-)
+        e::DatasetEntry;
+        force::Bool = false,
+        verify::Bool = true,
+        progress::Bool = true,
+        max_bytes::Union{Integer, Nothing} = nothing,
+    )
     dest = cache_path(e)
     if !force && is_cached(e)
         return dest
@@ -91,7 +91,7 @@ function download_dataset(
     if max_bytes !== nothing && e.approx_size_bytes !== nothing && e.approx_size_bytes > max_bytes
         error(
             "dataset $(e.id) is ~$(e.approx_size_bytes) bytes, exceeding max_bytes=$(max_bytes); " *
-            "raise max_bytes or set it to `nothing` to download anyway.",
+                "raise max_bytes or set it to `nothing` to download anyway.",
         )
     end
 

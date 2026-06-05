@@ -50,7 +50,7 @@
     end
 end
 
-@testitem "mridata: download + reconstruct (relatively small)" tags = [:network] begin
+@testitem "mridata: download + reconstruct (2D curated entry)" tags = [:network] begin
     using MRITestData
     using MRIReco
 
@@ -58,28 +58,65 @@ end
         old = MRITestData.CACHE_DIR[]
         MRITestData.CACHE_DIR[] = tmp
         try
-            # Use the relatively-smallest curated mridata entry. The Stanford 3D FSE
-            # knee is ~1.5 GB; allow it via a generous max_bytes (no smaller 2D set is
-            # curated yet). Absolute size is not critical for this opt-in test.
+            # The live-scraped index carries no size/dimensionality metadata.
+            # Curated entries (bundled TOML, merged in by list_datasets) carry
+            # approx_size_bytes and is3D. Prefer non-3D curated entries sorted by
+            # size; 3D data triggers a BoundsError in MRIReco's direct reco mode.
+            # Retry downloads on timeout (mridata.org is sometimes unstable) and
+            # skip on any recon failure.
             entries = list_datasets(MRIDATA)
             @test !isempty(entries)
-            sized = filter(e -> e.approx_size_bytes !== nothing, entries)
-            e = isempty(sized) ? first(entries) : argmin(x -> x.approx_size_bytes, sized)
 
-            # Attempt download; skip gracefully if mridata.org is unreachable.
-            path = try
-                download_dataset(e; progress = false, max_bytes = 4_000_000_000)
-            catch err
-                if err isa Exception && occursin("timed out", sprint(showerror, err))
-                    @warn "mridata.org unreachable (connection timed out); skipping download test"
-                    return
+            curated_2d = filter(
+                e -> e.approx_size_bytes !== nothing && e.is3D === false,
+                entries,
+            )
+            curated_3d = filter(
+                e -> e.approx_size_bytes !== nothing && e.is3D !== false,
+                entries,
+            )
+            # Try 2D first, then 3D (may still work), both sorted smallest-first.
+            candidates = vcat(
+                sort(curated_2d; by = e -> e.approx_size_bytes),
+                sort(curated_3d; by = e -> e.approx_size_bytes),
+            )
+            @test !isempty(candidates)
+
+            img = nothing
+            chosen = nothing
+            for e in candidates
+                path = try
+                    download_dataset(e; progress = false)
+                catch err
+                    msg = sprint(showerror, err)
+                    if occursin("timed out", msg)
+                        @warn "mridata.org timed out downloading $(e.id); retrying in 10 s"
+                        sleep(10)
+                        try
+                            download_dataset(e; progress = false)
+                        catch err2
+                            if occursin("timed out", sprint(showerror, err2))
+                                @warn "mridata.org still unreachable; skipping download test"
+                                return
+                            end
+                            rethrow(err2)
+                        end
+                    else
+                        rethrow(err)
+                    end
                 end
-                rethrow(err)
+                @test isfile(path)
+                @test filesize(path) > 0
+                try
+                    img = recon(path; reco = "direct")
+                    chosen = e
+                    break
+                catch err
+                    @warn "Skipping $(e.id): $(sprint(showerror, err))"
+                end
             end
-            @test isfile(path)
-            @test filesize(path) > 0
-
-            img = recon(path; reco = "direct")
+            @test chosen !== nothing
+            @test img !== nothing
             @test ndims(img) >= 2
             @test all(>(0), size(img)[1:2])
         finally
