@@ -1,5 +1,15 @@
 # Usage
 
+!!! warning "Data source terms of use"
+    MRITestData downloads files from external repositories. Each source has its own
+    terms of use that you must agree to **before** using the data in your work:
+
+    - **mridata.org** → [http://mridata.org/terms](http://mridata.org/terms)
+    - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
+
+    Call `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
+    reminder once you have reviewed the terms.
+
 ## Discovering datasets
 
 ```julia
@@ -128,26 +138,61 @@ clear_cache()                       # all sources
 clear_cache(; source = OCMR_SOURCE) # one source
 ```
 
-## Reconstruction with MRIReco
-
-Load `MRIReco` to enable [`recon`](@ref), which reconstructs directly from the
-downloaded k-space. It accepts an `MRIBase.AcquisitionData`, an ISMRMRD path, or a
-catalog entry/handle (downloaded if needed). Keywords are forwarded to MRIReco's
-`reconstruction`.
-
-```julia
-using MRITestData, MRIReco
-
-img = recon(entry; reco = "direct")                    # download + reconstruct
-img = recon("scan.h5"; reco = "standard", iterations = 30)
-```
-
-The result is MRIReco's `AxisArray` with axes `[x, y, z, echo, coil, rep]`.
-
-## Working with the raw data (no reconstruction package)
+## Working with the raw data
 
 ```julia
 raw  = load_raw(path)        # MRIBase.RawAcquisitionData (profiles + XML header)
 acq  = load_acq(path)        # MRIBase.AcquisitionData
 spec = acq_spec(path)        # source-agnostic NamedTuple (:cartesian/:noncartesian)
+```
+
+### Copying a dataset to a custom location
+
+[`copy_dataset`](@ref) ensures the file is available at a destination path of your
+choice. If the file is already in the Scratch cache and unmodified, only a local
+copy is made — no HTTP request is issued:
+
+```julia
+copy_dataset(entry; dest = "/data/my_scan.h5")
+```
+
+## Reconstruction with MRIReco
+
+MRITestData provides the data loading pipeline. Reconstruction is left to a
+dedicated package such as [MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl).
+A typical workflow:
+
+```julia
+using MRITestData, MRIReco
+
+# 1. Download and load
+entry = first(list_datasets(OCMR_SOURCE; fully_sampled = true))
+acq   = load_acq(download_dataset(entry))
+
+# 2. Reconstruct using MRIReco directly
+params = MRIReco.defaultRecoParams()
+params[:reco] = "direct"
+img = MRIReco.reconstruction(acq, params)
+```
+
+The result is MRIReco's `AxisArray` with axes `[x, y, z, echo, coil, rep]`.
+
+## Persistent settings
+
+Several tunable parameters can be persisted across Julia sessions via
+`LocalPreferences.toml`:
+
+```julia
+# Terms-of-use notice
+MRITestData.dismiss_terms_notice!()   # suppress startup warning (after reviewing terms)
+MRITestData.enable_terms_notice!()    # re-enable it
+
+# Parallel download chunks (default: 4; set to 1 to disable)
+MRITestData.set_chunk_size!(8)
+
+# Minimum file size for parallel chunking (default: 8 MiB)
+MRITestData.set_min_file_size!(4 * 1024 * 1024)
+
+# Dataset-index TTL in days (default: 30)
+MRITestData.set_refresh_period!(7)
 ```

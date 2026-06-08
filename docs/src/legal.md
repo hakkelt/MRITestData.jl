@@ -6,6 +6,12 @@
     download through it. Each dataset remains the property of its provider and is
     governed by that provider's own license and terms of use.
 
+!!! note "Review data source terms before use"
+    Please visit each provider's terms page **before** downloading or using data:
+
+    - **mridata.org** → [http://mridata.org/terms](http://mridata.org/terms)
+    - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
+
 This package is a convenience tool for *accessing* publicly available data. It does
 not host, relicense, or redistribute any dataset. When you use it to download data,
 you are downloading directly from the provider, and you are responsible for

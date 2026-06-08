@@ -42,6 +42,7 @@ INDEX_TTL_DAYS
 
 ```@docs
 download_dataset
+copy_dataset
 cache_path
 is_cached
 clear_cache
@@ -61,12 +62,15 @@ acq_spec
 run_browser
 ```
 
-## Reconstruction
+## Persistent settings
 
 ```@docs
-recon
+dismiss_terms_notice!
+enable_terms_notice!
+set_chunk_size!
+get_chunk_size
+set_min_file_size!
+get_min_file_size
+set_refresh_period!
+get_refresh_period
 ```
-
-!!! note
-    `recon` requires `MRIReco` to be loaded — it is implemented in a package
-    extension.

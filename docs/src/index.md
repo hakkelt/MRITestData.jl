@@ -13,17 +13,19 @@ Supported sources:
 
 Both serve ISMRMRD, which is read via
 [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIReco.jl)/`MRIBase`.
-Reconstruction is provided through an optional package extension that activates
-automatically when `MRIReco` is loaded:
 
-| Load this… | …to enable | Entry point |
-| --- | --- | --- |
-| `MRIReco` | reconstruct directly from the loaded k-space | [`recon`](@ref) |
-
-!!! warning "Data licensing"
+!!! warning "Data source terms of use"
     This package's MIT license covers **its code only**. Downloaded **data is
-    governed by each provider's own license and terms**. See
-    [Licensing & legal](@ref) before using or redistributing any dataset.
+    governed by each provider's own license and terms**. You must review and comply
+    with each provider's terms **before** using, redistributing, or publishing
+    results derived from the data:
+
+    - **mridata.org** → [http://mridata.org/terms](http://mridata.org/terms)
+    - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
+
+    See [Licensing & legal](@ref) for full details. Call
+    `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
+    reminder once you have reviewed the terms.
 
 ## Installation
 
@@ -31,19 +33,23 @@ automatically when `MRIReco` is loaded:
 pkg> add MRITestData
 ```
 
-`MRITestData` depends on `MRIFiles`/`MRIBase` (which pull in HDF5) but **not** on
-either reconstruction package — those are weak dependencies.
+`MRITestData` depends on `MRIFiles`/`MRIBase` (which pull in HDF5).
 
 ## Quick start
 
 ```julia
-using MRITestData, MRIReco
+using MRITestData
 
 # Discover (the dataset index self-updates from upstream; offline-safe)
 entries = list_datasets(OCMR_SOURCE; fully_sampled = true)
 
-# Download (cached) and reconstruct in one step
-img = recon(first(entries); reco = "direct")
+# Download (cached) → returns path to the local .h5 file
+path = download_dataset(first(entries))
+
+# Load into MRIBase containers
+raw = load_raw(path)    # MRIBase.RawAcquisitionData
+acq = load_acq(path)    # MRIBase.AcquisitionData
 ```
 
-See [Usage](@ref) for the full workflow and the dynamic-index controls.
+See [Usage](@ref) for the full workflow, filtering, the interactive browser, and
+dynamic-index controls.

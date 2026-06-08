@@ -104,6 +104,91 @@ end
     end
 end
 
+@testitem "settings: set_chunk_size! / set_min_file_size! / set_refresh_period! round-trip" begin
+    using MRITestData
+
+    # Save originals so we can restore them after the test.
+    orig_chunks = get_chunk_size()
+    orig_min = get_min_file_size()
+    orig_period = get_refresh_period()
+    try
+        set_chunk_size!(2)
+        @test get_chunk_size() == 2
+        @test MRITestData.PARALLEL_CHUNKS[] == 2
+
+        set_min_file_size!(1024)
+        @test get_min_file_size() == 1024
+        @test MRITestData.PARALLEL_MIN_BYTES[] == 1024
+
+        set_refresh_period!(14)
+        @test get_refresh_period() == 14
+        @test MRITestData.INDEX_TTL_DAYS[] == 14
+
+        @test_throws ArgumentError set_chunk_size!(0)
+        @test_throws ArgumentError set_min_file_size!(-1)
+        @test_throws ArgumentError set_refresh_period!(-1)
+    finally
+        set_chunk_size!(orig_chunks)
+        set_min_file_size!(orig_min)
+        set_refresh_period!(orig_period)
+    end
+end
+
+@testitem "copy_dataset copies a cached file to a custom destination" begin
+    using MRITestData
+    using MRITestData: CACHE_DIR, _write_meta, _sha256_hex
+
+    mktempdir() do tmp
+        old = CACHE_DIR[]
+        CACHE_DIR[] = tmp
+        try
+            e = list_datasets(OCMR_SOURCE; offline = true)[1]
+            path = cache_path(e)
+
+            # Fake a completed download.
+            mkpath(dirname(path))
+            write(path, b"fake dataset content for copy test")
+            digest = _sha256_hex(path)
+            _write_meta(e, path, digest)
+
+            dest = joinpath(tmp, "copy_dest.h5")
+            result = copy_dataset(e; dest = dest, progress = false)
+            @test result == dest
+            @test isfile(dest)
+            @test read(dest) == read(path)
+        finally
+            CACHE_DIR[] = old
+        end
+    end
+end
+
+@testitem "is_cached uses mtime when no sha256 is pinned" begin
+    using MRITestData
+    using MRITestData: CACHE_DIR, _write_meta, _sha256_hex
+
+    mktempdir() do tmp
+        old = CACHE_DIR[]
+        CACHE_DIR[] = tmp
+        try
+            e = list_datasets(OCMR_SOURCE; offline = true)[1]
+            path = cache_path(e)
+            mkpath(dirname(path))
+            write(path, b"initial content")
+            digest = _sha256_hex(path)
+            _write_meta(e, path, digest)
+
+            @test is_cached(e)
+
+            # Modify the file — mtime changes, cache should be invalidated.
+            sleep(0.01)   # ensure mtime differs (filesystem resolution)
+            write(path, b"modified content")
+            @test !is_cached(e)
+        finally
+            CACHE_DIR[] = old
+        end
+    end
+end
+
 @testitem "refresh_index no-arg returns one path per source" begin
     using MRITestData
     using MRITestData: CACHE_DIR

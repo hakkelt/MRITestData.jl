@@ -45,3 +45,11 @@ source_name(::OCMR) = "ocmr"
 Return all dataset sources supported in this version.
 """
 list_sources() = AbstractSource[MRIDATA, OCMR_SOURCE]
+
+"""
+    terms_url(source) -> String
+
+URL to the terms of use / data-use policy for `source`.
+"""
+terms_url(::MridataOrg) = "http://mridata.org/terms"
+terms_url(::OCMR) = "https://www.ocmr.info/download/"

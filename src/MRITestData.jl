@@ -4,19 +4,25 @@
 Query and download free, open-access MRI k-space datasets and load them into
 `MRIBase` acquisition containers.
 
-Supported sources (v1): [`MRIDATA`](@ref) (mridata.org) and [`OCMR_SOURCE`](@ref)
+Supported sources: [`MRIDATA`](@ref) (mridata.org) and [`OCMR_SOURCE`](@ref)
 (the OCMR cardiac repository). Both serve ISMRMRD `.h5` files, which are read via
 `MRIFiles`/`MRIBase`.
 
-Reconstruction via `MRIReco` lives in a package extension that loads only when
-`MRIReco` is available, so this package never hard-depends on a reconstruction
-package.
+!!! warning "Data source terms of use"
+    This package's MIT license covers **its code only**. Downloaded data is governed
+    by each provider's own license and terms. Please review them before using the data:
+    - mridata.org: http://mridata.org/terms
+    - OCMR: https://www.ocmr.info/download/
+
+    Call `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
+    notice once you have reviewed the terms.
 
 # Quick start
 ```julia
-using MRITestData, MRIReco
+using MRITestData
 entries = list_datasets(OCMR_SOURCE; field_strength = 1.5)
-img = recon(entries[1]; maxit = 30)     # downloads (cached), loads, reconstructs
+path = download_dataset(entries[1])     # downloads (cached), returns path
+acq  = load_acq(path)                   # MRIBase.AcquisitionData
 ```
 """
 module MRITestData
@@ -28,6 +34,8 @@ using TOML: TOML
 using DelimitedFiles: readdlm
 using NamedDims: NamedDimsArray
 using ProgressMeter: ProgressMeter
+using Preferences: load_preference, set_preferences!
+using PrecompileTools: @compile_workload
 
 import MRIFiles
 using MRIFiles: ISMRMRDFile
@@ -51,7 +59,8 @@ const CACHE_DIR = Ref{String}("")
 
 `Ref{Int}` holding how many days a cached dataset index stays fresh before it is
 refetched from upstream. Defaults to `30`. Set `MRITestData.INDEX_TTL_DAYS[] = n`
-to change the refresh period.
+to change the refresh period. Use [`MRITestData.set_refresh_period!`](@ref) to
+persist the value across sessions.
 """
 const INDEX_TTL_DAYS = Ref(30)
 
@@ -64,24 +73,43 @@ include("catalog/index_cache.jl")
 include("catalog/mridata_catalog.jl")
 include("catalog/ocmr_catalog.jl")
 include("catalog/display.jl")
-include("Browse.jl")
+include("browse.jl")
 include("load/ismrmrd.jl")
 include("load/acq_spec.jl")
 include("api.jl")
+include("settings.jl")
+include("precompile.jl")
 
 function __init__()
     CACHE_DIR[] = @get_scratch!("datasets")
+    # Apply persisted preferences to the runtime Refs.
+    INDEX_TTL_DAYS[] = get_refresh_period()
+    PARALLEL_CHUNKS[] = get_chunk_size()
+    PARALLEL_MIN_BYTES[] = get_min_file_size()
+    if !_terms_accepted()
+        @warn """
+        MRITestData downloads data from external sources that have their own terms of use.
+        Please review the terms before using downloaded data:
+          • mridata.org  →  http://mridata.org/terms
+          • OCMR         →  https://www.ocmr.info/download/
+        To permanently suppress this notice, call:
+          MRITestData.dismiss_terms_notice!()
+        """
+    end
     return nothing
 end
 
 export AbstractSource, MridataOrg, OCMR, MRIDATA, OCMR_SOURCE
 export DatasetEntry, DatasetHandle
 export list_sources, list_datasets, dataset, query
-export download_dataset, cache_path, is_cached, clear_cache
+export download_dataset, copy_dataset, cache_path, is_cached, clear_cache
 export fetch_sizes
 export refresh_index, index_path, index_age_days
 export load_raw, load_acq, acq_spec
-export recon
 export run_browser
+export dismiss_terms_notice!, enable_terms_notice!
+export set_chunk_size!, get_chunk_size
+export set_min_file_size!, get_min_file_size
+export set_refresh_period!, get_refresh_period
 
 end # module
