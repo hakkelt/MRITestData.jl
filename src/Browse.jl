@@ -6,7 +6,7 @@
 using Tachikoma
 using Tachikoma.Paged
 # Extended with new methods, so they must be imported by name.
-import Tachikoma: view, update!, should_quit
+import Tachikoma: view, update!, should_quit, task_queue, pre_render!
 
 # ── Column definitions ────────────────────────────────────────────────────────
 
@@ -71,11 +71,16 @@ mutable struct BrowserModel <: Model
     quit::Bool
     # filled in when the user confirms a download; consumed after app() exits
     download::Union{Nothing, Tuple{DatasetEntry, String}}
+    # background size-fetching
+    tq::TaskQueue
+    last_prefetch_page::Int      # page number for which we last fired a prefetch
+    prefetch_generation::Int     # incremented each time we fire; used to discard stale results
 end
 
 function BrowserModel(entries::Vector{DatasetEntry})
     provider = _build_provider(entries)
     pdt = PagedDataTable(provider; page_size = 20, page_sizes = Int[20, 50, 100])
+    tq = TaskQueue()
     return BrowserModel(
         entries,
         pdt,
@@ -84,10 +89,14 @@ function BrowserModel(entries::Vector{DatasetEntry})
         TextInput(; label = "Path: ", focused = true),
         false,
         nothing,
+        tq,
+        0,
+        0,
     )
 end
 
 should_quit(m::BrowserModel) = m.quit
+task_queue(m::BrowserModel) = m.tq
 
 # Map the currently-selected table row back to its DatasetEntry.
 function _selected_entry(m::BrowserModel)
@@ -98,6 +107,63 @@ function _selected_entry(m::BrowserModel)
     (idx < 1 || idx > length(m.entries)) && return nothing
     return m.entries[idx]
 end
+
+# ── Size prefetch ──────────────────────────────────────────────────────────────
+
+# Indices (into m.entries) for the window of pages to prefetch.
+# Covers the visible page plus one page on each side, clamped to valid range.
+function _prefetch_indices(m::BrowserModel)
+    pdt = m.pdt
+    total = length(m.entries)
+    total == 0 && return Int[]
+    ps = pdt.page_size
+    # Visible page range in the *sorted/filtered* view maps back to original
+    # indices via pdt.rows[*][1]. We collect entry indices from those rows plus
+    # the provider's adjacent pages (prev + next) via direct slice of m.entries.
+    # Since the provider may be filtered/sorted, we use the raw entries window
+    # for adjacent pages and the actual displayed rows for the current page.
+    current_page_indices = Int[
+        row[1] for row in pdt.rows if row[1] isa Integer && 1 <= row[1] <= total
+    ]
+    prev_start = max(1, (pdt.page - 2) * ps + 1)
+    next_end = min(total, (pdt.page + 1) * ps)
+    adjacent = collect(prev_start:next_end)
+    return unique(vcat(current_page_indices, adjacent))
+end
+
+# Fire a background fetch_sizes task for the current page window.
+function _fire_prefetch!(m::BrowserModel)
+    indices = _prefetch_indices(m)
+    isempty(indices) && return
+    # Only fetch entries that still lack a size.
+    to_fetch = [m.entries[i] for i in indices if m.entries[i].approx_size_bytes === nothing]
+    isempty(to_fetch) && return
+    gen = m.prefetch_generation
+    entries_snapshot = copy(m.entries)   # snapshot so the task closure is self-contained
+    fetch_indices = indices
+    return spawn_task!(m.tq, :size_prefetch) do
+        sized = fetch_sizes(to_fetch)
+        # Build a map uuid→size for the fetched entries
+        sizes = Dict{String, Int}()
+        for e in sized
+            e.approx_size_bytes === nothing && continue
+            sizes[e.id] = e.approx_size_bytes
+        end
+        (gen, fetch_indices, sizes)
+    end
+end
+
+# Called from pre_render! each frame; detects page changes and triggers prefetch.
+function _maybe_prefetch!(m::BrowserModel)
+    m.stage === :browse || return
+    pdt = m.pdt
+    pdt.page == m.last_prefetch_page && return
+    m.last_prefetch_page = pdt.page
+    m.prefetch_generation += 1
+    return _fire_prefetch!(m)
+end
+
+pre_render!(m::BrowserModel) = _maybe_prefetch!(m)
 
 # ── Event handling ────────────────────────────────────────────────────────────
 
@@ -112,6 +178,64 @@ function update!(m::BrowserModel, evt::MouseEvent)
     m.stage === :browse && handle_mouse!(m.pdt, evt)
     return nothing
 end
+
+# Handle size-prefetch results arriving from the background TaskQueue.
+function update!(m::BrowserModel, evt::TaskEvent{Tuple{Int, Vector{Int}, Dict{String, Int}}})
+    evt.id === :size_prefetch || return
+    gen, fetch_indices, sizes = evt.value
+    gen == m.prefetch_generation || return   # stale result from an old page
+    isempty(sizes) && return
+
+    changed = false
+    for i in fetch_indices
+        (i < 1 || i > length(m.entries)) && continue
+        e = m.entries[i]
+        e.approx_size_bytes === nothing || continue
+        sz = get(sizes, e.id, nothing)
+        sz === nothing && continue
+        m.entries[i] = DatasetEntry(;
+            source = e.source,
+            id = e.id,
+            name = e.name,
+            anatomy = e.anatomy,
+            vendor = e.vendor,
+            field_strength = e.field_strength,
+            trajectory = e.trajectory,
+            coils = e.coils,
+            fully_sampled = e.fully_sampled,
+            is3D = e.is3D,
+            approx_size_bytes = sz,
+            sha256 = e.sha256,
+            url = e.url,
+            extra = e.extra,
+        )
+        changed = true
+    end
+
+    if changed
+        # Rebuild provider so the Size column reflects the new data.
+        # pdt_set_provider! resets page/sort/filter, so we preserve current state.
+        pdt = m.pdt
+        saved_page = pdt.page
+        saved_sort_col = pdt.sort_col
+        saved_sort_dir = pdt.sort_dir
+        saved_filters = copy(pdt.filters)
+        saved_search = pdt.search_query
+        saved_selected = pdt.selected
+        pdt_set_provider!(pdt, _build_provider(m.entries))
+        pdt.page = saved_page
+        pdt.sort_col = saved_sort_col
+        pdt.sort_dir = saved_sort_dir
+        pdt.filters = saved_filters
+        pdt.search_query = saved_search
+        pdt_fetch!(pdt)
+        pdt.selected = clamp(saved_selected, 1, max(1, length(pdt.rows)))
+    end
+    return nothing
+end
+
+# Fallback handler for other TaskEvent types (e.g. errors from the fetch task).
+update!(m::BrowserModel, ::TaskEvent) = nothing
 
 function _update_browse!(m::BrowserModel, evt::KeyEvent)
     pdt = m.pdt
@@ -293,6 +417,10 @@ terminal, including from within the Julia REPL.
 After selecting a dataset you are asked to confirm (`y`/`n`) and to choose a
 destination path. The default is `<current directory>/<id>.h5`; press Enter to
 accept it.
+
+Dataset sizes (the Size column) are fetched in the background via HTTP HEAD
+requests as you browse. Sizes for the current page and the adjacent pages are
+prefetched automatically; previously fetched sizes are reused.
 
 ```julia
 using MRITestData

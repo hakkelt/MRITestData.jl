@@ -66,3 +66,62 @@ end
         end
     end
 end
+
+@testitem "fetch_sizes preserves already-sized entries and returns correct shape" begin
+    using MRITestData
+
+    entries = list_datasets(MRIDATA; offline = true)
+    @test !isempty(entries)
+
+    # Entries without approx_size_bytes stay as-is (no network call for them here —
+    # we just verify the function returns a Vector{DatasetEntry} of the same length
+    # with no error, and that entries already carrying a size are unchanged).
+    pre_sized = filter(e -> e.approx_size_bytes !== nothing, entries)
+    # Run with all entries but block network by picking entries that already have size
+    # (or none at all — the function is safe to call offline, it just returns nothing for unknowns).
+    result = fetch_sizes(pre_sized)
+    @test result isa Vector{DatasetEntry}
+    @test length(result) == length(pre_sized)
+    for (orig, got) in zip(pre_sized, result)
+        @test got.approx_size_bytes === orig.approx_size_bytes
+        @test got.id == orig.id
+    end
+end
+
+@testitem "PARALLEL_CHUNKS and PARALLEL_MIN_BYTES are configurable" begin
+    using MRITestData
+
+    old_chunks = MRITestData.PARALLEL_CHUNKS[]
+    old_min = MRITestData.PARALLEL_MIN_BYTES[]
+    try
+        MRITestData.PARALLEL_CHUNKS[] = 1
+        @test MRITestData.PARALLEL_CHUNKS[] == 1
+        MRITestData.PARALLEL_MIN_BYTES[] = 1024
+        @test MRITestData.PARALLEL_MIN_BYTES[] == 1024
+    finally
+        MRITestData.PARALLEL_CHUNKS[] = old_chunks
+        MRITestData.PARALLEL_MIN_BYTES[] = old_min
+    end
+end
+
+@testitem "refresh_index no-arg returns one path per source" begin
+    using MRITestData
+    using MRITestData: CACHE_DIR
+
+    # The no-arg refresh_index must return a collection with one entry per source.
+    # We don't actually hit the network here — we only verify the shape of the return
+    # value, which is independent of whether the fetches succeed or fail (failures fall
+    # back to the bundled index and return a valid path).
+    mktempdir() do tmp
+        old = CACHE_DIR[]
+        CACHE_DIR[] = tmp
+        try
+            paths = refresh_index(; progress = false)
+            @test paths isa AbstractVector
+            @test length(paths) == length(list_sources())
+            @test all(isfile, paths)
+        finally
+            CACHE_DIR[] = old
+        end
+    end
+end

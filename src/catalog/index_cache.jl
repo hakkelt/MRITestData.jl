@@ -75,7 +75,7 @@ when needed:
   is returned — a stale cache if present, else the bundled fallback — with a
   `@warn`. This function does not throw on network errors.
 """
-function ensure_index(s::AbstractSource; force::Bool = false, ttl_days::Real = INDEX_TTL_DAYS[], offline::Bool = false, progress::Bool = false)
+function ensure_index(s::AbstractSource; force::Bool = false, ttl_days::Real = INDEX_TTL_DAYS[], offline::Bool = false, progress::Bool = false, fetch_sizes::Bool = false)
     cached = index_path(s)
     age = index_age_days(s)
     fresh = isfile(cached) && age !== nothing && age < ttl_days
@@ -88,7 +88,7 @@ function ensure_index(s::AbstractSource; force::Bool = false, ttl_days::Real = I
     url = _index_source_url(s)
     try
         @info "Fetching $(source_name(s)) index from $url"
-        _fetch_index(s, cached; progress = progress)
+        _fetch_index(s, cached; progress = progress, fetch_sizes = fetch_sizes)
         _write_index_meta(s, url, true)
         return cached
     catch err
@@ -102,20 +102,34 @@ function ensure_index(s::AbstractSource; force::Bool = false, ttl_days::Real = I
 end
 
 """
-    refresh_index(source; progress=true)
-    refresh_index(; progress=true)
+    refresh_index(source; progress=true, fetch_sizes=false)
+    refresh_index(; progress=true, fetch_sizes=false)
 
 Force-refresh the cached dataset index from upstream — the manual trigger. With no
-argument, refreshes every source. Returns the index path(s).
+argument, refreshes every source in parallel. Returns the index path(s).
+
+When `fetch_sizes=true`, an HTTP HEAD request is issued for each entry whose size is
+not already known, and the result is stored as `approx_size_bytes` in the index. This
+costs one extra round-trip per entry but enables the `max_bytes` guard in
+`download_dataset` for sources (like mridata.org) that do not publish sizes in their
+catalog. The option has no effect for sources that already carry size information.
 """
-refresh_index(s::AbstractSource; progress::Bool = true) = ensure_index(s; force = true, progress = progress)
-refresh_index(; progress::Bool = true) = [refresh_index(s; progress = progress) for s in list_sources()]
+function refresh_index(s::AbstractSource; progress::Bool = true, fetch_sizes::Bool = false)
+    return ensure_index(s; force = true, progress = progress, fetch_sizes = fetch_sizes)
+end
+function refresh_index(; progress::Bool = true, fetch_sizes::Bool = false)
+    results = Vector{String}(undef, length(list_sources()))
+    @sync for (i, s) in enumerate(list_sources())
+        @async results[i] = refresh_index(s; progress = progress, fetch_sizes = fetch_sizes)
+    end
+    return results
+end
 
 # ---- OCMR: authoritative CSV ------------------------------------------------
 
 _index_source_url(::OCMR) = "https://ocmr.s3.amazonaws.com/ocmr_data_attributes.csv"
 
-function _fetch_index(s::OCMR, dest::AbstractString; progress::Bool = false)
+function _fetch_index(s::OCMR, dest::AbstractString; progress::Bool = false, fetch_sizes::Bool = false)
     _download_with_progress(_index_source_url(s), dest; progress = progress, desc = "Fetching OCMR index ")
     return dest
 end
@@ -136,7 +150,7 @@ _index_source_url(::MridataOrg) = "http://mridata.org/list"
 const _UUID_RE = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 const _MRIDATA_PAGE_CAP = 50
 
-function _fetch_index(s::MridataOrg, dest::AbstractString; progress::Bool = false)
+function _fetch_index(s::MridataOrg, dest::AbstractString; progress::Bool = false, fetch_sizes::Bool = false)
     base = _index_source_url(s)
     entries = Dict{String, Dict{String, Any}}()
     for page in 1:_MRIDATA_PAGE_CAP
@@ -158,6 +172,15 @@ function _fetch_index(s::MridataOrg, dest::AbstractString; progress::Bool = fals
     end
 
     isempty(entries) && error("mridata.org list page yielded no datasets")
+
+    if fetch_sizes
+        for (uuid, d) in entries
+            haskey(d, "approx_size_bytes") && continue
+            sz = _http_head_content_length(mridata_url(uuid))
+            sz === nothing || (d["approx_size_bytes"] = sz)
+        end
+    end
+
     _write_mridata_index_toml(dest, entries)
     return dest
 end
@@ -301,7 +324,7 @@ function _scrape_mridata_card(card::AbstractString)
 end
 
 # Keys written as native TOML types (not quoted strings).
-const _MRIDATA_NUMERIC_KEYS = ("coils", "field_strength")
+const _MRIDATA_NUMERIC_KEYS = ("approx_size_bytes", "coils", "field_strength")
 const _MRIDATA_BOOL_KEYS = ("fully_sampled", "is3D")
 
 function _write_mridata_index_toml(dest::AbstractString, entries::AbstractDict)
@@ -340,4 +363,20 @@ function _http_get_string(url::AbstractString; timeout::Real = 30)
     io = IOBuffer()
     Downloads.download(url, io; timeout = float(timeout))
     return String(take!(io))
+end
+
+# Issue an HTTP HEAD request and return the Content-Length as an Int, or nothing
+# if the server does not advertise a size or the request fails.
+function _http_head_content_length(url::AbstractString; timeout::Real = 30)::Union{Int, Nothing}
+    try
+        resp = Downloads.request(String(url); method = "HEAD", output = devnull, timeout = float(timeout))
+        for (k, v) in resp.headers
+            lowercase(k) == "content-length" || continue
+            n = tryparse(Int, strip(v))
+            n === nothing || return n
+        end
+    catch
+        # network error or unsupported method — size stays unknown
+    end
+    return nothing
 end

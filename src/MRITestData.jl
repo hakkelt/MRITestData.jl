@@ -78,6 +78,7 @@ export AbstractSource, MridataOrg, OCMR, MRIDATA, OCMR_SOURCE
 export DatasetEntry, DatasetHandle
 export list_sources, list_datasets, dataset, query
 export download_dataset, cache_path, is_cached, clear_cache
+export fetch_sizes
 export refresh_index, index_path, index_age_days
 export load_raw, load_acq, acq_spec
 export recon

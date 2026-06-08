@@ -124,3 +124,71 @@ end
         end
     end
 end
+
+@testitem "OCMR parallel chunked download produces correct file" tags = [:network] begin
+    using MRITestData
+    using MRITestData: CACHE_DIR, PARALLEL_CHUNKS, PARALLEL_MIN_BYTES, _probe_url, _download_parallel
+
+    # Verify that parallel chunked download produces the same bytes as a normal download.
+    url = "https://ocmr.s3.amazonaws.com/data/fs_0001_1_5T.h5"
+    accept_ranges, total = _probe_url(url)
+    if !accept_ranges || total == 0
+        @warn "OCMR S3 did not advertise byte-range support; skipping parallel-chunk test"
+        return
+    end
+
+    mktempdir() do tmp
+        # Download a small prefix (256 KB) via the parallel path and the single path,
+        # then compare bytes to confirm the chunked reassembly is correct.
+        nbytes = 256 * 1024
+        nchunks = 4
+
+        # Parallel download of the first nbytes
+        par_dest = joinpath(tmp, "par.bin")
+        par_tmp = par_dest * ".part"
+        _download_parallel(url, par_tmp, nbytes, nchunks; progress = false, desc = "")
+        mv(par_tmp, par_dest; force = true)
+
+        # Single-connection download of the same range
+        using Downloads
+        single_dest = joinpath(tmp, "single.bin")
+        Downloads.download(url, single_dest; headers = ["Range" => "bytes=0-$(nbytes - 1)"])
+
+        par_bytes = read(par_dest)
+        single_bytes = read(single_dest)
+        @test length(par_bytes) == nbytes
+        @test par_bytes == single_bytes
+    end
+end
+
+@testitem "fetch_sizes fills approx_size_bytes for OCMR entries" tags = [:network] begin
+    using MRITestData
+
+    entries = list_datasets(OCMR_SOURCE; offline = true)
+    # Pick a small subset to avoid too many HEAD requests in CI
+    subset = first(entries, 3)
+    result = fetch_sizes(subset)
+    @test result isa Vector{DatasetEntry}
+    @test length(result) == length(subset)
+    # OCMR S3 serves Accept-Ranges: bytes so all three should be sized
+    @test all(e -> e.approx_size_bytes !== nothing && e.approx_size_bytes > 0, result)
+end
+
+@testitem "refresh_index fetch_sizes populates approx_size_bytes" tags = [:network] begin
+    using MRITestData
+
+    mktempdir() do tmp
+        old = MRITestData.CACHE_DIR[]
+        MRITestData.CACHE_DIR[] = tmp
+        try
+            refresh_index(MRIDATA; progress = false, fetch_sizes = true)
+            entries = list_datasets(MRIDATA)
+            @test !isempty(entries)
+            sized = filter(e -> e.approx_size_bytes !== nothing, entries)
+            @test !isempty(sized)
+            @test all(e -> e.approx_size_bytes > 0, sized)
+        finally
+            MRITestData.CACHE_DIR[] = old
+        end
+    end
+end
