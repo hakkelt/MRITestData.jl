@@ -132,7 +132,7 @@ function _catalog_entries(s::OCMR; offline::Bool = false)
         e = _ocmr_entry(data[r, :], col)
         e === nothing || push!(entries, e)
     end
-    return entries
+    return merge_sizes(entries, s)
 end
 
 # OCMR ids are file stems; an unknown id is assumed to be a valid bucket file.

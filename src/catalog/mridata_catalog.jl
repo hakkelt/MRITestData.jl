@@ -76,7 +76,8 @@ function _catalog_entries(s::MridataOrg; offline::Bool = false)
         end
         raw[id] = base
     end
-    return [_mridata_entry(d) for d in values(raw)]
+    entries = [_mridata_entry(d) for d in values(raw)]
+    return merge_sizes(entries, s)
 end
 
 # mridata accepts any UUID directly, even if not in the curated index.

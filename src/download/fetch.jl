@@ -281,5 +281,21 @@ function fetch_sizes(
             end
         end
     end
+
+    # Persist newly discovered sizes grouped by source so future catalog loads
+    # include them without re-issuing HEAD requests.
+    by_source = Dict{AbstractSource, Dict{String, Int}}()
+    for e in result
+        e.approx_size_bytes === nothing && continue
+        d = get!(by_source, e.source, Dict{String, Int}())
+        d[e.id] = e.approx_size_bytes
+    end
+    for (src, sizes) in by_source
+        try
+            write_sizes(src, sizes)
+        catch
+        end
+    end
+
     return result
 end

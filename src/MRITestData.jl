@@ -67,9 +67,9 @@ const INDEX_TTL_DAYS = Ref(30)
 include("catalog/sources.jl")
 include("catalog/catalog.jl")
 include("catalog/query.jl")
+include("catalog/index_cache.jl")
 include("download/cache.jl")
 include("download/fetch.jl")
-include("catalog/index_cache.jl")
 include("catalog/mridata_catalog.jl")
 include("catalog/ocmr_catalog.jl")
 include("catalog/display.jl")
@@ -104,7 +104,7 @@ export DatasetEntry, DatasetHandle
 export list_sources, list_datasets, dataset, query
 export download_dataset, copy_dataset, cache_path, is_cached, clear_cache
 export fetch_sizes
-export refresh_index, index_path, index_age_days
+export refresh_index, index_path, index_age_days, sizes_path, read_sizes, write_sizes
 export load_raw, load_acq, acq_spec
 export run_browser
 export dismiss_terms_notice!, enable_terms_notice!

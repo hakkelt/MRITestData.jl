@@ -34,6 +34,77 @@ index_path(s::AbstractSource) = joinpath(_index_dir(), string(source_name(s), ".
 
 _index_meta_path(s::AbstractSource) = joinpath(_index_dir(), string(source_name(s), ".index_meta.toml"))
 
+"""
+    sizes_path(source) -> String
+
+Path to the persisted dataset sizes sidecar for `source`. Stores a mapping from
+dataset id to `approx_size_bytes` so sizes fetched via HTTP HEAD are not lost
+across sessions. Lives alongside the cached index in the index directory.
+"""
+sizes_path(s::AbstractSource) = joinpath(_index_dir(), string(source_name(s), ".sizes.toml"))
+
+"""
+    read_sizes(source) -> Dict{String,Int}
+
+Return the persisted id → size mapping for `source`, or an empty dict if none exists.
+"""
+function read_sizes(s::AbstractSource)
+    p = sizes_path(s)
+    isfile(p) || return Dict{String, Int}()
+    raw = TOML.parsefile(p)
+    return Dict{String, Int}(k => Int(v) for (k, v) in get(raw, "sizes", Dict()))
+end
+
+"""
+    write_sizes(source, sizes::Dict{String,Int})
+
+Persist `sizes` (id → approx_size_bytes) for `source`, merging with any previously
+stored values. Existing entries are never removed — sizes are expected to be stable.
+"""
+function write_sizes(s::AbstractSource, sizes::AbstractDict{<:AbstractString, <:Integer})
+    p = sizes_path(s)
+    existing = read_sizes(s)
+    merged = merge(existing, Dict{String, Int}(k => Int(v) for (k, v) in sizes))
+    tmp = p * ".part"
+    open(tmp, "w") do io
+        TOML.print(io, Dict("sizes" => merged))
+    end
+    mv(tmp, p; force = true)
+    return p
+end
+
+"""
+    merge_sizes(entries, source) -> Vector{DatasetEntry}
+
+Return `entries` with `approx_size_bytes` filled in from the persisted sizes sidecar
+for `source`. Entries that already have a size are left unchanged.
+"""
+function merge_sizes(entries::AbstractVector{DatasetEntry}, s::AbstractSource)
+    sizes = read_sizes(s)
+    isempty(sizes) && return entries
+    return map(entries) do e
+        e.approx_size_bytes !== nothing && return e
+        sz = get(sizes, e.id, nothing)
+        sz === nothing && return e
+        return DatasetEntry(;
+            source = e.source,
+            id = e.id,
+            name = e.name,
+            anatomy = e.anatomy,
+            vendor = e.vendor,
+            field_strength = e.field_strength,
+            trajectory = e.trajectory,
+            coils = e.coils,
+            fully_sampled = e.fully_sampled,
+            is3D = e.is3D,
+            approx_size_bytes = sz,
+            sha256 = e.sha256,
+            url = e.url,
+            extra = e.extra,
+        )
+    end
+end
+
 function _read_index_meta(s::AbstractSource)
     mp = _index_meta_path(s)
     isfile(mp) || return Dict{String, Any}()
@@ -208,7 +279,7 @@ end
 
 # Minimal regex-escape for field labels (they contain only word chars/spaces today,
 # but escaping keeps the matcher correct if a label ever gains punctuation).
-_re_escape(s::AbstractString) = replace(s, r"([\\^$.|?*+()\[\]{}])" => s"\\\1")
+_re_escape(s::AbstractString)::String = replace(s, r"([\\^$.|?*+()\[\]{}])" => s"\\\1")
 
 # Map mridata's free-text vendor string to our vendor Symbol vocabulary.
 function _normalize_vendor(s::AbstractString)

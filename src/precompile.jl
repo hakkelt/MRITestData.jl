@@ -15,10 +15,25 @@
     _ = get_refresh_period()
     _ = _terms_accepted()
 
+    # ── Catalog parsing from bundled files ───────────────────────────────────────
+    # run_browser calls query() which parses the bundled TOML/CSV at first use.
+    # We call the internal parsers directly here (bypassing ensure_index, which
+    # needs CACHE_DIR) so that the DatasetEntry kwcall specializations for every
+    # field-type combination that occurs in real data are precompiled and cached.
+    _ = [_mridata_entry(d) for d in _mridata_raw(_BUNDLED_MRIDATA_INDEX)]
+    let _pc_data, _pc_header
+        _pc_data, _pc_header = readdlm(_BUNDLED_OCMR_CSV, ','; header = true)
+        _pc_col = Dict(strip(String(h)) => i for (i, h) in enumerate(vec(_pc_header)))
+        for _pc_r in axes(_pc_data, 1)
+            _ocmr_entry(_pc_data[_pc_r, :], _pc_col)
+        end
+    end
+
     # ── run_browser code path ────────────────────────────────────────────────────
-    # app() opens a real terminal and cannot run at precompile time. We cover
-    # everything else: model construction, view/update dispatch, and all rendering
-    # helpers. This warms the bulk of the latency-sensitive specialisations.
+    # app() opens a real terminal and cannot run at precompile time. record_app()
+    # runs the same model+view+update! loop headlessly (no TTY, no raw mode) and
+    # exercises the Base.invokelatest dispatch paths that app() uses internally —
+    # the key gap that the direct view()/update!() calls below cannot reach.
 
     # Minimal synthetic entries — two rows so sorting/filtering paths are exercised.
     _pc_entries = DatasetEntry[
@@ -50,6 +65,25 @@
     # BrowserModel construction (covers _build_provider → InMemoryPagedProvider,
     # PagedDataTable, TaskQueue, TextInput).
     _pc_model = BrowserModel(_pc_entries)
+
+    # Run a two-frame headless app loop via record_app. This exercises the
+    # Base.invokelatest paths inside the Tachikoma event loop (view, pre_render!,
+    # update!, should_quit, task_queue) that direct method calls cannot reach.
+    # A quit KeyEvent on frame 1 stops the loop immediately after one render.
+    _pc_tach = tempname() * ".tach"
+    try
+        record_app(
+            BrowserModel(_pc_entries),
+            _pc_tach;
+            width = 120,
+            height = 40,
+            frames = 2,
+            fps = 30,
+            events = [(1, KeyEvent('q'))],
+        )
+    finally
+        isfile(_pc_tach) && rm(_pc_tach)
+    end
 
     # view() — covers render(pdt, …), render(_HELP_BAR, …), and the Tachikoma
     # Buffer/Rect machinery for the full browse layout.
