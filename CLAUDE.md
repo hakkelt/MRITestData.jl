@@ -24,7 +24,7 @@ otherwise only be tested on synthetic phantoms.
 - **Extensions** (`ext/`): `MRITestDataMRIRecoExt` adds `recon(::AcquisitionData;…)`
   over MRIReco — a **weakdep**, so the package never hard-depends on a
   reconstruction package.
-- **Browse** (`src/Browse.jl`): standalone Julia App (`mridata-browse`) built on
+- **Browse** (`src/browse.jl`): standalone Julia App (`mridata-browse`) built on
   Tachikoma.jl's `PagedDataTable` for interactive browse/filter/search/download.
 
 ## Commands

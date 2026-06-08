@@ -346,6 +346,9 @@ function _render_confirm!(m::BrowserModel, area::Rect, buf)
         "Source: $(source_name(e.source))",
         "Size:   $size_str",
         "",
+        "! Review terms of use before downloading:",
+        "  $(terms_url(e.source))",
+        "",
         "[y] yes   [n] no   [q] quit",
     ]
     _render_modal!(area, buf, " Confirm ", lines)
@@ -438,8 +441,7 @@ function run_browser(; sources = list_sources(), offline::Bool = false)
         e, dest = model.download
         println("\nDownloading to: $dest")
         try
-            path = download_dataset(e; progress = true)
-            path == dest || cp(path, dest; force = true)
+            copy_dataset(e; dest = dest, progress = true)
             println("Done — file at $dest")
         catch err
             println("Download failed: $err")
