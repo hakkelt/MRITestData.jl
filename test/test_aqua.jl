@@ -2,9 +2,9 @@
     using Aqua
     using MRITestData
 
-    # `recon` and `to_acquisition_info` are deliberately defined in the main module
-    # and extended in the package extensions, so the ambiguity/piracy checks see the
-    # base methods as the owners — no piracy.
+    # `recon` is deliberately defined in the main module and extended in the MRIReco
+    # extension, so the ambiguity/piracy checks see the base method as the owner —
+    # no piracy.
     #
     # `persistent_tasks` is disabled: it resolves the package in a fresh subprocess
     # from registries, which cannot work in this dev setup where MRIBase/MRIFiles/

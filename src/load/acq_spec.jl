@@ -1,8 +1,7 @@
 # Convert an MRIBase.AcquisitionData into a source-agnostic `AcqSpec` NamedTuple.
 #
-# This is the decoupling seam: all the layout logic lives here and depends only on
-# MRIBase, so it is unit-testable without MriReconstructionToolbox. The package
-# extension turns an AcqSpec into the toolbox's `AcquisitionInfo` types.
+# All the layout logic lives here and depends only on MRIBase, so it is
+# unit-testable and reusable by downstream reconstruction code.
 #
 # AcqSpec shapes:
 #   (; kind=:cartesian,    kspace_data, image_size, is3D, subsampling, coils)
@@ -15,8 +14,7 @@
 Build a source-agnostic acquisition spec (a `NamedTuple`) from an
 `MRIBase.AcquisitionData` (or an ISMRMRD file path). The result has `kind`
 `:cartesian` or `:noncartesian` and carries `NamedDimsArray` k-space data plus the
-metadata needed to construct an `AcquisitionInfo`. See [`load`](@ref) to go all the
-way to the toolbox type.
+metadata describing the acquisition layout.
 """
 function acq_spec(acq::AcquisitionData; echo::Int = 1, rep::Int = 1, slice::Int = 1)
     tr = trajectory(acq, echo)
@@ -103,20 +101,5 @@ function _noncartesian_spec(acq::AcquisitionData{T, D}; echo::Int, rep::Int, sli
         image_size = image_size,
         is3D = is3D,
         coils = ncoil,
-    )
-end
-
-"""
-    to_acquisition_info(spec::NamedTuple) -> AcquisitionInfo
-
-Construct a `MriReconstructionToolbox.AcquisitionInfo` from an [`acq_spec`](@ref)
-result. This is a stub that errors unless `MriReconstructionToolbox` is loaded; the
-real implementation lives in the `MRITestDataMRTExt` package extension.
-"""
-function to_acquisition_info(::NamedTuple)
-    error(
-        "to_acquisition_info requires MriReconstructionToolbox to be loaded.\n" *
-            "Run `using MriReconstructionToolbox` to enable conversion to AcquisitionInfo,\n" *
-            "or use `acq_spec`/`load_acq` to work with the raw MRIBase data instead.",
     )
 end

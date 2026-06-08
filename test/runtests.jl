@@ -3,11 +3,8 @@ using TestItemRunner
 # Tag-based gating:
 #   :network — live downloads from mridata.org / OCMR; opt in with
 #              MRITESTDATA_NETWORK_TESTS=true.
-#   :mrt     — MriReconstructionToolbox integration; opt in with
-#              MRITESTDATA_MRT_TESTS=true (does not precompile cleanly in a merged env).
 # Everything else (catalog, cache, load, :mrireco, :quality/Aqua+JET) runs by default.
 const RUN_NETWORK = get(ENV, "MRITESTDATA_NETWORK_TESTS", "false") == "true"
-const RUN_MRT = get(ENV, "MRITESTDATA_MRT_TESTS", "false") == "true"
 
 # Optional ARGS-based subset filter: pass tag(s) or test name(s) as a single
 # comma-separated string, e.g.
@@ -25,12 +22,11 @@ const FILTER_NAMES = filter(x -> !startswith(x, ":"), FILTER_PARTS)
 
 @run_package_tests filter = ti -> begin
     # When an explicit subset filter is given, honour it unconditionally (the
-    # caller opts in to whatever they ask for, including :network and :mrt).
+    # caller opts in to whatever they ask for, including :network).
     if !isempty(FILTER_PARTS)
         return any(t -> t in ti.tags, FILTER_TAGS) || any(n -> n == ti.name, FILTER_NAMES)
     end
-    # Default gating: skip :network and :mrt unless opted in via env vars.
+    # Default gating: skip :network unless opted in via env var.
     (:network in ti.tags) && return RUN_NETWORK
-    (:mrt in ti.tags) && return RUN_MRT
     return true
 end

@@ -2,23 +2,21 @@
     MRITestData
 
 Query and download free, open-access MRI k-space datasets and load them into
-[`MriReconstructionToolbox`](https://github.com/hakkelt/MriReconstructionToolbox)
-`AcquisitionInfo` types.
+`MRIBase` acquisition containers.
 
 Supported sources (v1): [`MRIDATA`](@ref) (mridata.org) and [`OCMR_SOURCE`](@ref)
 (the OCMR cardiac repository). Both serve ISMRMRD `.h5` files, which are read via
-`MRIFiles`/`MRIBase` and converted into the toolbox's acquisition containers.
+`MRIFiles`/`MRIBase`.
 
-The conversion to `AcquisitionInfo` lives in a package extension that loads only
-when `MriReconstructionToolbox` is available, so this package never hard-depends
-on the toolbox and the toolbox stays free of file-IO dependencies.
+Reconstruction via `MRIReco` lives in a package extension that loads only when
+`MRIReco` is available, so this package never hard-depends on a reconstruction
+package.
 
 # Quick start
 ```julia
-using MRITestData, MriReconstructionToolbox
+using MRITestData, MRIReco
 entries = list_datasets(OCMR_SOURCE; field_strength = 1.5)
-acq = load_dataset(entries[1])          # downloads (cached) then loads
-img = reconstruct(acq, (), CGNR(); maxit = 30)
+img = recon(entries[1]; maxit = 30)     # downloads (cached), loads, reconstructs
 ```
 """
 module MRITestData
@@ -65,9 +63,10 @@ include("download/fetch.jl")
 include("catalog/index_cache.jl")
 include("catalog/mridata_catalog.jl")
 include("catalog/ocmr_catalog.jl")
-include("catalog/tui.jl")
+include("catalog/display.jl")
+include("Browse.jl")
 include("load/ismrmrd.jl")
-include("load/to_acquisition_info.jl")
+include("load/acq_spec.jl")
 include("api.jl")
 
 function __init__()
@@ -77,10 +76,11 @@ end
 
 export AbstractSource, MridataOrg, OCMR, MRIDATA, OCMR_SOURCE
 export DatasetEntry, DatasetHandle
-export list_sources, list_datasets, dataset, query, search_datasets
+export list_sources, list_datasets, dataset, query
 export download_dataset, cache_path, is_cached, clear_cache
 export refresh_index, index_path, index_age_days
 export load_raw, load_acq, acq_spec
-export load, load_dataset, recon
+export recon
+export run_browser
 
 end # module

@@ -32,16 +32,48 @@ query(; text = "prisma")                              # free-text
 query(; subject = "patient")                          # an OCMR `extra` field
 ```
 
-### Interactive search (TUI)
+### Interactive browser
 
-[`search_datasets`](@ref) opens a terminal menu (built on the stdlib
-`REPL.TerminalMenus`) over the same query, lets you refine the free-text filter
-live, and returns the selected [`DatasetEntry`](@ref). Pass `multiselect = true` to
-return several:
+MRITestData ships a full-screen terminal browser built on
+[Tachikoma.jl](https://github.com/kahliburke/Tachikoma.jl)'s `PagedDataTable`.
+Call it directly from the Julia REPL:
 
 ```julia
-entry = search_datasets(; anatomy = :knee)
-entries = search_datasets(; sources = OCMR_SOURCE, multiselect = true)
+using MRITestData
+run_browser()                            # browse all sources
+run_browser(; sources = OCMR_SOURCE)    # one source only
+run_browser(; offline = true)           # skip the network
+```
+
+Inside the browser:
+- **↑ ↓** — move the selection; **PgUp/PgDn**, **Home/End** — change page.
+- **`/`** — global text search across all columns.
+- **`f`** — open the filter modal (per-column typed filters).
+- **`1`-`9`** — sort by that column (toggles ascending/descending).
+- **Enter** — select the highlighted dataset and start the download flow.
+- **`q` / Esc** — quit without downloading.
+
+After selecting a dataset you are asked to confirm the download (`y`/`n`) and to
+choose a destination path. The default is `<current directory>/<id>.h5`; press
+Enter to accept it.
+
+**Standalone shell command (optional)**
+
+MRITestData can also be installed as a standalone `mridata-browse` command
+(adds it to `~/.julia/bin`):
+
+```julia
+using Pkg
+Pkg.Apps.add("MRITestData")          # from the registry
+# or, from a local clone:
+Pkg.Apps.develop(path = "/path/to/MRITestData")
+```
+
+Make sure `~/.julia/bin` is on your `PATH`, then launch:
+
+```sh
+mridata-browse            # browse all sources
+mridata-browse --offline  # use the bundled index without hitting the network
 ```
 
 ## The self-updating index
@@ -111,20 +143,6 @@ img = recon("scan.h5"; reco = "standard", iterations = 30)
 ```
 
 The result is MRIReco's `AxisArray` with axes `[x, y, z, echo, coil, rep]`.
-
-## Loading into MriReconstructionToolbox
-
-Load `MriReconstructionToolbox` to convert an ISMRMRD file straight into its
-`AcquisitionInfo` containers via [`load`](@ref) / [`load_dataset`](@ref):
-
-```julia
-using MRITestData, MriReconstructionToolbox
-
-acq = load_dataset(entry)                       # downloads if needed, then loads
-img = reconstruct(acq, Tikhonov(1e-3), CGNR(); maxit = 30)
-
-acq = load("scan.h5"; as = :cartesian, echo = 1, rep = 1)
-```
 
 ## Working with the raw data (no reconstruction package)
 

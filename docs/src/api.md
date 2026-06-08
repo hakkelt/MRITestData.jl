@@ -26,7 +26,6 @@ DatasetEntry
 DatasetHandle
 list_datasets
 query
-search_datasets
 dataset
 ```
 
@@ -54,8 +53,12 @@ clear_cache
 load_raw
 load_acq
 acq_spec
-load
-load_dataset
+```
+
+## Interactive browser
+
+```@docs
+run_browser
 ```
 
 ## Reconstruction
@@ -65,6 +68,5 @@ recon
 ```
 
 !!! note
-    `load` and `load_dataset` require `MriReconstructionToolbox` to be loaded, and
-    `recon` requires `MRIReco` to be loaded — they are implemented in package
-    extensions.
+    `recon` requires `MRIReco` to be loaded — it is implemented in a package
+    extension.

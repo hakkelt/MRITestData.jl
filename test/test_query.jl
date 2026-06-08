@@ -1,6 +1,6 @@
-@testitem "query + TUI rows (offline)" begin
+@testitem "query (offline)" begin
     using MRITestData
-    using MRITestData: _tui_row, _tui_rows, _human_bytes
+    using MRITestData: _human_bytes
 
     all_of(f, xs) = all(f, xs)
 
@@ -63,16 +63,7 @@
         @test all_of(e -> startswith(e.id, "fs_"), ids)
     end
 
-    @testset "TUI row formatting (pure)" begin
-        e = list_datasets(OCMR_SOURCE; offline = true)[1]
-        row = _tui_row(e)
-        @test occursin(e.id, row)
-        @test occursin("ocmr", row)
-
-        rows = _tui_rows(list_datasets(MRIDATA; offline = true))
-        @test length(rows) == length(list_datasets(MRIDATA; offline = true))
-        @test _tui_rows(DatasetEntry[]) == ["(no matches)"]
-
+    @testset "human-readable byte sizes (pure)" begin
         @test _human_bytes(0) == "0B"
         @test _human_bytes(1500) == "1.5KB"
         @test _human_bytes(1_372_000_000) == "1.3GB"

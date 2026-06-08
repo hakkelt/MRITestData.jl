@@ -13,13 +13,12 @@ Supported sources:
 
 Both serve ISMRMRD, which is read via
 [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIReco.jl)/`MRIBase`.
-Reconstruction is provided through optional package extensions that activate
-automatically when the relevant package is loaded:
+Reconstruction is provided through an optional package extension that activates
+automatically when `MRIReco` is loaded:
 
 | Load this… | …to enable | Entry point |
 | --- | --- | --- |
 | `MRIReco` | reconstruct directly from the loaded k-space | [`recon`](@ref) |
-| `MriReconstructionToolbox` | convert to its `AcquisitionInfo` types | [`load`](@ref) / [`load_dataset`](@ref) |
 
 !!! warning "Data licensing"
     This package's MIT license covers **its code only**. Downloaded **data is

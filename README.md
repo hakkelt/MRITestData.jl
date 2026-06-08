@@ -10,9 +10,8 @@
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat"></a>
 
 Query and download free, open-access **MRI k-space datasets** and load them into
-MRI reconstruction packages ([MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl)
-and [`MriReconstructionToolbox`](https://github.com/hakkelt/MriReconstructionToolbox)),
-so reconstruction code can be exercised on real Cartesian and non-Cartesian scanner
+[MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl), so
+reconstruction code can be exercised on real Cartesian and non-Cartesian scanner
 data instead of only synthetic phantoms.
 
 > [!IMPORTANT]
@@ -31,13 +30,12 @@ Supported sources (v1):
 Both sources serve ISMRMRD, which is read via
 [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIReco.jl)/`MRIBase`.
 
-`MRITestData` integrates with **two** reconstruction packages, each through an
-optional package extension that activates automatically when the package is loaded:
+`MRITestData` integrates with **MRIReco** through an optional package extension
+that activates automatically when the package is loaded:
 
 | Load this… | …to enable | Entry point |
 | --- | --- | --- |
 | `MRIReco` | reconstruct directly from the loaded k-space | [`recon`](#reconstruction-with-mrireco) |
-| `MriReconstructionToolbox` | convert to its `AcquisitionInfo` types | [`load` / `load_dataset`](#loading-into-mrireconstructiontoolbox) |
 
 ## Installation
 
@@ -82,31 +80,15 @@ img = recon(acq; reco = "multiCoil", senseMaps = smaps)
 
 The returned image is MRIReco's `AxisArray` with axes `[x, y, z, echo, coil, rep]`.
 
-## Loading into MriReconstructionToolbox
-
-If you use [`MriReconstructionToolbox`](https://github.com/hakkelt/MriReconstructionToolbox),
-`load` / `load_dataset` convert an ISMRMRD file straight into its `AcquisitionInfo`
-containers (Cartesian or non-Cartesian, chosen from the file's trajectory).
-
-```julia
-using MRITestData, MriReconstructionToolbox
-
-acq = load_dataset(entry)                       # downloads if needed, then loads
-img = reconstruct(acq, Tikhonov(1e-3), CGNR(); maxit = 30)
-
-# or from a local file, with explicit control
-acq = load(path; as = :cartesian, echo = 1, rep = 1)
-```
-
 Any mridata.org UUID works even if it is not in the curated catalog:
 
 ```julia
-acq = load_dataset(dataset(MRIDATA, "52c2fd53-d233-4444-8bfd-7c454240d314"))
+img = recon(dataset(MRIDATA, "52c2fd53-d233-4444-8bfd-7c454240d314"))
 ```
 
-### Working with the raw data (no reconstruction package required)
+## Working with the raw data (no reconstruction package required)
 
-Without either reconstruction package loaded you can still use the `MRIBase` layer:
+Without `MRIReco` loaded you can still use the `MRIBase` layer:
 
 ```julia
 using MRITestData
@@ -152,14 +134,10 @@ pkg> test MRITestData
 ```
 
 Offline tests synthesise tiny ISMRMRD files on the fly (no committed binaries, no
-network) and reconstruct them through the MRIReco extension. Two test groups are
-gated behind environment variables:
+network) and reconstruct them through the MRIReco extension. Live-download tests
+are gated behind an environment variable:
 
 ```bash
 # live downloads from mridata.org / OCMR
 MRITESTDATA_NETWORK_TESTS=true julia --project=test test/runtests.jl
-
-# MriReconstructionToolbox integration (off by default — that package does not
-# precompile cleanly in a merged dev environment)
-MRITESTDATA_MRT_TESTS=true julia --project=test test/runtests.jl
 ```

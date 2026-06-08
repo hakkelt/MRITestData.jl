@@ -1,6 +1,6 @@
 # Cross-source query: search one or several sources with the same filter
 # vocabulary as `list_datasets`, plus free-text and `extra`-field matching.
-# Backs the interactive TUI in `tui.jl`.
+# Backs the interactive browser in `Browse.jl`.
 
 """
     query(; sources = list_sources(), text = nothing, offline = false, filters...)

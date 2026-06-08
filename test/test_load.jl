@@ -55,25 +55,9 @@
             @test size(spec.kspace_data, dim(spec.kspace_data, :sample)) == nsamp
         end
 
-        @testset "acq_spec from path + as= coercion" begin
+        @testset "acq_spec from path" begin
             f = write_cartesian_fixture(joinpath(tmp, "cart2.h5"))
             @test acq_spec(f).kind === :cartesian
-            # requesting the wrong kind errors
-            @test_throws ArgumentError MRITestData.load(f; as = :noncartesian)
         end
     end
-end
-
-@testitem "to_acquisition_info: stub errors without MRT loaded" begin
-    using MRITestData
-    using NamedDims: NamedDimsArray
-
-    # MriReconstructionToolbox is NOT loaded by the default test suite, so the
-    # stub must throw a helpful error pointing at the toolbox.
-    spec = (;
-        kind = :cartesian,
-        kspace_data = NamedDimsArray(zeros(ComplexF32, 4, 4, 1, 1), (:kx, :ky, :coil, :z)),
-        image_size = (4, 4), is3D = false, subsampling = nothing, coils = 1,
-    )
-    @test_throws ErrorException MRITestData.to_acquisition_info(spec)
 end

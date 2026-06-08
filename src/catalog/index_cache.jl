@@ -87,6 +87,7 @@ function ensure_index(s::AbstractSource; force::Bool = false, ttl_days::Real = I
 
     url = _index_source_url(s)
     try
+        @info "Fetching $(source_name(s)) index from $url"
         _fetch_index(s, cached; progress = progress)
         _write_index_meta(s, url, true)
         return cached

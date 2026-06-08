@@ -19,13 +19,13 @@ otherwise only be tested on synthetic phantoms.
 - **Download/cache** (`src/download/`): `download_dataset` → Scratch cache, with
   `.part`→atomic-rename, SHA-256 sidecars, and a `ProgressMeter` bar (opt out with
   `progress=false`). `_download_with_progress` is the shared primitive.
-- **Load** (`src/load/`): `load_acq`/`load_raw` (MRIBase), `acq_spec` (a
-  source-agnostic NamedTuple), and `to_acquisition_info` (a stub overridden by the
-  MRT extension).
+- **Load** (`src/load/`): `load_acq`/`load_raw` (MRIBase) and `acq_spec` (a
+  source-agnostic NamedTuple describing the acquisition layout).
 - **Extensions** (`ext/`): `MRITestDataMRIRecoExt` adds `recon(::AcquisitionData;…)`
-  over MRIReco; `MRITestDataMRTExt` adds `to_acquisition_info` →
-  `MriReconstructionToolbox.AcquisitionInfo`. Both are **weakdeps** — the package
-  never hard-depends on a reconstruction package.
+  over MRIReco — a **weakdep**, so the package never hard-depends on a
+  reconstruction package.
+- **Browse** (`src/Browse.jl`): standalone Julia App (`mridata-browse`) built on
+  Tachikoma.jl's `PagedDataTable` for interactive browse/filter/search/download.
 
 ## Commands
 
@@ -44,16 +44,14 @@ otherwise only be tested on synthetic phantoms.
 - Each test is an `@testitem "…" tags=[…] begin … end`; shared fixtures live in a
   `@testmodule Fixtures begin … end` referenced via `setup=[Fixtures]`.
 - **Subset filter** (ARGS): pass one comma-separated string of tags (`:tag`) and/or
-  exact test names; this overrides the default gating, so `:network` and `:mrt` are
-  included if explicitly named.
+  exact test names; this overrides the default gating, so `:network` is included if
+  explicitly named.
 - **Tag scheme** (mind these when adding tests):
-  - default (no special tag): offline unit tests — catalog, cache, load, Aqua, JET.
+  - default (no special tag): offline unit tests — catalog, cache, load, Browse, Aqua, JET.
   - `:mrireco` — reconstruction via the MRIReco extension (offline, synthetic fixtures).
   - `:quality` — Aqua + JET static analysis.
   - `:network` — **opt-in** live downloads; only run when `MRITESTDATA_NETWORK_TESTS=true`
     or explicitly named in the ARGS filter.
-  - `:mrt` — MriReconstructionToolbox integration; **skipped by default** (that
-    package does not precompile cleanly in a merged dev env).
 - Aqua and JET tests must stay **offline** (use `offline=true` on catalog calls).
 - Never commit binary `.h5` fixtures — tests synthesize tiny ISMRMRD files on the fly.
 
