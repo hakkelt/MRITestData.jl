@@ -41,9 +41,9 @@ const _ARCHIVES = Dict{String, _ArchiveSpec}(
 # Memoised (parts map, chunk size) per archive tag, populated on first download.
 const _CMRXRECON_PARTS = Dict{String, Tuple{Dict{String, String}, Int}}()
 
-# CMRxRecon2024 ids are the full in-archive path (already ending in .mat), so the
-# cache filename is the id verbatim — joinpath turns its slashes into a directory tree.
-_cache_basename(::CMRxRecon2024, e::DatasetEntry) = e.id
+# CMRxRecon2024 ids are the in-archive path with the .mat extension stripped; the cached
+# raw file restores it (joinpath turns the id's slashes into a directory tree).
+_cache_basename(::CMRxRecon2024, e::DatasetEntry) = string(e.id, ".mat")
 
 # Load (and memoise) the fragment entity-ID map + chunk size for one archive.
 function _load_cmrxrecon_parts!(archive::AbstractString)

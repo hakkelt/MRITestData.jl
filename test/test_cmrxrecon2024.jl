@@ -23,8 +23,8 @@
         @test all_of(e -> 2.5 <= e.field_strength <= 3.5, es)
         @test all_of(e -> e.trajectory === :cartesian, es)
         @test all_of(e -> e.approx_size_bytes !== nothing, es)
-        # ids are modality-rooted paths ending in .mat; no static download URL.
-        @test all_of(e -> endswith(e.id, ".mat"), es)
+        # ids are modality-rooted paths with no .mat extension; no static download URL.
+        @test all_of(e -> !endswith(e.id, ".mat"), es)
         @test all_of(e -> !startswith(e.id, "MultiCoil/"), es)
         @test all_of(e -> !occursin("/FullSample/", e.id), es)
         @test all_of(e -> e.url == "", es)
@@ -39,7 +39,7 @@
     @testset "metadata from CSV annotations" begin
         es = list_datasets(CMRXRECON2024; offline = true)
         # Spot-check a known FullSample entry using the simplified id.
-        fs = first(filter(e -> e.id == "Cine/TrainingSet/P001/cine_sax.mat", es))
+        fs = first(filter(e -> e.id == "Cine/TrainingSet/P001/cine_sax", es))
         @test get(fs.extra, "modality", "") == "Cine"
         @test get(fs.extra, "dataset_set", "") == "TrainingSet"
         @test get(fs.extra, "subject", "") == "P001"
@@ -48,7 +48,7 @@
         @test get(fs.extra, "sampling", "") == "full"
         @test get(fs.extra, "archive", "") == "training"
         # Spot-check a ValidationSet entry (from the AfterCompetition archive).
-        vs = first(filter(e -> e.id == "Cine/ValidationSet/P001/cine_sax.mat", es))
+        vs = first(filter(e -> e.id == "Cine/ValidationSet/P001/cine_sax", es))
         @test get(vs.extra, "dataset_set", "") == "ValidationSet"
         @test get(vs.extra, "archive", "") == "aftercompetition"
         @test vs.fully_sampled === true
@@ -71,10 +71,11 @@
         @test !isempty(query(; sources = CMRXRECON2024, text = "cine_sax", offline = true))
     end
 
-    @testset "cache path uses .mat id verbatim" begin
+    @testset "cache file restores the .mat extension on the id" begin
         e = list_datasets(CMRXRECON2024; offline = true)[1]
-        @test _cache_basename(CMRXRECON2024, e) == e.id
-        @test endswith(cache_path(e), e.id)
+        @test !endswith(e.id, ".mat")
+        @test _cache_basename(CMRXRECON2024, e) == string(e.id, ".mat")
+        @test endswith(cache_path(e), string(e.id, ".mat"))
         @test occursin("cmrxrecon2024", cache_path(e))
     end
 

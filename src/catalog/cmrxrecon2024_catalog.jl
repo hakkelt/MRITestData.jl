@@ -65,12 +65,13 @@ function _cmrxrecon_str(row, col, key)
     return strip(v isa AbstractString ? String(v) : string(v))
 end
 
-# Convert an archive-canonical path to a user-facing entry id.
-# Strips the redundant "MultiCoil/" prefix (all distributed data is MultiCoil) and the
-# "FullSample/" folder component (retained TrainingSet data is entirely FullSample).
+# Convert an archive-canonical path to a user-facing entry id. Strips the redundant
+# "MultiCoil/" prefix (all distributed data is MultiCoil), the "FullSample/" folder
+# component (retained TrainingSet data is entirely FullSample), and the ".mat" extension.
 function _cmrxrecon_path_to_id(path::AbstractString)
     s = replace(String(path), r"^MultiCoil/" => "")
-    return replace(s, "/FullSample/" => "/")
+    s = replace(s, "/FullSample/" => "/")
+    return replace(s, r"\.mat$" => "")
 end
 
 function _cmrxrecon_entry(row, col)
@@ -192,7 +193,7 @@ end
 function _synthesize_entry(::CMRxRecon2024, id::String)
     error(
         "unknown CMRxRecon2024 file $(repr(id)); ids have the form " *
-            "\"<Modality>/{TrainingSet,ValidationSet,TestSet}/<Subject>/<file>.mat\" " *
-            "and must be present in the bundled offset map (data/cmrxrecon2024_map.csv).",
+            "\"<Modality>/{TrainingSet,ValidationSet,TestSet}/<Subject>/<file>\" (no .mat " *
+            "extension) and must be present in the bundled offset map (data/cmrxrecon2024_map.csv).",
     )
 end
