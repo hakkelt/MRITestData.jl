@@ -1,0 +1,9 @@
+path,set,subject,modality,matfile,data_offset,size
+DemoData/P001/cine_sax_calib.mat,DemoData,P001,Cine SAX,cine_sax_calib.mat,1536,341670060
+DemoData/P001/cine_lax_calib.mat,DemoData,P001,Cine LAX,cine_lax_calib.mat,341672448,97182729
+DemoData/P001/t2map_calib.mat,DemoData,P001,T2map,t2map_calib.mat,438856192,5687192
+DemoData/P001/t2map_ks.mat,DemoData,P001,T2map,t2map_ks.mat,444544000,49602506
+DemoData/P001/cine_lax_ks.mat,DemoData,P001,Cine LAX,cine_lax_ks.mat,494149120,317685203
+DemoData/P001/cine_sax_ks.mat,DemoData,P001,Cine SAX,cine_sax_ks.mat,811834880,979973450
+DemoData/P001/t1map_ks.mat,DemoData,P001,T1map,t1map_ks.mat,1791809024,267836057
+DemoData/P001/t1map_calib.mat,DemoData,P001,T1map,t1map_calib.mat,2059645952,8644681

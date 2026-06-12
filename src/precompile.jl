@@ -47,6 +47,25 @@
         end
     end
 
+    # ── CMRxRecon-300 zran random-access path (synthetic; no network) ────────────
+    # Exercise the libz-backed scan + extract + index (de)serialise and the tar parser
+    # so the first real fetch doesn't pay their compile cost.
+    let
+        _pc_gz = CodecZlib.transcode(CodecZlib.GzipCompressor, rand(UInt8, 60_000))
+        _pc_scan = Zran.ScanState(; on_output = (b, n) -> Zran.scan_capture!(_pc_scan))
+        Zran.scan_feed!(_pc_scan, _pc_gz)
+        _pc_cps = Zran.scan_finish!(_pc_scan)
+        if !isempty(_pc_cps)
+            _pc_io = IOBuffer()
+            Zran.write_index(_pc_io, 8_192, _pc_cps)
+            Zran.read_index(IOBuffer(take!(_pc_io)))
+            _pc_ex = Zran.ExtractState(_pc_cps[1]; skip = 0, nbytes = 16)
+            Zran.extract_feed!(_pc_ex, _pc_gz[(_pc_cps[1].comp_off + 1):end])
+        end
+        _pc_ts = TarIO.TarScanner(m -> nothing)
+        TarIO.feed!(_pc_ts, zeros(UInt8, 1024))
+    end
+
     # ── run_browser code path ────────────────────────────────────────────────────
     # app() opens a real terminal and cannot run at precompile time. record_app()
     # runs the same model+view+update! loop headlessly (no TTY, no raw mode) and

@@ -125,9 +125,10 @@ function BrowserModel(entries::Vector{DatasetEntry})
     )
 end
 
-# CMRxRecon2024 downloads require a Synapse Personal Access Token. An entry needs the
-# token-entry modal when it comes from that source and none is currently configured.
-_needs_synapse_token(e::DatasetEntry) = e.source isa CMRxRecon2024 && isempty(get_synapse_token())
+# CMRxRecon (2024 and -300) downloads require a Synapse Personal Access Token. An entry
+# needs the token-entry modal when it comes from a Synapse source and none is configured.
+_needs_synapse_token(e::DatasetEntry) =
+    (e.source isa CMRxRecon2024 || e.source isa CMRxRecon300) && isempty(get_synapse_token())
 _needs_synapse_token(::Nothing) = false
 
 should_quit(m::BrowserModel) = m.quit
@@ -444,7 +445,7 @@ function _render_token!(m::BrowserModel, area::Rect, buf)
     _clear_rect!(buf, rect)
     render(block, rect, buf)
     body = inner(rect)
-    set_string!(buf, body.x, body.y, "CMRxRecon2024 downloads need a Synapse Personal Access Token.", tstyle(:text))
+    set_string!(buf, body.x, body.y, "CMRxRecon downloads need a Synapse Personal Access Token.", tstyle(:text))
     set_string!(buf, body.x, body.y + 1, "Paste it below (stored in LocalPreferences.toml for reuse).", tstyle(:text_dim))
     set_string!(buf, body.x, body.y + 4, "Enter to save & continue, Esc to go back:", tstyle(:text_dim))
     render(m.token_input, Rect(body.x, body.y + 6, body.width, 1), buf)
@@ -497,7 +498,7 @@ terminal, including from within the Julia REPL.
 
 After selecting a dataset you are asked to confirm (`y`/`n`) and to choose a
 destination path. The default is `<current directory>/<id>.h5`; press Enter to
-accept it. CMRxRecon2024 downloads need a Synapse access token; if none is
+accept it. CMRxRecon downloads need a Synapse access token; if none is
 configured you are prompted for one (saved to `LocalPreferences.toml` for reuse).
 
 Dataset sizes (the Size column) are fetched in the background via HTTP HEAD

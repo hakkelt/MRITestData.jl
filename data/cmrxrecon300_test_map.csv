@@ -1,0 +1,823 @@
+path,set,subject,modality,matfile,data_offset,size
+TestSet/P001/cine_lax_calib.mat,TestSet,P001,Cine LAX,cine_lax_calib.mat,1024,66889314
+TestSet/P001/cine_lax_ks.mat,TestSet,P001,Cine LAX,cine_lax_ks.mat,66892288,94913420
+TestSet/P001/cine_sax_calib.mat,TestSet,P001,Cine SAX,cine_sax_calib.mat,161806336,488925092
+TestSet/P001/cine_sax_ks.mat,TestSet,P001,Cine SAX,cine_sax_ks.mat,650733056,1660699517
+TestSet/P001/t1map_calib.mat,TestSet,P001,T1map,t1map_calib.mat,2311433216,8677074
+TestSet/P001/t1map_ks.mat,TestSet,P001,T1map,t1map_ks.mat,2320112128,268175128
+TestSet/P001/t2map_calib.mat,TestSet,P001,T2map,t2map_calib.mat,2588288000,5694152
+TestSet/P001/t2map_ks.mat,TestSet,P001,T2map,t2map_ks.mat,2593984000,49515125
+TestSet/P002/cine_lax_calib.mat,TestSet,P002,Cine LAX,cine_lax_calib.mat,2643500544,105395505
+TestSet/P002/cine_lax_ks.mat,TestSet,P002,Cine LAX,cine_lax_ks.mat,2748897792,288129706
+TestSet/P002/cine_sax_calib.mat,TestSet,P002,Cine SAX,cine_sax_calib.mat,3037028352,312308076
+TestSet/P002/cine_sax_ks.mat,TestSet,P002,Cine SAX,cine_sax_ks.mat,3349338112,1085589223
+TestSet/P002/t1map_calib.mat,TestSet,P002,T1map,t1map_calib.mat,4434928128,8605340
+TestSet/P002/t1map_ks.mat,TestSet,P002,T1map,t1map_ks.mat,4443535360,268105865
+TestSet/P002/t2map_calib.mat,TestSet,P002,T2map,t2map_calib.mat,4711642112,5667286
+TestSet/P002/t2map_ks.mat,TestSet,P002,T2map,t2map_ks.mat,4717310976,49661261
+TestSet/P003/t1map_calib.mat,TestSet,P003,T1map,t1map_calib.mat,4766973440,8530940
+TestSet/P003/t1map_ks.mat,TestSet,P003,T1map,t1map_ks.mat,4775505920,265859265
+TestSet/P003/t2map_calib.mat,TestSet,P003,T2map,t2map_calib.mat,5041366016,5607901
+TestSet/P003/t2map_ks.mat,TestSet,P003,T2map,t2map_ks.mat,5046975488,49350187
+TestSet/P004/cine_lax_calib.mat,TestSet,P004,Cine LAX,cine_lax_calib.mat,5096327168,104025752
+TestSet/P004/cine_lax_ks.mat,TestSet,P004,Cine LAX,cine_lax_ks.mat,5200354816,281089347
+TestSet/P004/cine_sax_calib.mat,TestSet,P004,Cine SAX,cine_sax_calib.mat,5481444864,363145631
+TestSet/P004/cine_sax_ks.mat,TestSet,P004,Cine SAX,cine_sax_ks.mat,5844592128,1024570938
+TestSet/P004/t1map_calib.mat,TestSet,P004,T1map,t1map_calib.mat,6869164032,10411867
+TestSet/P004/t1map_ks.mat,TestSet,P004,T1map,t1map_ks.mat,6879577600,326683994
+TestSet/P004/t2map_calib.mat,TestSet,P004,T2map,t2map_calib.mat,7206262272,7015046
+TestSet/P004/t2map_ks.mat,TestSet,P004,T2map,t2map_ks.mat,7213279232,60166777
+TestSet/P005/cine_lax_calib.mat,TestSet,P005,Cine LAX,cine_lax_calib.mat,7273447424,100470304
+TestSet/P005/cine_lax_ks.mat,TestSet,P005,Cine LAX,cine_lax_ks.mat,7373919744,269259586
+TestSet/P005/cine_sax_calib.mat,TestSet,P005,Cine SAX,cine_sax_calib.mat,7643180032,339944987
+TestSet/P005/cine_sax_ks.mat,TestSet,P005,Cine SAX,cine_sax_ks.mat,7983127040,964313983
+TestSet/P005/t1map_calib.mat,TestSet,P005,T1map,t1map_calib.mat,8947441664,8699763
+TestSet/P005/t1map_ks.mat,TestSet,P005,T1map,t1map_ks.mat,8956143104,268633250
+TestSet/P005/t2map_calib.mat,TestSet,P005,T2map,t2map_calib.mat,9224777216,5759495
+TestSet/P005/t2map_ks.mat,TestSet,P005,T2map,t2map_ks.mat,9230538752,49859464
+TestSet/P006/cine_lax_calib.mat,TestSet,P006,Cine LAX,cine_lax_calib.mat,9280399360,114128062
+TestSet/P006/cine_lax_ks.mat,TestSet,P006,Cine LAX,cine_lax_ks.mat,9394529280,270702125
+TestSet/P006/cine_sax_calib.mat,TestSet,P006,Cine SAX,cine_sax_calib.mat,9665232384,434982639
+TestSet/P006/cine_sax_ks.mat,TestSet,P006,Cine SAX,cine_sax_ks.mat,10100216832,1250845798
+TestSet/P006/t1map_calib.mat,TestSet,P006,T1map,t1map_calib.mat,11351063552,8653906
+TestSet/P006/t1map_ks.mat,TestSet,P006,T1map,t1map_ks.mat,11359719424,267679271
+TestSet/P006/t2map_calib.mat,TestSet,P006,T2map,t2map_calib.mat,11627399680,5685292
+TestSet/P006/t2map_ks.mat,TestSet,P006,T2map,t2map_ks.mat,11633086976,49530000
+TestSet/P007/t1map_calib.mat,TestSet,P007,T1map,t1map_calib.mat,11682618368,8652299
+TestSet/P007/t1map_ks.mat,TestSet,P007,T1map,t1map_ks.mat,11691272704,267650648
+TestSet/P007/t2map_calib.mat,TestSet,P007,T2map,t2map_calib.mat,11958924288,5698182
+TestSet/P007/t2map_ks.mat,TestSet,P007,T2map,t2map_ks.mat,11964624384,49632753
+TestSet/P008/t1map_calib.mat,TestSet,P008,T1map,t1map_calib.mat,12014258176,8619543
+TestSet/P008/t1map_ks.mat,TestSet,P008,T1map,t1map_ks.mat,12022879744,266267864
+TestSet/P008/t2map_calib.mat,TestSet,P008,T2map,t2map_calib.mat,12289148416,5654374
+TestSet/P008/t2map_ks.mat,TestSet,P008,T2map,t2map_ks.mat,12294804480,49412318
+TestSet/P009/t1map_calib.mat,TestSet,P009,T1map,t1map_calib.mat,12344218112,10387714
+TestSet/P009/t1map_ks.mat,TestSet,P009,T1map,t1map_ks.mat,12354607616,324966966
+TestSet/P009/t2map_calib.mat,TestSet,P009,T2map,t2map_calib.mat,12679575552,6987243
+TestSet/P009/t2map_ks.mat,TestSet,P009,T2map,t2map_ks.mat,12686564352,60045152
+TestSet/P010/t1map_calib.mat,TestSet,P010,T1map,t1map_calib.mat,12746610688,8587301
+TestSet/P010/t1map_ks.mat,TestSet,P010,T1map,t1map_ks.mat,12755200000,267305705
+TestSet/P010/t2map_calib.mat,TestSet,P010,T2map,t2map_calib.mat,13022506496,5673055
+TestSet/P010/t2map_ks.mat,TestSet,P010,T2map,t2map_ks.mat,13028181504,49491691
+TestSet/P011/cine_lax_calib.mat,TestSet,P011,Cine LAX,cine_lax_calib.mat,13077674496,49309778
+TestSet/P011/cine_lax_ks.mat,TestSet,P011,Cine LAX,cine_lax_ks.mat,13126986240,79398332
+TestSet/P011/t1map_calib.mat,TestSet,P011,T1map,t1map_calib.mat,13206385152,8663200
+TestSet/P011/t1map_ks.mat,TestSet,P011,T1map,t1map_ks.mat,13215050240,268574708
+TestSet/P011/t2map_calib.mat,TestSet,P011,T2map,t2map_calib.mat,13483625472,5708178
+TestSet/P011/t2map_ks.mat,TestSet,P011,T2map,t2map_ks.mat,13489335296,49751042
+TestSet/P012/cine_lax_calib.mat,TestSet,P012,Cine LAX,cine_lax_calib.mat,13539087872,142192780
+TestSet/P012/cine_lax_ks.mat,TestSet,P012,Cine LAX,cine_lax_ks.mat,13681282560,333743886
+TestSet/P012/cine_sax_calib.mat,TestSet,P012,Cine SAX,cine_sax_calib.mat,14015027200,543144325
+TestSet/P012/cine_sax_ks.mat,TestSet,P012,Cine SAX,cine_sax_ks.mat,14558173184,1527296237
+TestSet/P012/t1map_calib.mat,TestSet,P012,T1map,t1map_calib.mat,16085470208,10395707
+TestSet/P012/t1map_ks.mat,TestSet,P012,T1map,t1map_ks.mat,16095867904,325294486
+TestSet/P012/t2map_calib.mat,TestSet,P012,T2map,t2map_calib.mat,16421163008,6982888
+TestSet/P012/t2map_ks.mat,TestSet,P012,T2map,t2map_ks.mat,16428147712,60001840
+TestSet/P013/cine_lax_calib.mat,TestSet,P013,Cine LAX,cine_lax_calib.mat,16488151040,98962927
+TestSet/P013/cine_lax_ks.mat,TestSet,P013,Cine LAX,cine_lax_ks.mat,16587115520,266367984
+TestSet/P013/cine_sax_calib.mat,TestSet,P013,Cine SAX,cine_sax_calib.mat,16853484032,378971241
+TestSet/P013/cine_sax_ks.mat,TestSet,P013,Cine SAX,cine_sax_ks.mat,17232457216,1290514519
+TestSet/P013/t1map_calib.mat,TestSet,P013,T1map,t1map_calib.mat,18522972672,10429926
+TestSet/P013/t1map_ks.mat,TestSet,P013,T1map,t1map_ks.mat,18533404160,326938113
+TestSet/P013/t2map_calib.mat,TestSet,P013,T2map,t2map_calib.mat,18860343296,7060155
+TestSet/P013/t2map_ks.mat,TestSet,P013,T2map,t2map_ks.mat,18867405312,60224873
+TestSet/P014/t1map_calib.mat,TestSet,P014,T1map,t1map_calib.mat,18927631360,10432220
+TestSet/P014/t1map_ks.mat,TestSet,P014,T1map,t1map_ks.mat,18938065408,327610279
+TestSet/P014/t2map_calib.mat,TestSet,P014,T2map,t2map_calib.mat,19265676288,7055165
+TestSet/P014/t2map_ks.mat,TestSet,P014,T2map,t2map_ks.mat,19272733184,60406773
+TestSet/P015/cine_sax_calib.mat,TestSet,P015,Cine SAX,cine_sax_calib.mat,19333140992,370653220
+TestSet/P015/cine_sax_ks.mat,TestSet,P015,Cine SAX,cine_sax_ks.mat,19703796224,1047350607
+TestSet/P015/t1map_calib.mat,TestSet,P015,T1map,t1map_calib.mat,20751147520,8706051
+TestSet/P015/t1map_ks.mat,TestSet,P015,T1map,t1map_ks.mat,20759855616,268733286
+TestSet/P015/t2map_calib.mat,TestSet,P015,T2map,t2map_calib.mat,21028589568,5751014
+TestSet/P015/t2map_ks.mat,TestSet,P015,T2map,t2map_ks.mat,21034342400,49815494
+TestSet/P016/t1map_calib.mat,TestSet,P016,T1map,t1map_calib.mat,21084158976,8620398
+TestSet/P016/t1map_ks.mat,TestSet,P016,T1map,t1map_ks.mat,21092781056,267152684
+TestSet/P016/t2map_calib.mat,TestSet,P016,T2map,t2map_calib.mat,21359934464,5663283
+TestSet/P016/t2map_ks.mat,TestSet,P016,T2map,t2map_ks.mat,21365599744,49339446
+TestSet/P017/t1map_calib.mat,TestSet,P017,T1map,t1map_calib.mat,21414940672,8583444
+TestSet/P017/t1map_ks.mat,TestSet,P017,T1map,t1map_ks.mat,21423525888,267307533
+TestSet/P017/t2map_calib.mat,TestSet,P017,T2map,t2map_calib.mat,21690834432,5649876
+TestSet/P017/t2map_ks.mat,TestSet,P017,T2map,t2map_ks.mat,21696485888,49522987
+TestSet/P018/cine_lax_calib.mat,TestSet,P018,Cine LAX,cine_lax_calib.mat,21746010112,104202113
+TestSet/P018/cine_lax_ks.mat,TestSet,P018,Cine LAX,cine_lax_ks.mat,21850213888,276858060
+TestSet/P018/cine_sax_calib.mat,TestSet,P018,Cine SAX,cine_sax_calib.mat,22127072768,360095058
+TestSet/P018/cine_sax_ks.mat,TestSet,P018,Cine SAX,cine_sax_ks.mat,22487169536,1230053832
+TestSet/P018/t1map_calib.mat,TestSet,P018,T1map,t1map_calib.mat,23717223936,8639274
+TestSet/P018/t1map_ks.mat,TestSet,P018,T1map,t1map_ks.mat,23725864960,267408222
+TestSet/P018/t2map_calib.mat,TestSet,P018,T2map,t2map_calib.mat,23993273856,5687773
+TestSet/P018/t2map_ks.mat,TestSet,P018,T2map,t2map_ks.mat,23998963200,49560619
+TestSet/P019/cine_lax_calib.mat,TestSet,P019,Cine LAX,cine_lax_calib.mat,24048525312,134998944
+TestSet/P019/cine_lax_ks.mat,TestSet,P019,Cine LAX,cine_lax_ks.mat,24183525888,388744866
+TestSet/P019/cine_sax_calib.mat,TestSet,P019,Cine SAX,cine_sax_calib.mat,24572271616,517055708
+TestSet/P019/cine_sax_ks.mat,TestSet,P019,Cine SAX,cine_sax_ks.mat,25089329152,1474758416
+TestSet/P019/t1map_calib.mat,TestSet,P019,T1map,t1map_calib.mat,26564088320,10460158
+TestSet/P019/t1map_ks.mat,TestSet,P019,T1map,t1map_ks.mat,26574550016,328328054
+TestSet/P019/t2map_calib.mat,TestSet,P019,T2map,t2map_calib.mat,26902878720,7059891
+TestSet/P019/t2map_ks.mat,TestSet,P019,T2map,t2map_ks.mat,26909940224,60335606
+TestSet/P020/cine_lax_calib.mat,TestSet,P020,Cine LAX,cine_lax_calib.mat,26970276864,109662827
+TestSet/P020/cine_lax_ks.mat,TestSet,P020,Cine LAX,cine_lax_ks.mat,27079941632,356989885
+TestSet/P020/cine_sax_calib.mat,TestSet,P020,Cine SAX,cine_sax_calib.mat,27436932096,370710830
+TestSet/P020/cine_sax_ks.mat,TestSet,P020,Cine SAX,cine_sax_ks.mat,27807644672,1059956142
+TestSet/P020/t1map_calib.mat,TestSet,P020,T1map,t1map_calib.mat,28867601408,10382793
+TestSet/P020/t1map_ks.mat,TestSet,P020,T1map,t1map_ks.mat,28877985792,324501813
+TestSet/P020/t2map_calib.mat,TestSet,P020,T2map,t2map_calib.mat,29202488320,6991997
+TestSet/P020/t2map_ks.mat,TestSet,P020,T2map,t2map_ks.mat,29209482240,59954851
+TestSet/P021/cine_lax_calib.mat,TestSet,P021,Cine LAX,cine_lax_calib.mat,29269438464,115460911
+TestSet/P021/cine_lax_ks.mat,TestSet,P021,Cine LAX,cine_lax_ks.mat,29384901120,278997764
+TestSet/P021/cine_sax_calib.mat,TestSet,P021,Cine SAX,cine_sax_calib.mat,29663899648,390466281
+TestSet/P021/cine_sax_ks.mat,TestSet,P021,Cine SAX,cine_sax_ks.mat,30054367744,1112695990
+TestSet/P021/t1map_calib.mat,TestSet,P021,T1map,t1map_calib.mat,31167064576,8649778
+TestSet/P021/t1map_ks.mat,TestSet,P021,T1map,t1map_ks.mat,31175716352,267769801
+TestSet/P021/t2map_calib.mat,TestSet,P021,T2map,t2map_calib.mat,31443486720,5687504
+TestSet/P021/t2map_ks.mat,TestSet,P021,T2map,t2map_ks.mat,31449176064,49548216
+TestSet/P022/cine_lax_calib.mat,TestSet,P022,Cine LAX,cine_lax_calib.mat,31498725376,135363344
+TestSet/P022/cine_lax_ks.mat,TestSet,P022,Cine LAX,cine_lax_ks.mat,31634090496,320447765
+TestSet/P022/cine_sax_calib.mat,TestSet,P022,Cine SAX,cine_sax_calib.mat,31954539008,410993546
+TestSet/P022/cine_sax_ks.mat,TestSet,P022,Cine SAX,cine_sax_ks.mat,32365534208,1428665544
+TestSet/P022/t1map_calib.mat,TestSet,P022,T1map,t1map_calib.mat,33794200576,8645183
+TestSet/P022/t1map_ks.mat,TestSet,P022,T1map,t1map_ks.mat,33802847744,269772837
+TestSet/P022/t2map_calib.mat,TestSet,P022,T2map,t2map_calib.mat,34072621568,5711988
+TestSet/P022/t2map_ks.mat,TestSet,P022,T2map,t2map_ks.mat,34078335488,49774686
+TestSet/P023/t1map_calib.mat,TestSet,P023,T1map,t1map_calib.mat,34128111616,10439935
+TestSet/P023/t1map_ks.mat,TestSet,P023,T1map,t1map_ks.mat,34138553344,329402000
+TestSet/P023/t2map_calib.mat,TestSet,P023,T2map,t2map_calib.mat,34467956224,7064123
+TestSet/P023/t2map_ks.mat,TestSet,P023,T2map,t2map_ks.mat,34475022336,60470398
+TestSet/P024/t1map_calib.mat,TestSet,P024,T1map,t1map_calib.mat,34535494144,8648853
+TestSet/P024/t1map_ks.mat,TestSet,P024,T1map,t1map_ks.mat,34544144896,267254084
+TestSet/P024/t2map_calib.mat,TestSet,P024,T2map,t2map_calib.mat,34811399680,5704548
+TestSet/P024/t2map_ks.mat,TestSet,P024,T2map,t2map_ks.mat,34817105920,49513248
+TestSet/P025/cine_lax_calib.mat,TestSet,P025,Cine LAX,cine_lax_calib.mat,34866620416,62761186
+TestSet/P025/cine_lax_ks.mat,TestSet,P025,Cine LAX,cine_lax_ks.mat,34929383424,97166827
+TestSet/P025/cine_sax_calib.mat,TestSet,P025,Cine SAX,cine_sax_calib.mat,35026550784,550856759
+TestSet/P025/cine_sax_ks.mat,TestSet,P025,Cine SAX,cine_sax_ks.mat,35577409536,1856573327
+TestSet/P025/t1map_calib.mat,TestSet,P025,T1map,t1map_calib.mat,37433983488,8650850
+TestSet/P025/t1map_ks.mat,TestSet,P025,T1map,t1map_ks.mat,37442636288,268671836
+TestSet/P025/t2map_calib.mat,TestSet,P025,T2map,t2map_calib.mat,37711308800,5698056
+TestSet/P025/t2map_ks.mat,TestSet,P025,T2map,t2map_ks.mat,37717008896,49695123
+TestSet/P026/cine_lax_calib.mat,TestSet,P026,Cine LAX,cine_lax_calib.mat,37766705152,120432880
+TestSet/P026/cine_lax_ks.mat,TestSet,P026,Cine LAX,cine_lax_ks.mat,37887139840,344585596
+TestSet/P026/cine_sax_calib.mat,TestSet,P026,Cine SAX,cine_sax_calib.mat,38231726080,446817551
+TestSet/P026/cine_sax_ks.mat,TestSet,P026,Cine SAX,cine_sax_ks.mat,38678545408,1539824913
+TestSet/P026/t1map_calib.mat,TestSet,P026,T1map,t1map_calib.mat,40218371072,8633336
+TestSet/P026/t1map_ks.mat,TestSet,P026,T1map,t1map_ks.mat,40227005952,267541618
+TestSet/P026/t2map_calib.mat,TestSet,P026,T2map,t2map_calib.mat,40494548480,5654144
+TestSet/P026/t2map_ks.mat,TestSet,P026,T2map,t2map_ks.mat,40500204544,49414632
+TestSet/P027/cine_lax_calib.mat,TestSet,P027,Cine LAX,cine_lax_calib.mat,40549620224,139168870
+TestSet/P027/cine_lax_ks.mat,TestSet,P027,Cine LAX,cine_lax_ks.mat,40688791040,323717063
+TestSet/P027/cine_sax_calib.mat,TestSet,P027,Cine SAX,cine_sax_calib.mat,41012508672,431433567
+TestSet/P027/cine_sax_ks.mat,TestSet,P027,Cine SAX,cine_sax_ks.mat,41443943936,1456281161
+TestSet/P027/t1map_calib.mat,TestSet,P027,T1map,t1map_calib.mat,42900226048,8705565
+TestSet/P027/t1map_ks.mat,TestSet,P027,T1map,t1map_ks.mat,42908933632,268580064
+TestSet/P027/t2map_calib.mat,TestSet,P027,T2map,t2map_calib.mat,43177514496,5715413
+TestSet/P027/t2map_ks.mat,TestSet,P027,T2map,t2map_ks.mat,43183231488,49664411
+TestSet/P028/cine_sax_calib.mat,TestSet,P028,Cine SAX,cine_sax_calib.mat,43232897024,375038382
+TestSet/P028/cine_sax_ks.mat,TestSet,P028,Cine SAX,cine_sax_ks.mat,43607937024,1082511152
+TestSet/P028/t1map_calib.mat,TestSet,P028,T1map,t1map_calib.mat,44690448896,8523952
+TestSet/P028/t1map_ks.mat,TestSet,P028,T1map,t1map_ks.mat,44698974720,265526006
+TestSet/P028/t2map_calib.mat,TestSet,P028,T2map,t2map_calib.mat,44964501504,5586194
+TestSet/P028/t2map_ks.mat,TestSet,P028,T2map,t2map_ks.mat,44970089472,49246819
+TestSet/P029/cine_lax_calib.mat,TestSet,P029,Cine LAX,cine_lax_calib.mat,45019337728,125778146
+TestSet/P029/cine_lax_ks.mat,TestSet,P029,Cine LAX,cine_lax_ks.mat,45145117696,299269526
+TestSet/P029/cine_sax_calib.mat,TestSet,P029,Cine SAX,cine_sax_calib.mat,45444387840,411250626
+TestSet/P029/cine_sax_ks.mat,TestSet,P029,Cine SAX,cine_sax_ks.mat,45855640064,1176460839
+TestSet/P029/t1map_calib.mat,TestSet,P029,T1map,t1map_calib.mat,47032101888,10407532
+TestSet/P029/t1map_ks.mat,TestSet,P029,T1map,t1map_ks.mat,47042511360,325925960
+TestSet/P029/t2map_calib.mat,TestSet,P029,T2map,t2map_calib.mat,47368438272,6989664
+TestSet/P029/t2map_ks.mat,TestSet,P029,T2map,t2map_ks.mat,47375429632,60015652
+TestSet/P030/cine_lax_calib.mat,TestSet,P030,Cine LAX,cine_lax_calib.mat,47435446784,133946071
+TestSet/P030/cine_lax_ks.mat,TestSet,P030,Cine LAX,cine_lax_ks.mat,47569394688,321621425
+TestSet/P030/cine_sax_calib.mat,TestSet,P030,Cine SAX,cine_sax_calib.mat,47891016704,383436137
+TestSet/P030/cine_sax_ks.mat,TestSet,P030,Cine SAX,cine_sax_ks.mat,48274454528,1090283654
+TestSet/P030/t1map_calib.mat,TestSet,P030,T1map,t1map_calib.mat,49364739072,8629450
+TestSet/P030/t1map_ks.mat,TestSet,P030,T1map,t1map_ks.mat,49373370368,267185242
+TestSet/P030/t2map_calib.mat,TestSet,P030,T2map,t2map_calib.mat,49640556544,5678750
+TestSet/P030/t2map_ks.mat,TestSet,P030,T2map,t2map_ks.mat,49646237184,49446633
+TestSet/P031/cine_lax_calib.mat,TestSet,P031,Cine LAX,cine_lax_calib.mat,49695685120,123187956
+TestSet/P031/cine_lax_ks.mat,TestSet,P031,Cine LAX,cine_lax_ks.mat,49818874880,353854012
+TestSet/P031/cine_sax_calib.mat,TestSet,P031,Cine SAX,cine_sax_calib.mat,50172729856,423979682
+TestSet/P031/cine_sax_ks.mat,TestSet,P031,Cine SAX,cine_sax_ks.mat,50596711424,1208829800
+TestSet/P031/t1map_calib.mat,TestSet,P031,T1map,t1map_calib.mat,51805541888,8609261
+TestSet/P031/t1map_ks.mat,TestSet,P031,T1map,t1map_ks.mat,51814152704,267301869
+TestSet/P031/t2map_calib.mat,TestSet,P031,T2map,t2map_calib.mat,52081455104,5662212
+TestSet/P031/t2map_ks.mat,TestSet,P031,T2map,t2map_ks.mat,52087119360,49369618
+TestSet/P032/cine_lax_calib.mat,TestSet,P032,Cine LAX,cine_lax_calib.mat,52136490496,137352311
+TestSet/P032/cine_lax_ks.mat,TestSet,P032,Cine LAX,cine_lax_ks.mat,52273844736,396479952
+TestSet/P032/cine_sax_calib.mat,TestSet,P032,Cine SAX,cine_sax_calib.mat,52670325248,488280133
+TestSet/P032/cine_sax_ks.mat,TestSet,P032,Cine SAX,cine_sax_ks.mat,53158607360,1387705585
+TestSet/P032/t1map_calib.mat,TestSet,P032,T1map,t1map_calib.mat,54546313728,10373813
+TestSet/P032/t1map_ks.mat,TestSet,P032,T1map,t1map_ks.mat,54556689408,326273880
+TestSet/P032/t2map_calib.mat,TestSet,P032,T2map,t2map_calib.mat,54882963968,6954523
+TestSet/P032/t2map_ks.mat,TestSet,P032,T2map,t2map_ks.mat,54889920512,60048194
+TestSet/P033/cine_lax_calib.mat,TestSet,P033,Cine LAX,cine_lax_calib.mat,54949969920,98894619
+TestSet/P033/cine_lax_ks.mat,TestSet,P033,Cine LAX,cine_lax_ks.mat,55048866304,326142562
+TestSet/P033/cine_sax_calib.mat,TestSet,P033,Cine SAX,cine_sax_calib.mat,55375009792,313289182
+TestSet/P033/cine_sax_ks.mat,TestSet,P033,Cine SAX,cine_sax_ks.mat,55688300544,714916648
+TestSet/P033/t1map_calib.mat,TestSet,P033,T1map,t1map_calib.mat,56403217920,8594532
+TestSet/P033/t1map_ks.mat,TestSet,P033,T1map,t1map_ks.mat,56411814400,268063639
+TestSet/P033/t2map_calib.mat,TestSet,P033,T2map,t2map_calib.mat,56679878656,5656217
+TestSet/P033/t2map_ks.mat,TestSet,P033,T2map,t2map_ks.mat,56685536768,49545618
+TestSet/P034/cine_lax_calib.mat,TestSet,P034,Cine LAX,cine_lax_calib.mat,56735083520,115914376
+TestSet/P034/cine_lax_ks.mat,TestSet,P034,Cine LAX,cine_lax_ks.mat,56850999808,333322748
+TestSet/P034/cine_sax_calib.mat,TestSet,P034,Cine SAX,cine_sax_calib.mat,57184323072,429697648
+TestSet/P034/cine_sax_ks.mat,TestSet,P034,Cine SAX,cine_sax_ks.mat,57614022656,1227559014
+TestSet/P034/t1map_calib.mat,TestSet,P034,T1map,t1map_calib.mat,58841582592,10413275
+TestSet/P034/t1map_ks.mat,TestSet,P034,T1map,t1map_ks.mat,58851997696,325773018
+TestSet/P034/t2map_calib.mat,TestSet,P034,T2map,t2map_calib.mat,59177771520,7004483
+TestSet/P034/t2map_ks.mat,TestSet,P034,T2map,t2map_ks.mat,59184777728,60034374
+TestSet/P035/cine_lax_calib.mat,TestSet,P035,Cine LAX,cine_lax_calib.mat,59244813312,41294129
+TestSet/P035/cine_lax_ks.mat,TestSet,P035,Cine LAX,cine_lax_ks.mat,59286109184,69937757
+TestSet/P035/cine_sax_calib.mat,TestSet,P035,Cine SAX,cine_sax_calib.mat,59356047872,345626292
+TestSet/P035/cine_sax_ks.mat,TestSet,P035,Cine SAX,cine_sax_ks.mat,59701676032,1193522964
+TestSet/P035/t1map_calib.mat,TestSet,P035,T1map,t1map_calib.mat,60895199744,10424442
+TestSet/P035/t1map_ks.mat,TestSet,P035,T1map,t1map_ks.mat,60905626112,326639353
+TestSet/P035/t2map_calib.mat,TestSet,P035,T2map,t2map_calib.mat,61232266240,7026538
+TestSet/P035/t2map_ks.mat,TestSet,P035,T2map,t2map_ks.mat,61239294464,60230687
+TestSet/P036/cine_lax_calib.mat,TestSet,P036,Cine LAX,cine_lax_calib.mat,61299526656,150003319
+TestSet/P036/cine_lax_ks.mat,TestSet,P036,Cine LAX,cine_lax_ks.mat,61449531904,351722298
+TestSet/P036/t1map_calib.mat,TestSet,P036,T1map,t1map_calib.mat,61801254912,10453496
+TestSet/P036/t1map_ks.mat,TestSet,P036,T1map,t1map_ks.mat,61811709952,327669850
+TestSet/P036/t2map_calib.mat,TestSet,P036,T2map,t2map_calib.mat,62139380736,7053617
+TestSet/P036/t2map_ks.mat,TestSet,P036,T2map,t2map_ks.mat,62146436096,60258708
+TestSet/P036/cine_sax_calib.mat,TestSet,P036,Cine SAX,cine_sax_calib.mat,62206695424,432242458
+TestSet/P036/cine_sax_ks.mat,TestSet,P036,Cine SAX,cine_sax_ks.mat,62638939648,1205136320
+TestSet/P037/t1map_calib.mat,TestSet,P037,T1map,t1map_calib.mat,63844077056,8648701
+TestSet/P037/t1map_ks.mat,TestSet,P037,T1map,t1map_ks.mat,63852727296,268258125
+TestSet/P037/t2map_calib.mat,TestSet,P037,T2map,t2map_calib.mat,64120986112,5691820
+TestSet/P037/t2map_ks.mat,TestSet,P037,T2map,t2map_ks.mat,64126679552,49642250
+TestSet/P038/cine_lax_calib.mat,TestSet,P038,Cine LAX,cine_lax_calib.mat,64176323072,92431959
+TestSet/P038/cine_lax_ks.mat,TestSet,P038,Cine LAX,cine_lax_ks.mat,64268756992,254219000
+TestSet/P038/cine_sax_calib.mat,TestSet,P038,Cine SAX,cine_sax_calib.mat,64522976768,500100958
+TestSet/P038/cine_sax_ks.mat,TestSet,P038,Cine SAX,cine_sax_ks.mat,65023079424,1671484190
+TestSet/P038/t1map_calib.mat,TestSet,P038,T1map,t1map_calib.mat,66694564352,8664101
+TestSet/P038/t1map_ks.mat,TestSet,P038,T1map,t1map_ks.mat,66703230464,268545486
+TestSet/P038/t2map_calib.mat,TestSet,P038,T2map,t2map_calib.mat,66971776512,5695513
+TestSet/P038/t2map_ks.mat,TestSet,P038,T2map,t2map_ks.mat,66977474048,49710201
+TestSet/P039/t1map_calib.mat,TestSet,P039,T1map,t1map_calib.mat,67027185664,8581069
+TestSet/P039/t1map_ks.mat,TestSet,P039,T1map,t1map_ks.mat,67035768320,266826270
+TestSet/P039/t2map_calib.mat,TestSet,P039,T2map,t2map_calib.mat,67302595584,5652205
+TestSet/P039/t2map_ks.mat,TestSet,P039,T2map,t2map_ks.mat,67308249600,49445791
+TestSet/P040/cine_lax_calib.mat,TestSet,P040,Cine LAX,cine_lax_calib.mat,67357696512,120908846
+TestSet/P040/cine_lax_ks.mat,TestSet,P040,Cine LAX,cine_lax_ks.mat,67478607360,344527468
+TestSet/P040/cine_sax_calib.mat,TestSet,P040,Cine SAX,cine_sax_calib.mat,67823135744,435674651
+TestSet/P040/cine_sax_ks.mat,TestSet,P040,Cine SAX,cine_sax_ks.mat,68258812416,1243736448
+TestSet/P040/t1map_calib.mat,TestSet,P040,T1map,t1map_calib.mat,69502549504,12135150
+TestSet/P040/t1map_ks.mat,TestSet,P040,T1map,t1map_ks.mat,69514686464,379883305
+TestSet/P040/t2map_calib.mat,TestSet,P040,T2map,t2map_calib.mat,69894570496,7956053
+TestSet/P040/t2map_ks.mat,TestSet,P040,T2map,t2map_ks.mat,69902528512,68863125
+TestSet/P041/cine_lax_calib.mat,TestSet,P041,Cine LAX,cine_lax_calib.mat,69971393024,42959468
+TestSet/P041/cine_lax_ks.mat,TestSet,P041,Cine LAX,cine_lax_ks.mat,70014354432,94242689
+TestSet/P041/cine_sax_calib.mat,TestSet,P041,Cine SAX,cine_sax_calib.mat,70108597760,445543680
+TestSet/P041/cine_sax_ks.mat,TestSet,P041,Cine SAX,cine_sax_ks.mat,70554143232,1265271263
+TestSet/P041/t1map_calib.mat,TestSet,P041,T1map,t1map_calib.mat,71819415040,10361769
+TestSet/P041/t1map_ks.mat,TestSet,P041,T1map,t1map_ks.mat,71829778432,325335548
+TestSet/P041/t2map_calib.mat,TestSet,P041,T2map,t2map_calib.mat,72155114496,6966677
+TestSet/P041/t2map_ks.mat,TestSet,P041,T2map,t2map_ks.mat,72162082816,59945890
+TestSet/P042/cine_lax_calib.mat,TestSet,P042,Cine LAX,cine_lax_calib.mat,72222029824,146932918
+TestSet/P042/cine_lax_ks.mat,TestSet,P042,Cine LAX,cine_lax_ks.mat,72368964608,420412676
+TestSet/P042/cine_sax_calib.mat,TestSet,P042,Cine SAX,cine_sax_calib.mat,72789378048,558934021
+TestSet/P042/cine_sax_ks.mat,TestSet,P042,Cine SAX,cine_sax_ks.mat,73348314112,1678772980
+TestSet/P043/cine_lax_calib.mat,TestSet,P043,Cine LAX,cine_lax_calib.mat,75027088384,78638824
+TestSet/P043/cine_lax_ks.mat,TestSet,P043,Cine LAX,cine_lax_ks.mat,75105729024,169046830
+TestSet/P043/cine_sax_calib.mat,TestSet,P043,Cine SAX,cine_sax_calib.mat,75274776576,378529781
+TestSet/P043/cine_sax_ks.mat,TestSet,P043,Cine SAX,cine_sax_ks.mat,75653307904,853695392
+TestSet/P043/t1map_calib.mat,TestSet,P043,T1map,t1map_calib.mat,76507003904,10371849
+TestSet/P043/t1map_ks.mat,TestSet,P043,T1map,t1map_ks.mat,76517377536,325055135
+TestSet/P043/t2map_calib.mat,TestSet,P043,T2map,t2map_calib.mat,76842433536,6995867
+TestSet/P043/t2map_ks.mat,TestSet,P043,T2map,t2map_ks.mat,76849431040,59985339
+TestSet/P044/cine_lax_calib.mat,TestSet,P044,Cine LAX,cine_lax_calib.mat,76909417472,112955465
+TestSet/P044/cine_lax_ks.mat,TestSet,P044,Cine LAX,cine_lax_ks.mat,77022374912,371448049
+TestSet/P044/cine_sax_calib.mat,TestSet,P044,Cine SAX,cine_sax_calib.mat,77393823744,399204059
+TestSet/P044/cine_sax_ks.mat,TestSet,P044,Cine SAX,cine_sax_ks.mat,77793029632,1133353120
+TestSet/P044/t1map_calib.mat,TestSet,P044,T1map,t1map_calib.mat,78926383616,8627462
+TestSet/P044/t1map_ks.mat,TestSet,P044,T1map,t1map_ks.mat,78935012864,269353084
+TestSet/P044/t2map_calib.mat,TestSet,P044,T2map,t2map_calib.mat,79204366848,5692167
+TestSet/P044/t2map_ks.mat,TestSet,P044,T2map,t2map_ks.mat,79210060800,49805984
+TestSet/P045/cine_sax_calib.mat,TestSet,P045,Cine SAX,cine_sax_calib.mat,79259868160,569960431
+TestSet/P045/cine_sax_ks.mat,TestSet,P045,Cine SAX,cine_sax_ks.mat,79829830144,1946695578
+TestSet/P045/t1map_calib.mat,TestSet,P045,T1map,t1map_calib.mat,81776526336,8710031
+TestSet/P045/t1map_ks.mat,TestSet,P045,T1map,t1map_ks.mat,81785238016,269700599
+TestSet/P045/t2map_calib.mat,TestSet,P045,T2map,t2map_calib.mat,82054939136,5706006
+TestSet/P045/t2map_ks.mat,TestSet,P045,T2map,t2map_ks.mat,82060646912,49720162
+TestSet/P046/cine_lax_calib.mat,TestSet,P046,Cine LAX,cine_lax_calib.mat,82110368256,97182729
+TestSet/P046/cine_lax_ks.mat,TestSet,P046,Cine LAX,cine_lax_ks.mat,82207553024,317685203
+TestSet/P046/cine_sax_calib.mat,TestSet,P046,Cine SAX,cine_sax_calib.mat,82525238784,341670060
+TestSet/P046/cine_sax_ks.mat,TestSet,P046,Cine SAX,cine_sax_ks.mat,82866910720,979973450
+TestSet/P046/t1map_calib.mat,TestSet,P046,T1map,t1map_calib.mat,83846884864,8644681
+TestSet/P046/t1map_ks.mat,TestSet,P046,T1map,t1map_ks.mat,83855531520,267836057
+TestSet/P046/t2map_calib.mat,TestSet,P046,T2map,t2map_calib.mat,84123368448,5687192
+TestSet/P046/t2map_ks.mat,TestSet,P046,T2map,t2map_ks.mat,84129057280,49602506
+TestSet/P047/cine_lax_calib.mat,TestSet,P047,Cine LAX,cine_lax_calib.mat,84178660864,133844537
+TestSet/P047/cine_lax_ks.mat,TestSet,P047,Cine LAX,cine_lax_ks.mat,84312507392,381245580
+TestSet/P047/cine_sax_calib.mat,TestSet,P047,Cine SAX,cine_sax_calib.mat,84693753856,515060533
+TestSet/P047/cine_sax_ks.mat,TestSet,P047,Cine SAX,cine_sax_ks.mat,85208816128,1728921062
+TestSet/P047/t1map_calib.mat,TestSet,P047,T1map,t1map_calib.mat,86937737728,10433302
+TestSet/P047/t1map_ks.mat,TestSet,P047,T1map,t1map_ks.mat,86948172800,327699251
+TestSet/P047/t2map_calib.mat,TestSet,P047,T2map,t2map_calib.mat,87275872768,7036594
+TestSet/P047/t2map_ks.mat,TestSet,P047,T2map,t2map_ks.mat,87282911232,60338418
+TestSet/P048/cine_lax_calib.mat,TestSet,P048,Cine LAX,cine_lax_calib.mat,87343250944,39876208
+TestSet/P048/cine_lax_ks.mat,TestSet,P048,Cine LAX,cine_lax_ks.mat,87383129088,61267807
+TestSet/P048/cine_sax_calib.mat,TestSet,P048,Cine SAX,cine_sax_calib.mat,87444397568,351789676
+TestSet/P048/cine_sax_ks.mat,TestSet,P048,Cine SAX,cine_sax_ks.mat,87796189184,1207020077
+TestSet/P048/t1map_calib.mat,TestSet,P048,T1map,t1map_calib.mat,89003210240,10441303
+TestSet/P048/t1map_ks.mat,TestSet,P048,T1map,t1map_ks.mat,89013653504,327837895
+TestSet/P048/t2map_calib.mat,TestSet,P048,T2map,t2map_calib.mat,89341492224,7106510
+TestSet/P048/t2map_ks.mat,TestSet,P048,T2map,t2map_ks.mat,89348600320,60518318
+TestSet/P049/cine_lax_calib.mat,TestSet,P049,Cine LAX,cine_lax_calib.mat,89409119744,82573230
+TestSet/P049/cine_lax_ks.mat,TestSet,P049,Cine LAX,cine_lax_ks.mat,89491694592,270446529
+TestSet/P049/cine_sax_calib.mat,TestSet,P049,Cine SAX,cine_sax_calib.mat,89762141696,296092287
+TestSet/P049/cine_sax_ks.mat,TestSet,P049,Cine SAX,cine_sax_ks.mat,90058235904,675813333
+TestSet/P049/t1map_calib.mat,TestSet,P049,T1map,t1map_calib.mat,90734049792,8648094
+TestSet/P049/t1map_ks.mat,TestSet,P049,T1map,t1map_ks.mat,90742699520,267071202
+TestSet/P049/t2map_calib.mat,TestSet,P049,T2map,t2map_calib.mat,91009771520,5700075
+TestSet/P049/t2map_ks.mat,TestSet,P049,T2map,t2map_ks.mat,91015473152,49579656
+TestSet/P050/cine_lax_calib.mat,TestSet,P050,Cine LAX,cine_lax_calib.mat,91065054208,109658277
+TestSet/P050/cine_lax_ks.mat,TestSet,P050,Cine LAX,cine_lax_ks.mat,91174714368,356156267
+TestSet/P050/cine_sax_calib.mat,TestSet,P050,Cine SAX,cine_sax_calib.mat,91530871296,425793393
+TestSet/P050/cine_sax_ks.mat,TestSet,P050,Cine SAX,cine_sax_ks.mat,91956666368,1218059764
+TestSet/P050/t1map_calib.mat,TestSet,P050,T1map,t1map_calib.mat,93174726656,10387151
+TestSet/P050/t1map_ks.mat,TestSet,P050,T1map,t1map_ks.mat,93185115648,326218787
+TestSet/P050/t2map_calib.mat,TestSet,P050,T2map,t2map_calib.mat,93511335424,7002748
+TestSet/P050/t2map_ks.mat,TestSet,P050,T2map,t2map_ks.mat,93518340096,60112134
+TestSet/P051/cine_lax_calib.mat,TestSet,P051,Cine LAX,cine_lax_calib.mat,93578453504,123406404
+TestSet/P051/cine_lax_ks.mat,TestSet,P051,Cine LAX,cine_lax_ks.mat,93701861888,291138822
+TestSet/P051/cine_sax_calib.mat,TestSet,P051,Cine SAX,cine_sax_calib.mat,93993001472,394820343
+TestSet/P051/cine_sax_ks.mat,TestSet,P051,Cine SAX,cine_sax_ks.mat,94387823616,1111029883
+TestSet/P051/t1map_calib.mat,TestSet,P051,T1map,t1map_calib.mat,95498854400,8653829
+TestSet/P051/t1map_ks.mat,TestSet,P051,T1map,t1map_ks.mat,95507510272,267588459
+TestSet/P051/t2map_calib.mat,TestSet,P051,T2map,t2map_calib.mat,95775099392,5685022
+TestSet/P051/t2map_ks.mat,TestSet,P051,T2map,t2map_ks.mat,95780786176,49501087
+TestSet/P052/cine_sax_calib.mat,TestSet,P052,Cine SAX,cine_sax_calib.mat,95830288384,376734911
+TestSet/P052/cine_sax_ks.mat,TestSet,P052,Cine SAX,cine_sax_ks.mat,96207025152,1286653956
+TestSet/P052/t1map_calib.mat,TestSet,P052,T1map,t1map_calib.mat,97493680128,10432284
+TestSet/P052/t1map_ks.mat,TestSet,P052,T1map,t1map_ks.mat,97504114176,327393918
+TestSet/P052/t2map_calib.mat,TestSet,P052,T2map,t2map_calib.mat,97831508992,7032393
+TestSet/P052/t2map_ks.mat,TestSet,P052,T2map,t2map_ks.mat,97838543360,60420476
+TestSet/P053/cine_lax_calib.mat,TestSet,P053,Cine LAX,cine_lax_calib.mat,97898964992,125156570
+TestSet/P053/cine_lax_ks.mat,TestSet,P053,Cine LAX,cine_lax_ks.mat,98024123392,298096240
+TestSet/P053/cine_sax_calib.mat,TestSet,P053,Cine SAX,cine_sax_calib.mat,98322220544,434162143
+TestSet/P053/cine_sax_ks.mat,TestSet,P053,Cine SAX,cine_sax_ks.mat,98756384256,1498989512
+TestSet/P053/t1map_calib.mat,TestSet,P053,T1map,t1map_calib.mat,100255374336,8595953
+TestSet/P053/t1map_ks.mat,TestSet,P053,T1map,t1map_ks.mat,100263971840,266657891
+TestSet/P053/t2map_calib.mat,TestSet,P053,T2map,t2map_calib.mat,100530630656,5649715
+TestSet/P053/t2map_ks.mat,TestSet,P053,T2map,t2map_ks.mat,100536282112,49371345
+TestSet/P054/cine_lax_calib.mat,TestSet,P054,Cine LAX,cine_lax_calib.mat,100585654784,116020579
+TestSet/P054/cine_lax_ks.mat,TestSet,P054,Cine LAX,cine_lax_ks.mat,100701677056,273446492
+TestSet/P054/cine_sax_calib.mat,TestSet,P054,Cine SAX,cine_sax_calib.mat,100975124480,384687797
+TestSet/P054/cine_sax_ks.mat,TestSet,P054,Cine SAX,cine_sax_ks.mat,101359814144,877307102
+TestSet/P054/t1map_calib.mat,TestSet,P054,T1map,t1map_calib.mat,102237122048,8636772
+TestSet/P054/t1map_ks.mat,TestSet,P054,T1map,t1map_ks.mat,102245760512,266955392
+TestSet/P054/t2map_calib.mat,TestSet,P054,T2map,t2map_calib.mat,102512716800,5686069
+TestSet/P054/t2map_ks.mat,TestSet,P054,T2map,t2map_ks.mat,102518404608,49412240
+TestSet/P055/cine_sax_calib.mat,TestSet,P055,Cine SAX,cine_sax_calib.mat,102567818240,406955772
+TestSet/P055/cine_sax_ks.mat,TestSet,P055,Cine SAX,cine_sax_ks.mat,102974775808,1394385970
+TestSet/P055/t1map_calib.mat,TestSet,P055,T1map,t1map_calib.mat,104369162752,10428814
+TestSet/P055/t1map_ks.mat,TestSet,P055,T1map,t1map_ks.mat,104379593216,326412543
+TestSet/P055/t2map_calib.mat,TestSet,P055,T2map,t2map_calib.mat,104706006528,7062351
+TestSet/P055/t2map_ks.mat,TestSet,P055,T2map,t2map_ks.mat,104713070592,60069002
+TestSet/P056/cine_lax_calib.mat,TestSet,P056,Cine LAX,cine_lax_calib.mat,104773140992,90503346
+TestSet/P056/cine_lax_ks.mat,TestSet,P056,Cine LAX,cine_lax_ks.mat,104863646208,242865826
+TestSet/P056/cine_sax_calib.mat,TestSet,P056,Cine SAX,cine_sax_calib.mat,105106512896,391279248
+TestSet/P056/cine_sax_ks.mat,TestSet,P056,Cine SAX,cine_sax_ks.mat,105497794048,1317736018
+TestSet/P056/t1map_calib.mat,TestSet,P056,T1map,t1map_calib.mat,106815531008,8625620
+TestSet/P056/t1map_ks.mat,TestSet,P056,T1map,t1map_ks.mat,106824158208,268077177
+TestSet/P056/t2map_calib.mat,TestSet,P056,T2map,t2map_calib.mat,107092236288,5684260
+TestSet/P056/t2map_ks.mat,TestSet,P056,T2map,t2map_ks.mat,107097922560,49484179
+TestSet/P057/t1map_calib.mat,TestSet,P057,T1map,t1map_calib.mat,107147407872,8634162
+TestSet/P057/t1map_ks.mat,TestSet,P057,T1map,t1map_ks.mat,107156043776,267026011
+TestSet/P057/t2map_calib.mat,TestSet,P057,T2map,t2map_calib.mat,107423070720,5687174
+TestSet/P057/t2map_ks.mat,TestSet,P057,T2map,t2map_ks.mat,107428759552,49465043
+TestSet/P058/t1map_calib.mat,TestSet,P058,T1map,t1map_calib.mat,107478225920,8633739
+TestSet/P058/t1map_ks.mat,TestSet,P058,T1map,t1map_ks.mat,107486861312,266925517
+TestSet/P058/t2map_calib.mat,TestSet,P058,T2map,t2map_calib.mat,107753787392,5678447
+TestSet/P058/t2map_ks.mat,TestSet,P058,T2map,t2map_ks.mat,107759467520,49484586
+TestSet/P059/cine_lax_calib.mat,TestSet,P059,Cine LAX,cine_lax_calib.mat,107808953344,88254918
+TestSet/P059/cine_lax_ks.mat,TestSet,P059,Cine LAX,cine_lax_ks.mat,107897209856,241372188
+TestSet/P059/cine_sax_calib.mat,TestSet,P059,Cine SAX,cine_sax_calib.mat,108138583040,461863870
+TestSet/P059/cine_sax_ks.mat,TestSet,P059,Cine SAX,cine_sax_ks.mat,108600448512,1587745135
+TestSet/P059/t1map_calib.mat,TestSet,P059,T1map,t1map_calib.mat,110188194304,8655700
+TestSet/P059/t1map_ks.mat,TestSet,P059,T1map,t1map_ks.mat,110196851712,268623510
+TestSet/P059/t2map_calib.mat,TestSet,P059,T2map,t2map_calib.mat,110465476096,5683682
+TestSet/P059/t2map_ks.mat,TestSet,P059,T2map,t2map_ks.mat,110471161344,49629628
+TestSet/P060/cine_lax_calib.mat,TestSet,P060,Cine LAX,cine_lax_calib.mat,110520792064,106538234
+TestSet/P060/cine_lax_ks.mat,TestSet,P060,Cine LAX,cine_lax_ks.mat,110627332096,288907875
+TestSet/P060/cine_sax_calib.mat,TestSet,P060,Cine SAX,cine_sax_calib.mat,110916240896,368688925
+TestSet/P060/cine_sax_ks.mat,TestSet,P060,Cine SAX,cine_sax_ks.mat,111284931584,1262316064
+TestSet/P060/t1map_calib.mat,TestSet,P060,T1map,t1map_calib.mat,112547248640,8629778
+TestSet/P060/t1map_ks.mat,TestSet,P060,T1map,t1map_ks.mat,112555880448,266388276
+TestSet/P060/t2map_calib.mat,TestSet,P060,T2map,t2map_calib.mat,112822269440,5681673
+TestSet/P060/t2map_ks.mat,TestSet,P060,T2map,t2map_ks.mat,112827953152,49483319
+TestSet/P061/cine_lax_calib.mat,TestSet,P061,Cine LAX,cine_lax_calib.mat,112877437952,77887266
+TestSet/P061/cine_lax_ks.mat,TestSet,P061,Cine LAX,cine_lax_ks.mat,112955326976,259687027
+TestSet/P061/cine_sax_calib.mat,TestSet,P061,Cine SAX,cine_sax_calib.mat,113215014912,251419436
+TestSet/P061/cine_sax_ks.mat,TestSet,P061,Cine SAX,cine_sax_ks.mat,113466436096,854663351
+TestSet/P061/t1map_calib.mat,TestSet,P061,T1map,t1map_calib.mat,114321100288,8569445
+TestSet/P061/t1map_ks.mat,TestSet,P061,T1map,t1map_ks.mat,114329671680,266226721
+TestSet/P061/t2map_calib.mat,TestSet,P061,T2map,t2map_calib.mat,114595899392,5636181
+TestSet/P061/t2map_ks.mat,TestSet,P061,T2map,t2map_ks.mat,114601537536,49507094
+TestSet/P062/t1map_calib.mat,TestSet,P062,T1map,t1map_calib.mat,114651045888,8654703
+TestSet/P062/t1map_ks.mat,TestSet,P062,T1map,t1map_ks.mat,114659702272,267469848
+TestSet/P062/t2map_calib.mat,TestSet,P062,T2map,t2map_calib.mat,114927173120,5691997
+TestSet/P062/t2map_ks.mat,TestSet,P062,T2map,t2map_ks.mat,114932867072,49531030
+TestSet/P063/cine_lax_calib.mat,TestSet,P063,Cine LAX,cine_lax_calib.mat,114982399488,82362084
+TestSet/P063/cine_lax_ks.mat,TestSet,P063,Cine LAX,cine_lax_ks.mat,115064763392,270754260
+TestSet/P063/cine_sax_calib.mat,TestSet,P063,Cine SAX,cine_sax_calib.mat,115335518208,355804102
+TestSet/P063/cine_sax_ks.mat,TestSet,P063,Cine SAX,cine_sax_ks.mat,115691323904,1227802488
+TestSet/P063/t1map_calib.mat,TestSet,P063,T1map,t1map_calib.mat,116919127040,8584989
+TestSet/P063/t1map_ks.mat,TestSet,P063,T1map,t1map_ks.mat,116927713792,267663289
+TestSet/P063/t2map_calib.mat,TestSet,P063,T2map,t2map_calib.mat,117195377664,5671881
+TestSet/P063/t2map_ks.mat,TestSet,P063,T2map,t2map_ks.mat,117201051136,49614422
+TestSet/P064/t1map_calib.mat,TestSet,P064,T1map,t1map_calib.mat,117250667008,10464121
+TestSet/P064/t1map_ks.mat,TestSet,P064,T1map,t1map_ks.mat,117261132800,326896474
+TestSet/P064/t2map_calib.mat,TestSet,P064,T2map,t2map_calib.mat,117588029952,7081884
+TestSet/P064/t2map_ks.mat,TestSet,P064,T2map,t2map_ks.mat,117595113472,60288997
+TestSet/P065/cine_lax_calib.mat,TestSet,P065,Cine LAX,cine_lax_calib.mat,117655403520,73784254
+TestSet/P065/cine_lax_ks.mat,TestSet,P065,Cine LAX,cine_lax_ks.mat,117729189376,204199911
+TestSet/P065/cine_sax_calib.mat,TestSet,P065,Cine SAX,cine_sax_calib.mat,117933389824,422335023
+TestSet/P065/cine_sax_ks.mat,TestSet,P065,Cine SAX,cine_sax_ks.mat,118355726848,1445544528
+TestSet/P065/t1map_calib.mat,TestSet,P065,T1map,t1map_calib.mat,119801272320,10466046
+TestSet/P065/t1map_ks.mat,TestSet,P065,T1map,t1map_ks.mat,119811740160,328368680
+TestSet/P065/t2map_calib.mat,TestSet,P065,T2map,t2map_calib.mat,120140109824,7086081
+TestSet/P065/t2map_ks.mat,TestSet,P065,T2map,t2map_ks.mat,120147197952,60472875
+TestSet/P066/cine_lax_calib.mat,TestSet,P066,Cine LAX,cine_lax_calib.mat,120207672320,120953958
+TestSet/P066/cine_lax_ks.mat,TestSet,P066,Cine LAX,cine_lax_ks.mat,120328628224,347764911
+TestSet/P066/cine_sax_calib.mat,TestSet,P066,Cine SAX,cine_sax_calib.mat,120676393984,478981675
+TestSet/P066/cine_sax_ks.mat,TestSet,P066,Cine SAX,cine_sax_ks.mat,121155377664,1634042819
+TestSet/P066/t1map_calib.mat,TestSet,P066,T1map,t1map_calib.mat,122789421056,8682684
+TestSet/P066/t1map_ks.mat,TestSet,P066,T1map,t1map_ks.mat,122798105600,268766701
+TestSet/P066/t2map_calib.mat,TestSet,P066,T2map,t2map_calib.mat,123066872832,5715597
+TestSet/P066/t2map_ks.mat,TestSet,P066,T2map,t2map_ks.mat,123072590336,49647271
+TestSet/P067/cine_lax_calib.mat,TestSet,P067,Cine LAX,cine_lax_calib.mat,123122238976,105628162
+TestSet/P067/cine_lax_ks.mat,TestSet,P067,Cine LAX,cine_lax_ks.mat,123227869184,283911763
+TestSet/P067/cine_sax_calib.mat,TestSet,P067,Cine SAX,cine_sax_calib.mat,123511781888,464050994
+TestSet/P067/cine_sax_ks.mat,TestSet,P067,Cine SAX,cine_sax_ks.mat,123975834624,1602182038
+TestSet/P067/t1map_calib.mat,TestSet,P067,T1map,t1map_calib.mat,125578017280,12170374
+TestSet/P067/t1map_ks.mat,TestSet,P067,T1map,t1map_ks.mat,125590189568,381269978
+TestSet/P067/t2map_calib.mat,TestSet,P067,T2map,t2map_calib.mat,125971460096,7972810
+TestSet/P067/t2map_ks.mat,TestSet,P067,T2map,t2map_ks.mat,125979434496,69082760
+TestSet/P068/cine_lax_calib.mat,TestSet,P068,Cine LAX,cine_lax_calib.mat,126048518656,124962892
+TestSet/P068/cine_lax_ks.mat,TestSet,P068,Cine LAX,cine_lax_ks.mat,126173483520,359996866
+TestSet/P068/cine_sax_calib.mat,TestSet,P068,Cine SAX,cine_sax_calib.mat,126533480960,379661462
+TestSet/P068/cine_sax_ks.mat,TestSet,P068,Cine SAX,cine_sax_ks.mat,126913144320,1299409315
+TestSet/P068/t1map_calib.mat,TestSet,P068,T1map,t1map_calib.mat,128212554240,8553117
+TestSet/P068/t1map_ks.mat,TestSet,P068,T1map,t1map_ks.mat,128221109248,266913827
+TestSet/P068/t2map_calib.mat,TestSet,P068,T2map,t2map_calib.mat,128488024064,5611768
+TestSet/P068/t2map_ks.mat,TestSet,P068,T2map,t2map_ks.mat,128493637632,49427640
+TestSet/P069/cine_lax_calib.mat,TestSet,P069,Cine LAX,cine_lax_calib.mat,128543066624,122621175
+TestSet/P069/cine_lax_ks.mat,TestSet,P069,Cine LAX,cine_lax_ks.mat,128665689600,292417103
+TestSet/P069/cine_sax_calib.mat,TestSet,P069,Cine SAX,cine_sax_calib.mat,128958107648,436723521
+TestSet/P069/cine_sax_ks.mat,TestSet,P069,Cine SAX,cine_sax_ks.mat,129394832896,1241526642
+TestSet/P069/t1map_calib.mat,TestSet,P069,T1map,t1map_calib.mat,130636360192,10393685
+TestSet/P069/t1map_ks.mat,TestSet,P069,T1map,t1map_ks.mat,130646755840,326982049
+TestSet/P069/t2map_calib.mat,TestSet,P069,T2map,t2map_calib.mat,130973738496,7032094
+TestSet/P069/t2map_ks.mat,TestSet,P069,T2map,t2map_ks.mat,130980772352,60193016
+TestSet/P070/t1map_calib.mat,TestSet,P070,T1map,t1map_calib.mat,131040966656,10393101
+TestSet/P070/t1map_ks.mat,TestSet,P070,T1map,t1map_ks.mat,131051361792,326510039
+TestSet/P070/t2map_calib.mat,TestSet,P070,T2map,t2map_calib.mat,131377872384,6978084
+TestSet/P070/t2map_ks.mat,TestSet,P070,T2map,t2map_ks.mat,131384852480,60049673
+TestSet/P071/cine_lax_calib.mat,TestSet,P071,Cine LAX,cine_lax_calib.mat,131444903424,111401439
+TestSet/P071/cine_lax_ks.mat,TestSet,P071,Cine LAX,cine_lax_ks.mat,131556306432,364850135
+TestSet/P071/cine_sax_calib.mat,TestSet,P071,Cine SAX,cine_sax_calib.mat,131921157120,390170323
+TestSet/P071/cine_sax_ks.mat,TestSet,P071,Cine SAX,cine_sax_ks.mat,132311329280,1335896281
+TestSet/P071/t1map_calib.mat,TestSet,P071,T1map,t1map_calib.mat,133647226368,8603083
+TestSet/P071/t1map_ks.mat,TestSet,P071,T1map,t1map_ks.mat,133655831040,266819463
+TestSet/P071/t2map_calib.mat,TestSet,P071,T2map,t2map_calib.mat,133922651136,5649172
+TestSet/P071/t2map_ks.mat,TestSet,P071,T2map,t2map_ks.mat,133928302080,49491888
+TestSet/P072/cine_lax_calib.mat,TestSet,P072,Cine LAX,cine_lax_calib.mat,133977795072,118918147
+TestSet/P072/cine_lax_ks.mat,TestSet,P072,Cine LAX,cine_lax_ks.mat,134096715264,343041805
+TestSet/P072/cine_sax_calib.mat,TestSet,P072,Cine SAX,cine_sax_calib.mat,134439757824,466607835
+TestSet/P072/cine_sax_ks.mat,TestSet,P072,Cine SAX,cine_sax_ks.mat,134906367488,1326927643
+TestSet/P072/t1map_calib.mat,TestSet,P072,T1map,t1map_calib.mat,136233295872,8682026
+TestSet/P072/t1map_ks.mat,TestSet,P072,T1map,t1map_ks.mat,136241979904,267493879
+TestSet/P072/t2map_calib.mat,TestSet,P072,T2map,t2map_calib.mat,136509474304,5697804
+TestSet/P072/t2map_ks.mat,TestSet,P072,T2map,t2map_ks.mat,136515173888,49584984
+TestSet/P073/cine_lax_calib.mat,TestSet,P073,Cine LAX,cine_lax_calib.mat,136564760064,52394833
+TestSet/P073/cine_lax_ks.mat,TestSet,P073,Cine LAX,cine_lax_ks.mat,136617156608,112487836
+TestSet/P073/cine_sax_calib.mat,TestSet,P073,Cine SAX,cine_sax_calib.mat,136729645056,433533391
+TestSet/P073/cine_sax_ks.mat,TestSet,P073,Cine SAX,cine_sax_ks.mat,137163180032,1493121968
+TestSet/P073/t1map_calib.mat,TestSet,P073,T1map,t1map_calib.mat,138656302592,10347123
+TestSet/P073/t1map_ks.mat,TestSet,P073,T1map,t1map_ks.mat,138666651648,326142566
+TestSet/P073/t2map_calib.mat,TestSet,P073,T2map,t2map_calib.mat,138992795136,6950751
+TestSet/P073/t2map_ks.mat,TestSet,P073,T2map,t2map_ks.mat,138999747584,60105327
+TestSet/P074/cine_lax_calib.mat,TestSet,P074,Cine LAX,cine_lax_calib.mat,139059854336,103456738
+TestSet/P074/cine_lax_ks.mat,TestSet,P074,Cine LAX,cine_lax_ks.mat,139163312640,337061997
+TestSet/P074/t1map_calib.mat,TestSet,P074,T1map,t1map_calib.mat,139500375552,10509125
+TestSet/P074/t1map_ks.mat,TestSet,P074,T1map,t1map_ks.mat,139510886400,329852311
+TestSet/P074/t2map_calib.mat,TestSet,P074,T2map,t2map_calib.mat,139840739328,7107267
+TestSet/P074/t2map_ks.mat,TestSet,P074,T2map,t2map_ks.mat,139847848448,60571545
+TestSet/P075/cine_lax_calib.mat,TestSet,P075,Cine LAX,cine_lax_calib.mat,139908421120,52411521
+TestSet/P075/cine_lax_ks.mat,TestSet,P075,Cine LAX,cine_lax_ks.mat,139960834560,85915620
+TestSet/P075/cine_sax_calib.mat,TestSet,P075,Cine SAX,cine_sax_calib.mat,140046750720,462703925
+TestSet/P075/cine_sax_ks.mat,TestSet,P075,Cine SAX,cine_sax_ks.mat,140509456384,1588540535
+TestSet/P075/t1map_calib.mat,TestSet,P075,T1map,t1map_calib.mat,142097997824,10447400
+TestSet/P075/t1map_ks.mat,TestSet,P075,T1map,t1map_ks.mat,142108447232,329278193
+TestSet/P075/t2map_calib.mat,TestSet,P075,T2map,t2map_calib.mat,142437726208,7072030
+TestSet/P075/t2map_ks.mat,TestSet,P075,T2map,t2map_ks.mat,142444800000,60423615
+TestSet/P076/cine_lax_calib.mat,TestSet,P076,Cine LAX,cine_lax_calib.mat,142505224704,109652083
+TestSet/P076/cine_lax_ks.mat,TestSet,P076,Cine LAX,cine_lax_ks.mat,142614878720,292512205
+TestSet/P076/cine_sax_calib.mat,TestSet,P076,Cine SAX,cine_sax_calib.mat,142907391488,373114962
+TestSet/P076/cine_sax_ks.mat,TestSet,P076,Cine SAX,cine_sax_ks.mat,143280508416,1062466477
+TestSet/P076/t1map_calib.mat,TestSet,P076,T1map,t1map_calib.mat,144342975488,10377867
+TestSet/P076/t1map_ks.mat,TestSet,P076,T1map,t1map_ks.mat,144353355264,324758940
+TestSet/P076/t2map_calib.mat,TestSet,P076,T2map,t2map_calib.mat,144678114816,6978761
+TestSet/P076/t2map_ks.mat,TestSet,P076,T2map,t2map_ks.mat,144685095424,59938533
+TestSet/P077/cine_lax_calib.mat,TestSet,P077,Cine LAX,cine_lax_calib.mat,144745035264,123335108
+TestSet/P077/cine_lax_ks.mat,TestSet,P077,Cine LAX,cine_lax_ks.mat,144868371968,291456189
+TestSet/P077/cine_sax_calib.mat,TestSet,P077,Cine SAX,cine_sax_calib.mat,145159828992,401223744
+TestSet/P077/cine_sax_ks.mat,TestSet,P077,Cine SAX,cine_sax_ks.mat,145561054720,920859191
+TestSet/P077/t1map_calib.mat,TestSet,P077,T1map,t1map_calib.mat,146481914880,10438626
+TestSet/P077/t1map_ks.mat,TestSet,P077,T1map,t1map_ks.mat,146492355072,327213002
+TestSet/P077/t2map_calib.mat,TestSet,P077,T2map,t2map_calib.mat,146819568640,7042348
+TestSet/P077/t2map_ks.mat,TestSet,P077,T2map,t2map_ks.mat,146826612736,60350386
+TestSet/P078/cine_lax_calib.mat,TestSet,P078,Cine LAX,cine_lax_calib.mat,146886964224,91137673
+TestSet/P078/cine_lax_ks.mat,TestSet,P078,Cine LAX,cine_lax_ks.mat,146978103808,298306773
+TestSet/P078/cine_sax_calib.mat,TestSet,P078,Cine SAX,cine_sax_calib.mat,147276411392,316202151
+TestSet/P078/cine_sax_ks.mat,TestSet,P078,Cine SAX,cine_sax_ks.mat,147592615424,1102041803
+TestSet/P078/t1map_calib.mat,TestSet,P078,T1map,t1map_calib.mat,148694658048,8557439
+TestSet/P078/t1map_ks.mat,TestSet,P078,T1map,t1map_ks.mat,148703217152,267542732
+TestSet/P078/t2map_calib.mat,TestSet,P078,T2map,t2map_calib.mat,148970760704,5635505
+TestSet/P078/t2map_ks.mat,TestSet,P078,T2map,t2map_ks.mat,148976397824,49643410
+TestSet/P079/cine_lax_calib.mat,TestSet,P079,Cine LAX,cine_lax_calib.mat,149026042368,52082083
+TestSet/P079/cine_lax_ks.mat,TestSet,P079,Cine LAX,cine_lax_ks.mat,149078126080,83455498
+TestSet/P079/cine_sax_calib.mat,TestSet,P079,Cine SAX,cine_sax_calib.mat,149161582592,413126073
+TestSet/P079/cine_sax_ks.mat,TestSet,P079,Cine SAX,cine_sax_ks.mat,149574710272,1414483715
+TestSet/P079/t1map_calib.mat,TestSet,P079,T1map,t1map_calib.mat,150989194752,8673129
+TestSet/P079/t1map_ks.mat,TestSet,P079,T1map,t1map_ks.mat,150997869568,269073212
+TestSet/P079/t2map_calib.mat,TestSet,P079,T2map,t2map_calib.mat,151266943488,5702965
+TestSet/P079/t2map_ks.mat,TestSet,P079,T2map,t2map_ks.mat,151272648192,49837754
+TestSet/P080/cine_lax_calib.mat,TestSet,P080,Cine LAX,cine_lax_calib.mat,151322487296,457607011
+TestSet/P080/cine_lax_ks.mat,TestSet,P080,Cine LAX,cine_lax_ks.mat,151780096000,1072858528
+TestSet/P080/t1map_calib.mat,TestSet,P080,T1map,t1map_calib.mat,152852955136,8538297
+TestSet/P080/t1map_ks.mat,TestSet,P080,T1map,t1map_ks.mat,152861495296,265911675
+TestSet/P080/t2map_calib.mat,TestSet,P080,T2map,t2map_calib.mat,153127407616,5605254
+TestSet/P080/t2map_ks.mat,TestSet,P080,T2map,t2map_ks.mat,153133014528,49317302
+TestSet/P081/cine_lax_calib.mat,TestSet,P081,Cine LAX,cine_lax_calib.mat,153182332928,53642561
+TestSet/P081/cine_lax_ks.mat,TestSet,P081,Cine LAX,cine_lax_ks.mat,153235977216,115886909
+TestSet/P081/cine_sax_calib.mat,TestSet,P081,Cine SAX,cine_sax_calib.mat,153351864832,421334260
+TestSet/P081/cine_sax_ks.mat,TestSet,P081,Cine SAX,cine_sax_ks.mat,153773200896,1436618243
+TestSet/P081/t1map_calib.mat,TestSet,P081,T1map,t1map_calib.mat,155209820160,8657642
+TestSet/P081/t1map_ks.mat,TestSet,P081,T1map,t1map_ks.mat,155218479616,267903906
+TestSet/P081/t2map_calib.mat,TestSet,P081,T2map,t2map_calib.mat,155486384128,5688699
+TestSet/P081/t2map_ks.mat,TestSet,P081,T2map,t2map_ks.mat,155492074496,49489628
+TestSet/P082/cine_lax_calib.mat,TestSet,P082,Cine LAX,cine_lax_calib.mat,155541565440,55454776
+TestSet/P082/cine_lax_ks.mat,TestSet,P082,Cine LAX,cine_lax_ks.mat,155597022208,152051242
+TestSet/P082/cine_sax_calib.mat,TestSet,P082,Cine SAX,cine_sax_calib.mat,155749074432,269131208
+TestSet/P082/cine_sax_ks.mat,TestSet,P082,Cine SAX,cine_sax_ks.mat,156018207232,775265681
+TestSet/P082/t1map_calib.mat,TestSet,P082,T1map,t1map_calib.mat,156793473536,10428851
+TestSet/P082/t1map_ks.mat,TestSet,P082,T1map,t1map_ks.mat,156803904000,326926563
+TestSet/P082/t2map_calib.mat,TestSet,P082,T2map,t2map_calib.mat,157130831360,7052440
+TestSet/P082/t2map_ks.mat,TestSet,P082,T2map,t2map_ks.mat,157137885696,60396263
+TestSet/P083/t1map_calib.mat,TestSet,P083,T1map,t1map_calib.mat,157198283264,8637183
+TestSet/P083/t1map_ks.mat,TestSet,P083,T1map,t1map_ks.mat,157206922240,267065160
+TestSet/P083/t2map_calib.mat,TestSet,P083,T2map,t2map_calib.mat,157473988096,5683027
+TestSet/P083/t2map_ks.mat,TestSet,P083,T2map,t2map_ks.mat,157479672832,49590744
+TestSet/P084/cine_lax_calib.mat,TestSet,P084,Cine LAX,cine_lax_calib.mat,157529264640,122265316
+TestSet/P084/cine_lax_ks.mat,TestSet,P084,Cine LAX,cine_lax_ks.mat,157651531776,291701083
+TestSet/P084/cine_sax_calib.mat,TestSet,P084,Cine SAX,cine_sax_calib.mat,157943233536,477785471
+TestSet/P084/cine_sax_ks.mat,TestSet,P084,Cine SAX,cine_sax_ks.mat,158421020672,1350259743
+TestSet/P084/t1map_calib.mat,TestSet,P084,T1map,t1map_calib.mat,159771281408,10390145
+TestSet/P084/t1map_ks.mat,TestSet,P084,T1map,t1map_ks.mat,159781673472,325693504
+TestSet/P084/t2map_calib.mat,TestSet,P084,T2map,t2map_calib.mat,160107367936,6988075
+TestSet/P084/t2map_ks.mat,TestSet,P084,T2map,t2map_ks.mat,160114357760,59862995
+TestSet/P085/t1map_calib.mat,TestSet,P085,T1map,t1map_calib.mat,160174221824,8587996
+TestSet/P085/t1map_ks.mat,TestSet,P085,T1map,t1map_ks.mat,160182811648,266265432
+TestSet/P085/t2map_calib.mat,TestSet,P085,T2map,t2map_calib.mat,160449077760,5647162
+TestSet/P085/t2map_ks.mat,TestSet,P085,T2map,t2map_ks.mat,160454726656,49395254
+TestSet/P086/cine_lax_calib.mat,TestSet,P086,Cine LAX,cine_lax_calib.mat,160504123392,99702613
+TestSet/P086/cine_lax_ks.mat,TestSet,P086,Cine LAX,cine_lax_ks.mat,160603827712,269984861
+TestSet/P086/cine_sax_calib.mat,TestSet,P086,Cine SAX,cine_sax_calib.mat,160873813504,336340702
+TestSet/P086/cine_sax_ks.mat,TestSet,P086,Cine SAX,cine_sax_ks.mat,161210156032,962335498
+TestSet/P086/t1map_calib.mat,TestSet,P086,T1map,t1map_calib.mat,162172492288,10432895
+TestSet/P086/t1map_ks.mat,TestSet,P086,T1map,t1map_ks.mat,162182926848,325946208
+TestSet/P086/t2map_calib.mat,TestSet,P086,T2map,t2map_calib.mat,162508873728,7041121
+TestSet/P086/t2map_ks.mat,TestSet,P086,T2map,t2map_ks.mat,162515916800,60162768
+TestSet/P087/cine_lax_calib.mat,TestSet,P087,Cine LAX,cine_lax_calib.mat,162576080896,142596906
+TestSet/P087/cine_lax_ks.mat,TestSet,P087,Cine LAX,cine_lax_ks.mat,162718679552,406729986
+TestSet/P087/cine_sax_calib.mat,TestSet,P087,Cine SAX,cine_sax_calib.mat,163125410304,550417774
+TestSet/P087/cine_sax_ks.mat,TestSet,P087,Cine SAX,cine_sax_ks.mat,163675829760,1559117222
+TestSet/P087/t1map_calib.mat,TestSet,P087,T1map,t1map_calib.mat,165234947584,10474320
+TestSet/P087/t1map_ks.mat,TestSet,P087,T1map,t1map_ks.mat,165245423616,329536302
+TestSet/P087/t2map_calib.mat,TestSet,P087,T2map,t2map_calib.mat,165574960640,7063282
+TestSet/P087/t2map_ks.mat,TestSet,P087,T2map,t2map_ks.mat,165582025728,60510777
+TestSet/P088/cine_lax_calib.mat,TestSet,P088,Cine LAX,cine_lax_calib.mat,165642537984,125662390
+TestSet/P088/cine_lax_ks.mat,TestSet,P088,Cine LAX,cine_lax_ks.mat,165768202240,361571501
+TestSet/P088/cine_sax_calib.mat,TestSet,P088,Cine SAX,cine_sax_calib.mat,166129774592,411482709
+TestSet/P088/cine_sax_ks.mat,TestSet,P088,Cine SAX,cine_sax_ks.mat,166541259264,1173807517
+TestSet/P088/t1map_calib.mat,TestSet,P088,T1map,t1map_calib.mat,167715067392,10389505
+TestSet/P088/t1map_ks.mat,TestSet,P088,T1map,t1map_ks.mat,167725458944,326881951
+TestSet/P088/t2map_calib.mat,TestSet,P088,T2map,t2map_calib.mat,168052341760,6996886
+TestSet/P088/t2map_ks.mat,TestSet,P088,T2map,t2map_ks.mat,168059340288,60104370
+TestSet/P089/cine_lax_calib.mat,TestSet,P089,Cine LAX,cine_lax_calib.mat,168119446016,100157792
+TestSet/P089/cine_lax_ks.mat,TestSet,P089,Cine LAX,cine_lax_ks.mat,168219605504,272480738
+TestSet/P089/cine_sax_calib.mat,TestSet,P089,Cine SAX,cine_sax_calib.mat,168492086784,348940900
+TestSet/P089/cine_sax_ks.mat,TestSet,P089,Cine SAX,cine_sax_ks.mat,168841029632,1192767127
+TestSet/P089/t1map_calib.mat,TestSet,P089,T1map,t1map_calib.mat,170033797632,8680271
+TestSet/P089/t1map_ks.mat,TestSet,P089,T1map,t1map_ks.mat,170042479616,268497605
+TestSet/P089/t2map_calib.mat,TestSet,P089,T2map,t2map_calib.mat,170310978048,5737250
+TestSet/P089/t2map_ks.mat,TestSet,P089,T2map,t2map_ks.mat,170316717056,49731525
+TestSet/P090/cine_lax_calib.mat,TestSet,P090,Cine LAX,cine_lax_calib.mat,170366449664,135009512
+TestSet/P090/cine_lax_ks.mat,TestSet,P090,Cine LAX,cine_lax_ks.mat,170501460992,390316699
+TestSet/P090/cine_sax_calib.mat,TestSet,P090,Cine SAX,cine_sax_calib.mat,170891778560,550509314
+TestSet/P090/cine_sax_ks.mat,TestSet,P090,Cine SAX,cine_sax_ks.mat,171442289664,1897124946
+TestSet/P090/t1map_calib.mat,TestSet,P090,T1map,t1map_calib.mat,173339415552,10451748
+TestSet/P090/t1map_ks.mat,TestSet,P090,T1map,t1map_ks.mat,173349869056,328780857
+TestSet/P090/t2map_calib.mat,TestSet,P090,T2map,t2map_calib.mat,173678650880,7073818
+TestSet/P090/t2map_ks.mat,TestSet,P090,T2map,t2map_ks.mat,173685726720,60481093
+TestSet/P091/cine_lax_calib.mat,TestSet,P091,Cine LAX,cine_lax_calib.mat,173746209280,107553701
+TestSet/P091/cine_lax_ks.mat,TestSet,P091,Cine LAX,cine_lax_ks.mat,173853764608,287026467
+TestSet/P091/cine_sax_calib.mat,TestSet,P091,Cine SAX,cine_sax_calib.mat,174140791808,363849431
+TestSet/P091/cine_sax_ks.mat,TestSet,P091,Cine SAX,cine_sax_ks.mat,174504643072,1034650503
+TestSet/P091/t1map_calib.mat,TestSet,P091,T1map,t1map_calib.mat,175539294208,8614278
+TestSet/P091/t1map_ks.mat,TestSet,P091,T1map,t1map_ks.mat,175547910144,267630456
+TestSet/P091/t2map_calib.mat,TestSet,P091,T2map,t2map_calib.mat,175815541248,5670092
+TestSet/P091/t2map_ks.mat,TestSet,P091,T2map,t2map_ks.mat,175821213184,49590525
+TestSet/P092/cine_lax_calib.mat,TestSet,P092,Cine LAX,cine_lax_calib.mat,175870804992,114752369
+TestSet/P092/cine_lax_ks.mat,TestSet,P092,Cine LAX,cine_lax_ks.mat,175985559040,374416444
+TestSet/P092/cine_sax_calib.mat,TestSet,P092,Cine SAX,cine_sax_calib.mat,176359976448,374522130
+TestSet/P092/cine_sax_ks.mat,TestSet,P092,Cine SAX,cine_sax_ks.mat,176734500352,849082340
+TestSet/P092/t1map_calib.mat,TestSet,P092,T1map,t1map_calib.mat,177583583232,10390832
+TestSet/P092/t1map_ks.mat,TestSet,P092,T1map,t1map_ks.mat,177593975808,325980408
+TestSet/P092/t2map_calib.mat,TestSet,P092,T2map,t2map_calib.mat,177919956992,6992783
+TestSet/P092/t2map_ks.mat,TestSet,P092,T2map,t2map_ks.mat,177926951424,60093180
+TestSet/P093/cine_lax_calib.mat,TestSet,P093,Cine LAX,cine_lax_calib.mat,177987045888,136521481
+TestSet/P093/cine_lax_ks.mat,TestSet,P093,Cine LAX,cine_lax_ks.mat,178123569152,324217443
+TestSet/P093/cine_sax_calib.mat,TestSet,P093,Cine SAX,cine_sax_calib.mat,178447787520,474711964
+TestSet/P093/cine_sax_ks.mat,TestSet,P093,Cine SAX,cine_sax_ks.mat,178922501120,1069801927
+TestSet/P093/t1map_calib.mat,TestSet,P093,T1map,t1map_calib.mat,179992303616,8652728
+TestSet/P093/t1map_ks.mat,TestSet,P093,T1map,t1map_ks.mat,180000957952,267541511
+TestSet/P093/t2map_calib.mat,TestSet,P093,T2map,t2map_calib.mat,180268500480,5665483
+TestSet/P093/t2map_ks.mat,TestSet,P093,T2map,t2map_ks.mat,180274167808,49396702
+TestSet/P094/cine_lax_calib.mat,TestSet,P094,Cine LAX,cine_lax_calib.mat,180323565568,144063692
+TestSet/P094/cine_lax_ks.mat,TestSet,P094,Cine LAX,cine_lax_ks.mat,180467631104,406465514
+TestSet/P094/cine_sax_calib.mat,TestSet,P094,Cine SAX,cine_sax_calib.mat,180874097152,451847645
+TestSet/P094/cine_sax_ks.mat,TestSet,P094,Cine SAX,cine_sax_ks.mat,181325946368,1009417306
+TestSet/P094/t1map_calib.mat,TestSet,P094,T1map,t1map_calib.mat,182335364608,8648795
+TestSet/P094/t1map_ks.mat,TestSet,P094,T1map,t1map_ks.mat,182344015360,267670181
+TestSet/P094/t2map_calib.mat,TestSet,P094,T2map,t2map_calib.mat,182611686400,5671258
+TestSet/P094/t2map_ks.mat,TestSet,P094,T2map,t2map_ks.mat,182617359360,49502247
+TestSet/P095/cine_lax_calib.mat,TestSet,P095,Cine LAX,cine_lax_calib.mat,182666863104,113664374
+TestSet/P095/cine_lax_ks.mat,TestSet,P095,Cine LAX,cine_lax_ks.mat,182780529152,303463265
+TestSet/P095/cine_sax_calib.mat,TestSet,P095,Cine SAX,cine_sax_calib.mat,183083993088,381603433
+TestSet/P095/cine_sax_ks.mat,TestSet,P095,Cine SAX,cine_sax_ks.mat,183465598464,1310309766
+TestSet/P095/t1map_calib.mat,TestSet,P095,T1map,t1map_calib.mat,184775908864,8672761
+TestSet/P095/t1map_ks.mat,TestSet,P095,T1map,t1map_ks.mat,184784583168,269479266
+TestSet/P095/t2map_calib.mat,TestSet,P095,T2map,t2map_calib.mat,185054063104,5714276
+TestSet/P095/t2map_ks.mat,TestSet,P095,T2map,t2map_ks.mat,185059779072,49767028
+TestSet/P096/cine_lax_calib.mat,TestSet,P096,Cine LAX,cine_lax_calib.mat,185109547520,54020413
+TestSet/P096/cine_lax_ks.mat,TestSet,P096,Cine LAX,cine_lax_ks.mat,185163569664,80096307
+TestSet/P096/cine_sax_calib.mat,TestSet,P096,Cine SAX,cine_sax_calib.mat,185243666944,434256184
+TestSet/P096/cine_sax_ks.mat,TestSet,P096,Cine SAX,cine_sax_ks.mat,185677924864,797786124
+TestSet/P096/t1map_calib.mat,TestSet,P096,T1map,t1map_calib.mat,186475712000,8666653
+TestSet/P096/t1map_ks.mat,TestSet,P096,T1map,t1map_ks.mat,186484380672,267790018
+TestSet/P096/t2map_calib.mat,TestSet,P096,T2map,t2map_calib.mat,186752171520,5701440
+TestSet/P096/t2map_ks.mat,TestSet,P096,T2map,t2map_ks.mat,186757874688,49567517
+TestSet/P097/cine_lax_calib.mat,TestSet,P097,Cine LAX,cine_lax_calib.mat,186807443456,101856937
+TestSet/P097/cine_lax_ks.mat,TestSet,P097,Cine LAX,cine_lax_ks.mat,186909302272,274618116
+TestSet/P097/cine_sax_calib.mat,TestSet,P097,Cine SAX,cine_sax_calib.mat,187183921152,324232842
+TestSet/P097/cine_sax_ks.mat,TestSet,P097,Cine SAX,cine_sax_ks.mat,187508155904,1119095052
+TestSet/P097/t1map_calib.mat,TestSet,P097,T1map,t1map_calib.mat,188627251712,8641458
+TestSet/P097/t1map_ks.mat,TestSet,P097,T1map,t1map_ks.mat,188635894784,268733906
+TestSet/P097/t2map_calib.mat,TestSet,P097,T2map,t2map_calib.mat,188904629248,5693309
+TestSet/P097/t2map_ks.mat,TestSet,P097,T2map,t2map_ks.mat,188910324224,49696424
+TestSet/P098/cine_lax_calib.mat,TestSet,P098,Cine LAX,cine_lax_calib.mat,188960022016,138027117
+TestSet/P098/cine_lax_ks.mat,TestSet,P098,Cine LAX,cine_lax_ks.mat,189098051072,313307430
+TestSet/P098/cine_sax_calib.mat,TestSet,P098,Cine SAX,cine_sax_calib.mat,189411359232,477229646
+TestSet/P098/cine_sax_ks.mat,TestSet,P098,Cine SAX,cine_sax_ks.mat,189888590848,1338058094
+TestSet/P098/t1map_calib.mat,TestSet,P098,T1map,t1map_calib.mat,191226649600,10436742
+TestSet/P098/t1map_ks.mat,TestSet,P098,T1map,t1map_ks.mat,191237088256,326078828
+TestSet/P098/t2map_calib.mat,TestSet,P098,T2map,t2map_calib.mat,191563167744,7049899
+TestSet/P098/t2map_ks.mat,TestSet,P098,T2map,t2map_ks.mat,191570219520,60153974
+TestSet/P099/cine_lax_calib.mat,TestSet,P099,Cine LAX,cine_lax_calib.mat,191630374912,98089885
+TestSet/P099/cine_lax_ks.mat,TestSet,P099,Cine LAX,cine_lax_ks.mat,191728466432,264544574
+TestSet/P099/cine_sax_calib.mat,TestSet,P099,Cine SAX,cine_sax_calib.mat,191993011712,294758955
+TestSet/P099/cine_sax_ks.mat,TestSet,P099,Cine SAX,cine_sax_ks.mat,192287772672,1012880221
+TestSet/P099/t1map_calib.mat,TestSet,P099,T1map,t1map_calib.mat,193300653568,8582134
+TestSet/P099/t1map_ks.mat,TestSet,P099,T1map,t1map_ks.mat,193309237248,265949662
+TestSet/P099/t2map_calib.mat,TestSet,P099,T2map,t2map_calib.mat,193575187456,5642642
+TestSet/P099/t2map_ks.mat,TestSet,P099,T2map,t2map_ks.mat,193580831744,49419060
+TestSet/P100/cine_lax_calib.mat,TestSet,P100,Cine LAX,cine_lax_calib.mat,193630252032,40262584
+TestSet/P100/cine_lax_ks.mat,TestSet,P100,Cine LAX,cine_lax_ks.mat,193670516224,67414648
+TestSet/P100/cine_sax_calib.mat,TestSet,P100,Cine SAX,cine_sax_calib.mat,193737931776,384571270
+TestSet/P100/cine_sax_ks.mat,TestSet,P100,Cine SAX,cine_sax_ks.mat,194122504704,1330914190
+TestSet/P100/t1map_calib.mat,TestSet,P100,T1map,t1map_calib.mat,195453419520,10340064
+TestSet/P100/t1map_ks.mat,TestSet,P100,T1map,t1map_ks.mat,195463761408,324744172
+TestSet/P100/t2map_calib.mat,TestSet,P100,T2map,t2map_calib.mat,195788506112,6950543
+TestSet/P100/t2map_ks.mat,TestSet,P100,T2map,t2map_ks.mat,195795458560,59980272
+TestSet/P101/cine_lax_calib.mat,TestSet,P101,Cine LAX,cine_lax_calib.mat,195855439872,100163401
+TestSet/P101/cine_lax_ks.mat,TestSet,P101,Cine LAX,cine_lax_ks.mat,195955604992,327848147
+TestSet/P101/cine_sax_calib.mat,TestSet,P101,Cine SAX,cine_sax_calib.mat,196283453952,339236912
+TestSet/P101/cine_sax_ks.mat,TestSet,P101,Cine SAX,cine_sax_ks.mat,196622692864,972349680
+TestSet/P101/t1map_calib.mat,TestSet,P101,T1map,t1map_calib.mat,197595043328,8644322
+TestSet/P101/t1map_ks.mat,TestSet,P101,T1map,t1map_ks.mat,197603689472,267054325
+TestSet/P101/t2map_calib.mat,TestSet,P101,T2map,t2map_calib.mat,197870744576,5692677
+TestSet/P101/t2map_ks.mat,TestSet,P101,T2map,t2map_ks.mat,197876439040,49486921
+TestSet/P102/cine_lax_calib.mat,TestSet,P102,Cine LAX,cine_lax_calib.mat,197925927424,103402851
+TestSet/P102/cine_lax_ks.mat,TestSet,P102,Cine LAX,cine_lax_ks.mat,198029331968,337289214
+TestSet/P102/cine_sax_calib.mat,TestSet,P102,Cine SAX,cine_sax_calib.mat,198366621696,465388005
+TestSet/P102/cine_sax_ks.mat,TestSet,P102,Cine SAX,cine_sax_ks.mat,198832011264,874412681
+TestSet/P102/t1map_calib.mat,TestSet,P102,T1map,t1map_calib.mat,199706424832,8581934
+TestSet/P102/t1map_ks.mat,TestSet,P102,T1map,t1map_ks.mat,199715008512,266237290
+TestSet/P102/t2map_calib.mat,TestSet,P102,T2map,t2map_calib.mat,199981246464,5616707
+TestSet/P102/t2map_ks.mat,TestSet,P102,T2map,t2map_ks.mat,199986865152,49159105
+TestSet/P103/cine_lax_calib.mat,TestSet,P103,Cine LAX,cine_lax_calib.mat,200036025344,110813335
+TestSet/P103/cine_lax_ks.mat,TestSet,P103,Cine LAX,cine_lax_ks.mat,200146840576,297194025
+TestSet/P103/cine_sax_calib.mat,TestSet,P103,Cine SAX,cine_sax_calib.mat,200444035584,399957118
+TestSet/P103/cine_sax_ks.mat,TestSet,P103,Cine SAX,cine_sax_ks.mat,200843994624,1361361545
+TestSet/P103/t1map_calib.mat,TestSet,P103,T1map,t1map_calib.mat,202205357056,10423594
+TestSet/P103/t1map_ks.mat,TestSet,P103,T1map,t1map_ks.mat,202215782400,326031613
+TestSet/P103/t2map_calib.mat,TestSet,P103,T2map,t2map_calib.mat,202541814784,7032657
+TestSet/P103/t2map_ks.mat,TestSet,P103,T2map,t2map_ks.mat,202548849152,60134455
+TestSet/P104/cine_lax_calib.mat,TestSet,P104,Cine LAX,cine_lax_calib.mat,202608985088,114776605
+TestSet/P104/cine_lax_ks.mat,TestSet,P104,Cine LAX,cine_lax_ks.mat,202723763712,272977547
+TestSet/P104/cine_sax_calib.mat,TestSet,P104,Cine SAX,cine_sax_calib.mat,202996742144,449289144
+TestSet/P104/cine_sax_ks.mat,TestSet,P104,Cine SAX,cine_sax_ks.mat,203446032896,1271049564
+TestSet/P104/t1map_calib.mat,TestSet,P104,T1map,t1map_calib.mat,204717083136,8613561
+TestSet/P104/t1map_ks.mat,TestSet,P104,T1map,t1map_ks.mat,204725698560,266230950
+TestSet/P104/t2map_calib.mat,TestSet,P104,T2map,t2map_calib.mat,204991930368,5665748
+TestSet/P104/t2map_ks.mat,TestSet,P104,T2map,t2map_ks.mat,204997597696,49378601
+TestSet/P105/t1map_calib.mat,TestSet,P105,T1map,t1map_calib.mat,205046977536,8649544
+TestSet/P105/t1map_ks.mat,TestSet,P105,T1map,t1map_ks.mat,205055628800,267330159
+TestSet/P105/t2map_calib.mat,TestSet,P105,T2map,t2map_calib.mat,205322959872,5714113
+TestSet/P105/t2map_ks.mat,TestSet,P105,T2map,t2map_ks.mat,205328675840,49616975
+TestSet/P106/t1map_calib.mat,TestSet,P106,T1map,t1map_calib.mat,205378294272,8602353
+TestSet/P106/t1map_ks.mat,TestSet,P106,T1map,t1map_ks.mat,205386898432,266898190
+TestSet/P106/t2map_calib.mat,TestSet,P106,T2map,t2map_calib.mat,205653797376,5657049
+TestSet/P106/t2map_ks.mat,TestSet,P106,T2map,t2map_ks.mat,205659456000,49484003
+TestSet/P107/cine_sax_calib.mat,TestSet,P107,Cine SAX,cine_sax_calib.mat,205708941312,438305096
+TestSet/P107/cine_sax_ks.mat,TestSet,P107,Cine SAX,cine_sax_ks.mat,206147248128,1474405026
+TestSet/P107/t1map_calib.mat,TestSet,P107,T1map,t1map_calib.mat,207621654016,8664674
+TestSet/P107/t1map_ks.mat,TestSet,P107,T1map,t1map_ks.mat,207630320640,268116914
+TestSet/P107/t2map_calib.mat,TestSet,P107,T2map,t2map_calib.mat,207898438144,5703182
+TestSet/P107/t2map_ks.mat,TestSet,P107,T2map,t2map_ks.mat,207904143360,49515982
+TestSet/P108/cine_sax_calib.mat,TestSet,P108,Cine SAX,cine_sax_calib.mat,207953660416,471778820
+TestSet/P108/cine_sax_ks.mat,TestSet,P108,Cine SAX,cine_sax_ks.mat,208425441280,1336958630
+TestSet/P108/t1map_calib.mat,TestSet,P108,T1map,t1map_calib.mat,209762400768,10384427
+TestSet/P108/t1map_ks.mat,TestSet,P108,T1map,t1map_ks.mat,209772787200,325813087
+TestSet/P108/t2map_calib.mat,TestSet,P108,T2map,t2map_calib.mat,210098600960,6997557
+TestSet/P108/t2map_ks.mat,TestSet,P108,T2map,t2map_ks.mat,210105600512,60039110
+TestSet/P109/cine_sax_calib.mat,TestSet,P109,Cine SAX,cine_sax_calib.mat,210165640704,308457709
+TestSet/P109/cine_sax_ks.mat,TestSet,P109,Cine SAX,cine_sax_ks.mat,210474100224,1074414281
+TestSet/P109/t1map_calib.mat,TestSet,P109,T1map,t1map_calib.mat,211548515328,8614012
+TestSet/P109/t1map_ks.mat,TestSet,P109,T1map,t1map_ks.mat,211557131264,266775939
+TestSet/P109/t2map_calib.mat,TestSet,P109,T2map,t2map_calib.mat,211823907840,5672169
+TestSet/P109/t2map_ks.mat,TestSet,P109,T2map,t2map_ks.mat,211829581824,49503120
+TestSet/P110/cine_sax_calib.mat,TestSet,P110,Cine SAX,cine_sax_calib.mat,211879086080,431279962
+TestSet/P110/cine_sax_ks.mat,TestSet,P110,Cine SAX,cine_sax_ks.mat,212310367744,974036052
+TestSet/P110/t1map_calib.mat,TestSet,P110,T1map,t1map_calib.mat,213284404736,10430678
+TestSet/P110/t1map_ks.mat,TestSet,P110,T1map,t1map_ks.mat,213294837248,326194157
+TestSet/P110/t2map_calib.mat,TestSet,P110,T2map,t2map_calib.mat,213621031936,7046083
+TestSet/P110/t2map_ks.mat,TestSet,P110,T2map,t2map_ks.mat,213628079616,60126805
+TestSet/P111/t1map_calib.mat,TestSet,P111,T1map,t1map_calib.mat,213688207872,3675568
+TestSet/P111/t1map_ks.mat,TestSet,P111,T1map,t1map_ks.mat,213691885056,110631516
+TestSet/P111/t2map_calib.mat,TestSet,P111,T2map,t2map_calib.mat,213802517504,2298699
+TestSet/P111/t2map_ks.mat,TestSet,P111,T2map,t2map_ks.mat,213804817920,20301672
+TestSet/P112/t1map_calib.mat,TestSet,P112,T1map,t1map_calib.mat,213825120768,8638596
+TestSet/P112/t1map_ks.mat,TestSet,P112,T1map,t1map_ks.mat,213833761280,268095626
+TestSet/P112/t2map_calib.mat,TestSet,P112,T2map,t2map_calib.mat,214101857792,5691847
+TestSet/P112/t2map_ks.mat,TestSet,P112,T2map,t2map_ks.mat,214107551232,49641137
+TestSet/P113/cine_lax_calib.mat,TestSet,P113,Cine LAX,cine_lax_calib.mat,214157193728,149182317
+TestSet/P113/cine_lax_ks.mat,TestSet,P113,Cine LAX,cine_lax_ks.mat,214306377728,420439431
+TestSet/P113/t1map_calib.mat,TestSet,P113,T1map,t1map_calib.mat,214726817792,8650537
+TestSet/P113/t1map_ks.mat,TestSet,P113,T1map,t1map_ks.mat,214735470080,267378445
+TestSet/P113/t2map_calib.mat,TestSet,P113,T2map,t2map_calib.mat,215002849280,5662806
+TestSet/P113/t2map_ks.mat,TestSet,P113,T2map,t2map_ks.mat,215008514048,49452993
+TestSet/P114/t1map_calib.mat,TestSet,P114,T1map,t1map_calib.mat,215057968128,10431762
+TestSet/P114/t1map_ks.mat,TestSet,P114,T1map,t1map_ks.mat,215068401664,326183394
+TestSet/P114/t2map_calib.mat,TestSet,P114,T2map,t2map_calib.mat,215394585600,7090904
+TestSet/P114/t2map_ks.mat,TestSet,P114,T2map,t2map_ks.mat,215401678336,60238672
+TestSet/P115/cine_sax_calib.mat,TestSet,P115,Cine SAX,cine_sax_calib.mat,215461918208,359696798
+TestSet/P115/cine_sax_ks.mat,TestSet,P115,Cine SAX,cine_sax_ks.mat,215821616640,1229933354
+TestSet/P115/t1map_calib.mat,TestSet,P115,T1map,t1map_calib.mat,217051550720,8658507
+TestSet/P115/t1map_ks.mat,TestSet,P115,T1map,t1map_ks.mat,217060211200,268700070
+TestSet/P115/t2map_calib.mat,TestSet,P115,T2map,t2map_calib.mat,217328911872,5704307
+TestSet/P115/t2map_ks.mat,TestSet,P115,T2map,t2map_ks.mat,217334618112,49747583
+TestSet/P116/cine_sax_calib.mat,TestSet,P116,Cine SAX,cine_sax_calib.mat,217384367104,617497379
+TestSet/P116/cine_sax_ks.mat,TestSet,P116,Cine SAX,cine_sax_ks.mat,218001866240,1456837864
+TestSet/P116/t1map_calib.mat,TestSet,P116,T1map,t1map_calib.mat,219458704896,8661460
+TestSet/P116/t1map_ks.mat,TestSet,P116,T1map,t1map_ks.mat,219467367936,267623040
+TestSet/P116/t2map_calib.mat,TestSet,P116,T2map,t2map_calib.mat,219734991872,5702893
+TestSet/P116/t2map_ks.mat,TestSet,P116,T2map,t2map_ks.mat,219740696576,49450787
+TestSet/P117/cine_lax_calib.mat,TestSet,P117,Cine LAX,cine_lax_calib.mat,219790148608,82888745
+TestSet/P117/cine_lax_ks.mat,TestSet,P117,Cine LAX,cine_lax_ks.mat,219873039360,176391024
+TestSet/P117/t1map_calib.mat,TestSet,P117,T1map,t1map_calib.mat,220049431040,10368124
+TestSet/P117/t1map_ks.mat,TestSet,P117,T1map,t1map_ks.mat,220059801088,326602133
+TestSet/P117/t2map_calib.mat,TestSet,P117,T2map,t2map_calib.mat,220386403840,7004988
+TestSet/P117/t2map_ks.mat,TestSet,P117,T2map,t2map_ks.mat,220393410560,60082899
+TestSet/P118/cine_lax_calib.mat,TestSet,P118,Cine LAX,cine_lax_calib.mat,220453494784,128001006
+TestSet/P118/cine_lax_ks.mat,TestSet,P118,Cine LAX,cine_lax_ks.mat,220581497344,366699013
+TestSet/P118/cine_sax_calib.mat,TestSet,P118,Cine SAX,cine_sax_calib.mat,220948197376,413769864
+TestSet/P118/cine_sax_ks.mat,TestSet,P118,Cine SAX,cine_sax_ks.mat,221361969152,1174801131
+TestSet/P118/t1map_calib.mat,TestSet,P118,T1map,t1map_calib.mat,222536771072,8610036
+TestSet/P118/t1map_ks.mat,TestSet,P118,T1map,t1map_ks.mat,222545382912,266908323
+TestSet/P118/t2map_calib.mat,TestSet,P118,T2map,t2map_calib.mat,222812292096,5662021
+TestSet/P118/t2map_ks.mat,TestSet,P118,T2map,t2map_ks.mat,222817955840,49443580
+TestSet/P119/cine_sax_calib.mat,TestSet,P119,Cine SAX,cine_sax_calib.mat,222867400704,381220239
+TestSet/P119/cine_sax_ks.mat,TestSet,P119,Cine SAX,cine_sax_ks.mat,223248622592,1307018378
+TestSet/P119/t1map_calib.mat,TestSet,P119,T1map,t1map_calib.mat,224555641856,8632703
+TestSet/P119/t1map_ks.mat,TestSet,P119,T1map,t1map_ks.mat,224564276224,267278991
+TestSet/P119/t2map_calib.mat,TestSet,P119,T2map,t2map_calib.mat,224831556096,5669863
+TestSet/P119/t2map_ks.mat,TestSet,P119,T2map,t2map_ks.mat,224837227520,49417586
+TestSet/P120/t1map_calib.mat,TestSet,P120,T1map,t1map_calib.mat,224886646272,8630472
+TestSet/P120/t1map_ks.mat,TestSet,P120,T1map,t1map_ks.mat,224895278592,266896602
+TestSet/P120/t2map_calib.mat,TestSet,P120,T2map,t2map_calib.mat,225162176000,5683994
+TestSet/P120/t2map_ks.mat,TestSet,P120,T2map,t2map_ks.mat,225167861760,49539179

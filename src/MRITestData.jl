@@ -5,10 +5,10 @@ Query and download free, open-access MRI k-space datasets and load them into
 `MRIBase.RawAcquisitionData`.
 
 Supported sources: [`MRIDATA`](@ref) (mridata.org), [`OCMR_SOURCE`](@ref) (the OCMR
-cardiac repository), and [`CMRXRECON2024`](@ref) (the CMRxRecon2024 challenge data).
-mridata.org and OCMR serve ISMRMRD `.h5` files; CMRxRecon2024 ships MATLAB `.mat`
-k-space that is converted to a cached ISMRMRD file on first load. All are read via
-`MRIFiles`/`MRIBase`.
+cardiac repository), [`CMRXRECON2024`](@ref) (the CMRxRecon2024 challenge data), and
+[`CMRXRECON300`](@ref) (the CMRxRecon-300 undersampled cardiac dataset). mridata.org and
+OCMR serve ISMRMRD `.h5` files; the CMRxRecon sources ship MATLAB `.mat` k-space that is
+converted to a cached ISMRMRD file on first load. All are read via `MRIFiles`/`MRIBase`.
 
 !!! warning "Data source terms of use"
     This package's MIT license covers **its code only**. Downloaded data is governed
@@ -16,6 +16,7 @@ k-space that is converted to a cached ISMRMRD file on first load. All are read v
     - mridata.org: http://mridata.org/terms
     - OCMR: https://www.ocmr.info/download/
     - CMRxRecon2024: https://cmrxrecon.github.io/2024/FAQ.html
+    - CMRxRecon-300: https://www.synapse.org/Synapse:syn52965326
 
     Call `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
     notice once you have reviewed the terms.
@@ -63,6 +64,10 @@ persist the value across sessions.
 """
 const INDEX_TTL_DAYS = Ref(30)
 
+include("util/zran.jl")
+using .Zran: Zran
+include("util/tario.jl")
+using .TarIO: TarIO
 include("catalog/sources.jl")
 include("catalog/catalog.jl")
 include("catalog/query.jl")
@@ -72,7 +77,9 @@ include("download/fetch.jl")
 include("catalog/mridata_catalog.jl")
 include("catalog/ocmr_catalog.jl")
 include("catalog/cmrxrecon2024_catalog.jl")
+include("catalog/cmrxrecon300_catalog.jl")
 include("download/cmrxrecon2024_fetch.jl")
+include("download/cmrxrecon300_fetch.jl")
 include("catalog/display.jl")
 include("browse.jl")
 include("load/ismrmrd.jl")
@@ -95,6 +102,7 @@ function __init__()
           • mridata.org    →  http://mridata.org/terms
           • OCMR           →  https://www.ocmr.info/download/
           • CMRxRecon2024  →  https://cmrxrecon.github.io/2024/FAQ.html
+          • CMRxRecon-300  →  https://www.synapse.org/Synapse:syn52965326
         To permanently suppress this notice, call:
           MRITestData.dismiss_terms_notice!()
         """
@@ -102,7 +110,8 @@ function __init__()
     return nothing
 end
 
-export AbstractSource, MridataOrg, OCMR, CMRxRecon2024, MRIDATA, OCMR_SOURCE, CMRXRECON2024
+export AbstractSource, MridataOrg, OCMR, CMRxRecon2024, CMRxRecon300
+export MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300
 export DatasetEntry, DatasetHandle
 export list_sources, list_datasets, dataset, query
 export download_dataset, copy_dataset, cache_path, is_cached, clear_cache

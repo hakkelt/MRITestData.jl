@@ -27,6 +27,10 @@ end
 # are MATLAB k-space (+ a separate mask) and are converted to ISMRMRD on first use.
 _ismrmrd_path(::AbstractSource, e::DatasetEntry) = download_dataset(e)
 _ismrmrd_path(::CMRxRecon2024, e::DatasetEntry) = _cmrxrecon_ismrmrd_path(e)
+# CMRxRecon-300 ships *undersampled* raw k-space (`Recon_ks`, zero-filled to the full
+# matrix); derive the true acquired-line mask from the data so the cached ISMRMRD records
+# the real sampling rather than claiming it is fully sampled.
+_ismrmrd_path(::CMRxRecon300, e::DatasetEntry) = _cmrxrecon_ismrmrd_path(e; derive_mask = true)
 
 """
     load_raw(path; slice=nothing, repetition=nothing, contrast=nothing) -> RawAcquisitionData

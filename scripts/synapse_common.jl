@@ -90,6 +90,38 @@ function list_fragments(parent::AbstractString, token::AbstractString, prefix::A
     return frags
 end
 
+# GET an entity's JSON metadata as a String.
+function synapse_get_entity(entity_id::AbstractString, token::AbstractString)
+    io = IOBuffer()
+    Downloads.download(
+        "$(SYNAPSE_REPO)/entity/$(entity_id)", io;
+        headers = ["Authorization" => "Bearer $(token)", "Accept" => "application/json"],
+    )
+    return String(take!(io))
+end
+
+# Return the entity name from its metadata JSON.
+function synapse_entity_name(entity_id::AbstractString, token::AbstractString)
+    m = match(r"\"name\"\s*:\s*\"([^\"]+)\"", synapse_get_entity(entity_id, token))
+    return m === nothing ? "" : String(m.captures[1])
+end
+
+# List the file members of a Synapse **Dataset** entity (concreteType ...table.Dataset)
+# whose name starts with `prefix`, as a name-sorted Vector{Tuple{name, entity_id}}. Unlike
+# folders, a Dataset's children are not returned by /entity/children; its members live in
+# the `items` array of the Dataset's own metadata, each resolved to a name here.
+function list_dataset_items(dataset_id::AbstractString, token::AbstractString, prefix::AbstractString)
+    body = synapse_get_entity(dataset_id, token)
+    ids = [String(m.captures[1]) for m in eachmatch(r"\"entityId\"\s*:\s*\"(syn\d+)\"", body)]
+    out = Tuple{String, String}[]
+    for id in ids
+        name = synapse_entity_name(id, token)
+        startswith(name, prefix) && push!(out, (name, id))
+    end
+    sort!(out; by = first)
+    return out
+end
+
 # Resolve the temporary pre-signed S3 URL for a Synapse file entity. With
 # `redirect=false`, Synapse returns the URL as the plain-text body instead of a 307,
 # letting us range-request S3 directly without carrying the Synapse auth header.
@@ -100,17 +132,18 @@ function synapse_presigned_url(entity_id::AbstractString, token::AbstractString)
     return strip(String(take!(io)))
 end
 
-# Report the content size (bytes) of a Synapse file entity, or -1 if unknown.
+# Report the content size (bytes) of a Synapse file entity, or -1 if unknown. The entity
+# JSON only carries `contentSize` for some entities (it actually lives on the file handle),
+# so fall back to a HEAD on the pre-signed S3 URL and read its Content-Length.
 function synapse_file_size(entity_id::AbstractString, token::AbstractString)::Int
-    url = "$(SYNAPSE_REPO)/entity/$(entity_id)"
-    io = IOBuffer()
-    Downloads.download(
-        url, io; headers = [
-            "Authorization" => "Bearer $(token)",
-            "Accept" => "application/json",
-        ]
-    )
-    body = String(take!(io))
-    m = match(r"\"contentSize\"\s*:\s*(\d+)", body)
-    return m === nothing ? -1 : parse(Int, m.captures[1])
+    m = match(r"\"contentSize\"\s*:\s*(\d+)", synapse_get_entity(entity_id, token))
+    m === nothing || return parse(Int, m.captures[1])
+    try
+        resp = Downloads.request(synapse_presigned_url(entity_id, token); method = "HEAD", output = devnull)
+        for (k, v) in resp.headers
+            lowercase(k) == "content-length" && return parse(Int, strip(v))
+        end
+    catch
+    end
+    return -1
 end

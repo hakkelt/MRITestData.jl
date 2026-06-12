@@ -16,7 +16,7 @@
 # ── Reading the .mat arrays ─────────────────────────────────────────────────────
 
 function _cmrxrecon_kspace(d::AbstractDict)
-    for k in ("kus", "kspace_full")
+    for k in ("kus", "kspace_full", "Recon_ks", "Calib")
         haskey(d, k) && return d[k]
     end
     arrs = [v for v in values(d) if v isa AbstractArray{<:Number}]
@@ -131,13 +131,32 @@ function _cmrxrecon_to_ismrmrd(
     return dest
 end
 
+# Per-frame acquired-line mask derived from the data itself: a phase-encode line is
+# "acquired" in a frame iff it carries any non-zero sample. CMRxRecon2024 FullSample data
+# is genuinely fully sampled (every line non-zero → all-true mask), but CMRxRecon-300 `_ks`
+# files are **undersampled** (regular k-t pattern, e.g. R≈3) zero-filled to the full matrix
+# — deriving the mask from the zero pattern records the true sampling so the ISMRMRD is not
+# mislabelled as fully sampled. Returns an (nx, ny, nt) Bool mask.
+function _cmrxrecon_sampling_mask(k::AbstractArray)
+    k5 = _cmrxrecon_as5d(k)
+    nx, ny, _, _, nt = size(k5)
+    mask = falses(nx, ny, nt)
+    for t in 1:nt, ky in 1:ny
+        any(!iszero, @view k5[:, ky, :, :, t]) && (@view(mask[:, ky, t]) .= true)
+    end
+    return mask
+end
+
 # Resolve (building + caching if needed) the ISMRMRD `.h5` for a CMRxRecon entry. The
-# converted file lives next to the cached `.mat` (same name, `.h5` extension).
-function _cmrxrecon_ismrmrd_path(e::DatasetEntry)
+# converted file lives next to the cached `.mat` (same name, `.h5` extension). When
+# `derive_mask` is true the acquired-line mask is read from the data's zero pattern
+# (CMRxRecon-300, which is undersampled); otherwise an all-true mask is used
+# (CMRxRecon2024 FullSample, which is genuinely fully sampled).
+function _cmrxrecon_ismrmrd_path(e::DatasetEntry; derive_mask::Bool = false)
     dest = string(first(splitext(cache_path(e))), ".h5")
     isfile(dest) && return dest
     k = _cmrxrecon_kspace(load_mat(download_dataset(e)))
-    mask = trues(size(k, 1), size(k, 2))
+    mask = derive_mask ? _cmrxrecon_sampling_mask(k) : trues(size(k, 1), size(k, 2))
     fov_x = get(e.extra, "fov_x", nothing)
     fov_y = get(e.extra, "fov_y", nothing)
     fs = something(e.field_strength, 3.0)
