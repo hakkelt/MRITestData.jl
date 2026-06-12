@@ -50,12 +50,19 @@ is_cached
 clear_cache
 ```
 
+## Dataset sizes
+
+```@docs
+fetch_sizes
+sizes_path
+read_sizes
+write_sizes
+```
+
 ## Loading
 
 ```@docs
 load_raw
-load_acq
-acq_spec
 ```
 
 `MRITestData.load_mat` is not exported but is available for direct access to the raw
@@ -84,4 +91,11 @@ set_refresh_period!
 get_refresh_period
 set_synapse_token!
 get_synapse_token
+```
+
+The parallel-download tuning Refs read by the settings above:
+
+```@docs
+MRITestData.PARALLEL_CHUNKS
+MRITestData.PARALLEL_MIN_BYTES
 ```

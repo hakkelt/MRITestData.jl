@@ -10,9 +10,9 @@
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat"></a>
 
 Query and download free, open-access **MRI k-space datasets** and load them into
-[MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl), so
-reconstruction code can be exercised on real Cartesian and non-Cartesian scanner
-data instead of only synthetic phantoms.
+`MRIBase.RawAcquisitionData`, so reconstruction code (e.g.
+[MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl)) can be exercised
+on real scanner data instead of only synthetic phantoms.
 
 > [!IMPORTANT]
 > The MIT license covers **this package's code only**. Datasets you download are
@@ -30,16 +30,12 @@ Supported sources:
 | [`CMRXRECON2024`](https://cmrxrecon.github.io/2024/) | cardiac multi-coil (cine, aorta, mapping, tagging, …) | MATLAB `.mat` |
 
 mridata.org and OCMR serve ISMRMRD, read via
-[`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIReco.jl)/`MRIBase`.
-CMRxRecon2024 ships MATLAB v7.3 `.mat` k-space, read via
-[`MAT.jl`](https://github.com/JuliaIO/MAT.jl) with [`load_mat`](#cmrxrecon2024-synapse-access).
-
-`MRITestData` integrates with **MRIReco** through an optional package extension
-that activates automatically when the package is loaded:
-
-| Load this… | …to enable | Entry point |
-| --- | --- | --- |
-| `MRIReco` | reconstruct directly from the loaded k-space | [`recon`](#reconstruction-with-mrireco) |
+[`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIFiles.jl)/`MRIBase`.
+CMRxRecon2024 ships MATLAB v7.3 `.mat` k-space (read via
+[`MAT.jl`](https://github.com/JuliaIO/MAT.jl)) and is converted to a cached ISMRMRD
+file on first load, so every source flows through the same
+`list_datasets` → `download_dataset` → [`load_raw`](#working-with-the-raw-data)
+pipeline and yields a `RawAcquisitionData`.
 
 ## Installation
 
@@ -47,15 +43,15 @@ that activates automatically when the package is loaded:
 pkg> add MRITestData
 ```
 
-`MRITestData` depends on `MRIFiles`/`MRIBase` (which pull in HDF5) but **not** on
-either reconstruction package — those are weak dependencies.
+`MRITestData` depends on `MRIFiles`/`MRIBase` (which pull in HDF5) but **not** on any
+reconstruction package — reconstruction is left to the caller (see below).
 
 ## Discovering datasets (offline)
 
 ```julia
 using MRITestData
 
-list_sources()                                  # [MRIDATA, OCMR_SOURCE]
+list_sources()                                  # [MRIDATA, OCMR_SOURCE, CMRXRECON2024]
 list_datasets(OCMR_SOURCE; fully_sampled = true)
 list_datasets(MRIDATA; anatomy = :knee, field_strength = 3.0)
 
@@ -63,51 +59,51 @@ list_datasets(MRIDATA; anatomy = :knee, field_strength = 3.0)
 list_datasets(MRIDATA; coils = c -> c !== nothing && c >= 8)
 ```
 
-## Reconstruction with MRIReco
+## Working with the raw data
 
-`recon` reconstructs directly from the downloaded k-space using
-[MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl). It accepts an
-`MRIBase.AcquisitionData`, an ISMRMRD path, or a catalog entry/handle (downloaded if
-needed). Keywords are forwarded to MRIReco's `reconstruction`.
+`load_raw` accepts an ISMRMRD path **or** a catalog entry/handle (downloaded and
+cached on first use) and returns an `MRIBase.RawAcquisitionData`:
 
 ```julia
-using MRITestData, MRIReco
+using MRITestData
 
 entry = first(list_datasets(OCMR_SOURCE; fully_sampled = true))
-img   = recon(entry; reco = "direct")                 # download + reconstruct
-
-# or stage-by-stage
-acq = load_acq(download_dataset(entry; max_bytes = 2_000_000_000))
-img = recon(acq; reco = "standard", iterations = 30)  # iterative
-img = recon(acq; reco = "multiCoil", senseMaps = smaps)
+raw   = load_raw(entry)      # MRIBase.RawAcquisitionData (profiles + XML header)
 ```
-
-The returned image is MRIReco's `AxisArray` with axes `[x, y, z, echo, coil, rep]`.
 
 Any mridata.org UUID works even if it is not in the curated catalog:
 
 ```julia
-img = recon(dataset(MRIDATA, "52c2fd53-d233-4444-8bfd-7c454240d314"))
+raw = load_raw(dataset(MRIDATA, "52c2fd53-d233-4444-8bfd-7c454240d314"))
 ```
 
-## Working with the raw data (no reconstruction package required)
+## Reconstruction with MRIReco
 
-Without `MRIReco` loaded you can still use the `MRIBase` layer:
+Reconstruction is left to a dedicated package such as
+[MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl). Build an
+`AcquisitionData` from the loaded raw data and reconstruct:
 
 ```julia
-using MRITestData
-raw  = load_raw(path)        # MRIBase.RawAcquisitionData (profiles + XML header)
-acq  = load_acq(path)        # MRIBase.AcquisitionData
-spec = acq_spec(path)        # source-agnostic NamedTuple (:cartesian/:noncartesian)
+using MRITestData, MRIReco
+
+raw = load_raw(first(list_datasets(OCMR_SOURCE; fully_sampled = true)))
+acq = AcquisitionData(raw)
+
+params = MRIReco.defaultRecoParams()
+params[:reco] = "direct"
+img = MRIReco.reconstruction(acq, params)   # AxisArray [x, y, z, echo, coil, rep]
 ```
 
 ## CMRxRecon2024 (Synapse access)
 
-The [CMRxRecon2024](https://cmrxrecon.github.io/2024/) cardiac dataset is hosted on
-[Synapse](https://www.synapse.org) as a single ~835 GB archive split into 210 fragments.
-Rather than downloading all of it, `MRITestData` extracts **individual `.mat` files**
-on demand using HTTP byte-range requests against a pre-computed offset map — you only
-download the bytes for the file you ask for.
+The [CMRxRecon2024](https://cmrxrecon.github.io/2024/) cardiac dataset — fully-sampled
+multi-coil Cartesian k-space across six modalities (Cine, Mapping, Aorta, Tagging,
+Flow2d, BlackBlood) for Training / Validation / Test subjects — is hosted on
+[Synapse](https://www.synapse.org) as two giant ZIP archives, each split into 4 GiB
+fragments (training and after-competition). Rather than downloading all of it,
+`MRITestData` extracts **individual `.mat` files** on demand using HTTP byte-range
+requests against a pre-computed offset map — you only download the bytes for the file
+you ask for. Both archives are handled identically.
 
 Access is gated. **All of these steps are required** before a token can download data:
 
@@ -134,9 +130,9 @@ path  = download_dataset(entry)     # range-extracts + inflates just this .mat
 data  = load_mat(entry)             # downloads (cached) then reads via MAT.jl
 ```
 
-See the [Task 2 page](https://cmrxrecon.github.io/2024/Task2.html) for the random-sampling
-reconstruction task and the [FAQ](https://cmrxrecon.github.io/2024/FAQ.html) for terms
-and citation requirements.
+See the [FAQ](https://cmrxrecon.github.io/2024/FAQ.html) for terms and citation
+requirements. Maintainer tooling for regenerating the offset map and bulk-downloading
+the archives lives in [`scripts/`](scripts/README.md).
 
 ## Caching
 
@@ -175,8 +171,7 @@ pkg> test MRITestData
 ```
 
 Offline tests synthesise tiny ISMRMRD files on the fly (no committed binaries, no
-network) and reconstruct them through the MRIReco extension. Live-download tests
-are gated behind an environment variable:
+network). Live-download tests are gated behind an environment variable:
 
 ```bash
 # live downloads from mridata.org / OCMR

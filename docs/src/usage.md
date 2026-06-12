@@ -6,6 +6,7 @@
 
     - **mridata.org** → [http://mridata.org/terms](http://mridata.org/terms)
     - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
+    - **CMRxRecon2024** → [https://cmrxrecon.github.io/2024/FAQ.html](https://cmrxrecon.github.io/2024/FAQ.html)
 
     Call `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
     reminder once you have reviewed the terms.
@@ -69,7 +70,7 @@ Enter to accept it.
 
 **Standalone shell command (optional)**
 
-MRITestData can also be installed as a standalone `mridata-browse` command
+MRITestData can also be installed as a standalone `mridata-browser` command
 (adds it to `~/.julia/bin`):
 
 ```julia
@@ -82,8 +83,8 @@ Pkg.Apps.develop(path = "/path/to/MRITestData")
 Make sure `~/.julia/bin` is on your `PATH`, then launch:
 
 ```sh
-mridata-browse            # browse all sources
-mridata-browse --offline  # use the bundled index without hitting the network
+mridata-browser            # browse all sources
+mridata-browser --offline  # use the bundled index without hitting the network
 ```
 
 ## The self-updating index
@@ -140,46 +141,44 @@ clear_cache(; source = OCMR_SOURCE) # one source
 
 ## Working with the raw data
 
-`load_raw`, `load_acq` and `acq_spec` accept an ISMRMRD file path **or** a
+[`load_raw`](@ref) accepts an ISMRMRD file path **or** a
 [`DatasetEntry`](@ref)/[`DatasetHandle`](@ref) directly — the dataset is downloaded
 (and cached) on first use:
 
 ```julia
-raw  = load_raw(entry)       # MRIBase.RawAcquisitionData (profiles + XML header)
-acq  = load_acq(entry)       # MRIBase.AcquisitionData
-spec = acq_spec(entry)       # source-agnostic NamedTuple (:cartesian/:noncartesian)
+raw = load_raw(entry)        # MRIBase.RawAcquisitionData (profiles + XML header)
 ```
 
 This works uniformly for every source. OCMR and mridata.org files are already
 ISMRMRD; CMRxRecon2024 files are MATLAB k-space and are converted to a cached ISMRMRD
-file transparently (see below).
+file transparently (see below). To reconstruct, build an `AcquisitionData` from the
+`RawAcquisitionData` and hand it to a reconstruction package — see
+[Reconstruction with MRIReco](@ref).
 
-### CMRxRecon2024: k-space, masks, and ISMRMRD
+### CMRxRecon2024: k-space to ISMRMRD
 
-CMRxRecon2024 distributes each acquisition as a MATLAB `.mat` k-space array plus, for
-undersampled scans, a **separate mask file**. MRITestData pairs them automatically and
-builds a valid ISMRMRD file the first time you load an entry, so CMRxRecon flows through
-the same `load_acq`/`acq_spec` pipeline as every other source:
+CMRxRecon2024 distributes each acquisition as a MATLAB `.mat` k-space array. The
+catalog exposes the **fully-sampled** ground-truth acquisitions; MRITestData builds a
+valid Cartesian ISMRMRD file the first time you load an entry, so CMRxRecon flows
+through the same `load_raw` pipeline as every other source:
 
 ```julia
 entry = first(list_datasets(CMRXRECON2024; offline = true))
-spec  = acq_spec(entry)              # downloads k-space (+ paired mask), converts, loads
+raw   = load_raw(entry)              # downloads the .mat, converts, loads
 ```
 
-- All CMRxRecon data is Cartesian k-space — Uniform/ktUniform/ktGaussian and
-  (pseudo-)ktRadial are *sampling masks*, not non-Cartesian trajectories — so it loads
-  as `spec.kind == :cartesian` with a `spec.subsampling` mask (`nothing` for FullSample).
-  Each phase-encode frame maps to an ISMRMRD contrast, selected via the `echo` keyword.
-- ktRadial masks have gaps *within* a readout line; the k-space data preserves them
-  exactly (unsampled points are zero), but the line-level `subsampling` mask may read as
-  fully sampled. For the exact 2D pattern, load the paired mask with `load_mat`.
-- CMRxRecon does not ship a field of view; a placeholder (matrix size in mm) is written.
+- All CMRxRecon k-space is Cartesian; each acquisition is stored as one ISMRMRD profile
+  per phase-encode line, with temporal frames mapped to ISMRMRD contrasts.
+- Coils are SVD-compressed to 10 virtual channels (the physical element count is kept
+  in `entry.extra["hardware_coils"]`).
+- CMRxRecon does not ship a field of view; a placeholder (matrix size in mm) is written,
+  while the encoding/recon matrix size reflects the true dimensions.
 
 If you need the raw MATLAB arrays instead of ISMRMRD, `MRITestData.load_mat`
 returns the `.mat` contents as a `Dict`:
 
 ```julia
-d = MRITestData.load_mat(entry)     # e.g. d["kus"] or d["kspace_full"]
+d = MRITestData.load_mat(entry)     # e.g. d["kspace_full"]
 ```
 
 ### Copying a dataset to a custom location
@@ -194,24 +193,27 @@ copy_dataset(entry; dest = "/data/my_scan.h5")
 
 ## Reconstruction with MRIReco
 
-MRITestData provides the data loading pipeline. Reconstruction is left to a
-dedicated package such as [MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl).
-A typical workflow:
+MRITestData provides the data-loading pipeline and yields an
+`MRIBase.RawAcquisitionData`. Reconstruction is left to a dedicated package such as
+[MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl); convert the raw
+data to an `AcquisitionData` and reconstruct:
 
 ```julia
 using MRITestData, MRIReco
 
-# 1. Download and load
+# 1. Download and load (works for any source; pass the entry directly)
 entry = first(list_datasets(OCMR_SOURCE; fully_sampled = true))
-acq   = load_acq(download_dataset(entry))
+raw   = load_raw(entry)
 
-# 2. Reconstruct using MRIReco directly
+# 2. Build the AcquisitionData MRIReco expects, then reconstruct
+acq = AcquisitionData(raw)
 params = MRIReco.defaultRecoParams()
 params[:reco] = "direct"
 img = MRIReco.reconstruction(acq, params)
 ```
 
 The result is MRIReco's `AxisArray` with axes `[x, y, z, echo, coil, rep]`.
+`AcquisitionData` is re-exported by MRIReco (from `MRIBase`).
 
 ## Persistent settings
 

@@ -1,6 +1,6 @@
 ---
 name: julia-test-workflow
-description: 'Use for iterating on the MRITestData.jl test suite: running filtered subsets, triaging failures, and running opt-in network/MRT tests.'
+description: 'Use for iterating on the MRITestData.jl test suite: running filtered subsets, triaging failures, and running opt-in network tests.'
 argument-hint: 'Describe which tests to run or what is failing (tag, test name, or scenario)'
 user-invocable: true
 ---
@@ -10,8 +10,7 @@ user-invocable: true
 ## When To Use
 
 - Iterating on a failing test without re-running the entire suite.
-- Running opt-in network tests (live downloads from OCMR / mridata.org).
-- Running opt-in MriReconstructionToolbox integration tests.
+- Running opt-in network tests (live downloads from OCMR / mridata.org / Synapse).
 - Narrowing a failure to a specific test name or tag.
 
 ## Quick Reference
@@ -38,7 +37,7 @@ Multiple tags / names as a single comma-separated string:
 
 ```sh
 /scratch/c_mrrecon/julia/juliaup/julia-1.12.6+0.x64.linux.gnu/bin/julia \
-  --project=test test/runtests.jl ":network,:mrireco"
+  --project=test test/runtests.jl ":network,:quality"
 ```
 
 ### Filtered run — by exact test name
@@ -46,7 +45,7 @@ Multiple tags / names as a single comma-separated string:
 ```sh
 /scratch/c_mrrecon/julia/juliaup/julia-1.12.6+0.x64.linux.gnu/bin/julia \
   --project=test test/runtests.jl \
-  "OCMR: refresh index + download + reconstruct"
+  "OCMR: refresh index + download + load"
 ```
 
 ### Opt-in network tests (live downloads)
@@ -64,13 +63,8 @@ Or use the ARGS filter to run only the network tests:
   --project=test test/runtests.jl ":network"
 ```
 
-### Opt-in MRT tests (MriReconstructionToolbox; fragile in merged env)
-
-```sh
-MRITESTDATA_MRT_TESTS=true \
-  /scratch/c_mrrecon/julia/juliaup/julia-1.12.6+0.x64.linux.gnu/bin/julia \
-  --project=test test/runtests.jl
-```
+CMRxRecon network tests additionally need a Synapse token — set it once with
+`MRITestData.set_synapse_token!(token)` or export `SYNAPSE_AUTH_TOKEN`.
 
 ### Docs build (verify checkdocs=:public passes)
 
@@ -83,11 +77,9 @@ MRITESTDATA_MRT_TESTS=true \
 
 | Tag | Meaning | Runs by default? |
 |-----|---------|-----------------|
-| *(none)* | Offline unit tests: catalog, cache, load | Yes |
-| `:mrireco` | MRIReco extension — offline, synthetic fixtures | Yes |
+| *(none)* | Offline unit tests: catalog, cache, load, browse | Yes |
 | `:quality` | Aqua + JET static analysis | Yes |
-| `:network` | Live downloads from OCMR S3 / mridata.org | No (opt-in) |
-| `:mrt` | MriReconstructionToolbox integration | No (opt-in) |
+| `:network` | Live downloads from OCMR S3 / mridata.org / Synapse | No (opt-in) |
 
 ## Workflow
 
@@ -102,13 +94,11 @@ MRITESTDATA_MRT_TESTS=true \
 - **mridata.org over HTTPS**: outbound port 443 is blocked on this HPC. All
   mridata.org URLs use `http://` so downloads go over port 80.
 - **OCMR ECG header bug**: MRIFiles parses `<waveformName>` as `Float64`, but
-  cardiac OCMR files store `"ECG"` there. `load_raw`/`load_acq` strip
+  cardiac OCMR files store `"ECG"` there. `load_raw` strips
   `<waveformInformation>` blocks from the cached HDF5 before MRIFiles reads it.
-- **MRT tests** (`MriReconstructionToolbox`) fail to precompile in the merged dev
-  environment due to `ProximalAlgorithms` version conflicts; always tag `:mrt`.
 
 ## Done Criteria
 
 - Targeted tests pass.
-- Full offline suite (73 tests) still green.
+- Full offline suite still green.
 - No new JET or Aqua errors introduced.

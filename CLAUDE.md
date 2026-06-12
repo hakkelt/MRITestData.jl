@@ -19,24 +19,26 @@ otherwise only be tested on synthetic phantoms.
 - **Download/cache** (`src/download/`): `download_dataset` → Scratch cache, with
   `.part`→atomic-rename, SHA-256 sidecars, and a `ProgressMeter` bar (opt out with
   `progress=false`). `_download_with_progress` is the shared primitive.
-- **Load** (`src/load/`): `load_acq`/`load_raw` (MRIBase) and `acq_spec` (a
-  source-agnostic NamedTuple describing the acquisition layout).
-- **Extensions** (`ext/`): `MRITestDataMRIRecoExt` adds `recon(::AcquisitionData;…)`
-  over MRIReco — a **weakdep**, so the package never hard-depends on a
-  reconstruction package.
-- **Browse** (`src/browse.jl`): standalone Julia App (`mridata-browse`) built on
-  Tachikoma.jl's `PagedDataTable` for interactive browse/filter/search/download.
+- **Load** (`src/load/`): `load_raw` returns an `MRIBase.RawAcquisitionData` for any
+  source (ISMRMRD path or entry/handle). `load_mat` exposes the raw CMRxRecon `.mat`
+  arrays. The package deliberately does **not** build `AcquisitionData` or expose an
+  `acq_spec`/reconstruction API — reconstruction is left to the caller (build an
+  `AcquisitionData` from the raw data and hand it to MRIReco.jl; see `docs/src/usage.md`).
+- **Browse** (`src/browse.jl`): standalone Julia App (`mridata-browser`) built on
+  Tachikoma.jl's `PagedDataTable` for interactive browse/filter/search/download. The
+  app's `julia_flags` (Project.toml `[apps.mridata-browser]`) minimise launch compile
+  time. CMRxRecon downloads prompt for a Synapse token if none is set.
 
 ## Commands
 
 - **Instantiate**: `julia --project=. -e 'using Pkg; Pkg.instantiate()'`
 - **Run tests** (offline; default): `julia --project=test test/runtests.jl`
 - **Run a subset** (by tag or exact name):
-  `julia --project=test test/runtests.jl ":quality,:mrireco"`
-  `julia --project=test test/runtests.jl "OCMR: refresh index + download + reconstruct"`
+  `julia --project=test test/runtests.jl ":quality"`
+  `julia --project=test test/runtests.jl "OCMR: refresh index + download + load"`
 - **Run network tests** (live downloads): `MRITESTDATA_NETWORK_TESTS=true julia --project=test test/runtests.jl`
 - **Format with Runic** (required before finishing):
-  `julia --project=@runic --startup-file=no -e 'using Runic; exit(Runic.main(ARGS))' -- --inplace src/ ext/ test/`
+  `julia --project=@runic --startup-file=no -e 'using Runic; exit(Runic.main(ARGS))' -- --inplace src/ test/ scripts/`
 
 ## Tests use the TestItems framework
 
@@ -48,10 +50,10 @@ otherwise only be tested on synthetic phantoms.
   explicitly named.
 - **Tag scheme** (mind these when adding tests):
   - default (no special tag): offline unit tests — catalog, cache, load, Browse, Aqua, JET.
-  - `:mrireco` — reconstruction via the MRIReco extension (offline, synthetic fixtures).
   - `:quality` — Aqua + JET static analysis.
-  - `:network` — **opt-in** live downloads; only run when `MRITESTDATA_NETWORK_TESTS=true`
-    or explicitly named in the ARGS filter.
+  - `:network` — **opt-in** live downloads (mridata.org / OCMR / Synapse); only run when
+    `MRITESTDATA_NETWORK_TESTS=true` or explicitly named in the ARGS filter. CMRxRecon
+    network tests need a Synapse token (`set_synapse_token!` or `SYNAPSE_AUTH_TOKEN`).
 - Aqua and JET tests must stay **offline** (use `offline=true` on catalog calls).
 - Never commit binary `.h5` fixtures — tests synthesize tiny ISMRMRD files on the fly.
 
@@ -69,7 +71,7 @@ facilitates access; it grants no rights to the data.
 - Comment only when the code isn't self-evident.
 - Keep network failure non-fatal where a fallback exists (`@warn`, don't throw).
 - mridata.org URLs use `http://` (port 80) — outbound HTTPS (443) is blocked on this HPC.
-- OCMR files with cardiac ECG headers: `load_raw`/`load_acq` strip `<waveformInformation>`
+- OCMR files with cardiac ECG headers: `load_raw` strips `<waveformInformation>`
   from the cached HDF5 in-place before MRIFiles reads it (workaround for a MRIFiles bug
   where `<waveformName>` is parsed as `Float64` instead of `String`).
 - Update docstrings and `docs/` when changing public API; `checkdocs=:public` is on.

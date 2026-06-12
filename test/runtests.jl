@@ -1,15 +1,15 @@
 using TestItemRunner
 
 # Tag-based gating:
-#   :network — live downloads from mridata.org / OCMR; opt in with
+#   :network — live downloads from mridata.org / OCMR / Synapse; opt in with
 #              MRITESTDATA_NETWORK_TESTS=true.
-# Everything else (catalog, cache, load, :mrireco, :quality/Aqua+JET) runs by default.
+# Everything else (catalog, cache, load, browse, :quality/Aqua+JET) runs by default.
 const RUN_NETWORK = get(ENV, "MRITESTDATA_NETWORK_TESTS", "false") == "true"
 
 # Optional ARGS-based subset filter: pass tag(s) or test name(s) as a single
 # comma-separated string, e.g.
-#   julia --project=test test/runtests.jl ":network,:mrireco"
-#   julia --project=test test/runtests.jl "OCMR: refresh index + download + reconstruct"
+#   julia --project=test test/runtests.jl ":network"
+#   julia --project=test test/runtests.jl "OCMR: refresh index + download + load"
 # Tags must be prefixed with ':', names are matched exactly.
 const FILTER_PARTS = if length(ARGS) > 0
     @assert length(ARGS) == 1 "Pass at most one comma-separated filter string"

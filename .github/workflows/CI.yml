@@ -38,8 +38,8 @@ jobs:
           arch: ${{ matrix.julia-arch }}
       - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
-      # Network (:network) and MriReconstructionToolbox (:mrt) tests are opt-in and
-      # NOT run in CI — the default test run is fully offline.
+      # Network (:network) tests are opt-in (need live downloads / a Synapse token) and
+      # are NOT run in CI — the default test run is fully offline.
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v6
