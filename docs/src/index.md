@@ -11,11 +11,12 @@ Supported sources:
 | [`MRIDATA`](https://mridata.org) | multi-vendor fully-sampled raw k-space (3D knee, brain, …) | ISMRMRD `.h5` | direct download |
 | [`OCMR_SOURCE`](https://ocmr.info) | cardiac multi-coil cine (fully sampled + undersampled) | ISMRMRD `.h5` | direct download |
 | [`CMRXRECON2024`](https://cmrxrecon.github.io/2024/) | multi-coil Cartesian cardiac k-space (Cine, Mapping, Aorta, Tagging, Flow, BlackBlood) | MATLAB `.mat` → ISMRMRD | Synapse (token) |
+| [`CMRXRECON300`](https://www.synapse.org/Synapse:syn52965326) | undersampled multi-coil cardiac k-space + ACS, 300 volunteers (cine + T1/T2 mapping) | MATLAB `.mat` → ISMRMRD | Synapse (token) |
 
-All three are exposed through one uniform pipeline — [`list_datasets`](@ref)/[`query`](@ref)
+All sources are exposed through one uniform pipeline — [`list_datasets`](@ref)/[`query`](@ref)
 → [`download_dataset`](@ref) → [`load_raw`](@ref) — yielding `MRIBase.RawAcquisitionData`.
 ISMRMRD files are read via [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIFiles.jl)/`MRIBase`;
-CMRxRecon2024 `.mat` k-space is converted to a cached ISMRMRD file on first load.
+the CMRxRecon sources' `.mat` k-space is converted to a cached ISMRMRD file on first load.
 
 ## Data sources
 
@@ -33,7 +34,21 @@ CMRxRecon2024 `.mat` k-space is converted to a cached ISMRMRD file on first load
   Training / Validation / Test subjects; coils are SVD-compressed to 10 virtual
   channels. The whole dataset is one ~1.2 TB split ZIP on Synapse — this package fetches
   individual `.mat` files via HTTP range requests (no full download), which needs a
-  Synapse access token and completed challenge registration.
+  Synapse access token and completed challenge registration. See
+  [CMRxRecon data types](@ref) for what each modality and view contains.
+- **CMRxRecon-300** — the revised CMRxRecon-2023 k-space dataset: raw multi-coil cardiac
+  k-space from 300 healthy volunteers (Siemens 3 T), with cine (long- and short-axis) plus
+  T1/T2 mapping per subject. The `_ks` k-space is **undersampled** (regular k-t pattern,
+  R≈3) and paired with fully-sampled ACS `_calib` files, so artifact-free reconstruction
+  needs parallel imaging (e.g. ESPIRiT/CG-SENSE) rather than a plain inverse FFT. The data
+  ships as `.tar.gz`
+  archives (Training / Validation / Test) split into 16 GiB fragments on Synapse (≈580 GB
+  total, CC-BY, free Synapse account — no challenge registration). A `.tar.gz` is a single
+  gzip stream and cannot be range-extracted per file like a ZIP, so this package ships a
+  precomputed **zran** (zlib random-access) checkpoint index — one checkpoint placed just
+  before each file — that lets it resume decompression immediately before the requested
+  `.mat` and pull it with HTTP range requests, streaming essentially just that file rather
+  than the whole archive.
 
 !!! warning "Data source terms of use"
     This package's MIT license covers **its code only**. Downloaded **data is

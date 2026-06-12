@@ -18,10 +18,20 @@ otherwise only be tested on synthetic phantoms.
     verbatim, not overlaid.
 - **Download/cache** (`src/download/`): `download_dataset` → Scratch cache, with
   `.part`→atomic-rename, SHA-256 sidecars, and a `ProgressMeter` bar (opt out with
-  `progress=false`). `_download_with_progress` is the shared primitive.
+  `progress=false`). `_download_with_progress` is the shared primitive. CMRxRecon2024
+  range-extracts `.mat` files from a split **ZIP** via a per-file offset map
+  (`cmrxrecon2024_fetch.jl`). CMRxRecon-300 ships split **`.tar.gz`** (one gzip stream,
+  not per-file seekable), so `cmrxrecon300_fetch.jl` uses a **zran** checkpoint index
+  (`src/util/zran.jl`: libz `ccall` wrappers + 32 KiB dictionary + `inflatePrime` bit
+  offset) to resume decompression mid-stream and pull one member with HTTP range
+  requests. Both index artifacts are built offline by maintainer scripts (`scripts/`)
+  and committed to `data/`; CMRxRecon-300's maps are read directly (it has no upstream to
+  refresh — its `index_cache.jl` hooks are static no-ops).
 - **Load** (`src/load/`): `load_raw` returns an `MRIBase.RawAcquisitionData` for any
   source (ISMRMRD path or entry/handle). `load_mat` exposes the raw CMRxRecon `.mat`
-  arrays. The package deliberately does **not** build `AcquisitionData` or expose an
+  arrays. Both CMRxRecon sources are converted to cached Cartesian ISMRMRD by
+  `cmrxrecon_ismrmrd.jl` (`_cmrxrecon_to_ismrmrd`); CMRxRecon-300 is fully sampled, so it
+  reuses that converter with an all-true mask (k-space var `Recon_ks`). The package deliberately does **not** build `AcquisitionData` or expose an
   `acq_spec`/reconstruction API — reconstruction is left to the caller (build an
   `AcquisitionData` from the raw data and hand it to MRIReco.jl; see `docs/src/usage.md`).
 - **Browse** (`src/browse.jl`): standalone Julia App (`mridata-browser`) built on

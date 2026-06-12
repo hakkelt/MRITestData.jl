@@ -7,6 +7,7 @@
     - **mridata.org** → [http://mridata.org/terms](http://mridata.org/terms)
     - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
     - **CMRxRecon2024** → [https://cmrxrecon.github.io/2024/FAQ.html](https://cmrxrecon.github.io/2024/FAQ.html)
+    - **CMRxRecon-300** → [https://www.synapse.org/Synapse:syn52965326](https://www.synapse.org/Synapse:syn52965326)
 
     Call `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
     reminder once you have reviewed the terms.
@@ -181,6 +182,76 @@ returns the `.mat` contents as a `Dict`:
 d = MRITestData.load_mat(entry)     # e.g. d["kspace_full"]
 ```
 
+### CMRxRecon-300: random-access extraction from split `.tar.gz`
+
+CMRxRecon-300 ships raw k-space (`Recon_ks`) as `.tar.gz` archives split into 16 GiB
+fragments. The `_ks` files are **undersampled** (a regular k-t pattern, R≈3) paired with
+fully-sampled ACS `_calib` files; `load_raw` reads the true acquired-line pattern from the
+data, so the resulting `RawAcquisitionData`/`AcquisitionData` is correctly marked
+undersampled (an artifact-free image needs parallel imaging — ESPIRiT/CG-SENSE with the
+ACS — not a plain inverse FFT). Because a `.tar.gz` is one continuous gzip stream, it cannot be
+range-extracted per file like a ZIP. Instead the package ships a precomputed **zran**
+(zlib random-access) checkpoint index with one checkpoint placed just before each file:
+to fetch one `.mat` it resumes decompression immediately before that file and issues HTTP
+range requests, streaming essentially just the file rather than the whole (≈120–260 GB)
+archive. Loading is otherwise identical to every other source:
+
+```julia
+entry = first(list_datasets(CMRXRECON300; offline = true))
+raw   = load_raw(entry)              # zran-extracts the .mat, converts, loads
+```
+
+Files are stored as Cartesian ISMRMRD (one profile per phase-encode line, frames →
+contrasts), the same as CMRxRecon2024. Building or refining the checkpoint index from the
+archives is a maintainer task — see `scripts/index_cmrxrecon300.jl` and `scripts/README.md`.
+
+### CMRxRecon data types
+
+Both CMRxRecon sources are cardiac, multi-coil, Cartesian k-space from Siemens 3 T
+scanners, but they span several acquisition *modalities* and *views*. The file name encodes
+them (e.g. `cine_sax_ks`, `t1map_ks`, `blackblood`); the modality is also surfaced in
+`entry.extra["modality"]`. Each acquisition is 5‑D `(kx, ky, coils, slices, frames)` — 4‑D
+when there is no temporal/parametric axis (e.g. BlackBlood) — and loads as Cartesian
+ISMRMRD with the last axis mapped to ISMRMRD *contrasts*.
+
+**Views.** Cardiac imaging uses two standard slice orientations:
+
+- **SAX — short-axis.** A stack of parallel slices cutting across the left ventricle (a
+  "bread-loaf" of the heart). The slice axis holds multiple short-axis levels (base →
+  apex). Used for volumes/function and for most mapping.
+- **LAX — long-axis.** Slices along the heart's long axis. The slice axis instead holds the
+  standard long-axis *views* — 2‑chamber (2ch), 3‑chamber (3ch) and 4‑chamber (4ch).
+
+**Modalities.**
+
+- **Cine** (`cine_sax`, `cine_lax`) — a balanced‑SSFP *movie* of the beating heart across
+  the cardiac cycle; the frame axis is time. The workhorse for cardiac function and the
+  largest acquisitions (many frames × slices/views).
+- **Mapping** — quantitative parametric mapping; the last axis is a series of differently
+  *weighted* images (not time) acquired to fit a relaxation curve:
+  - **T1 mapping** (`t1map`) — images at several inversion times (MOLLI-style); fit yields
+    a per-pixel T1 map (myocardial fibrosis/oedema).
+  - **T2 mapping** (`t2map`) — images at several T2-preparation echo times; fit yields a
+    per-pixel T2 map (oedema/inflammation).
+- **Tagging** (`tagging`, CMRxRecon2024) — cine with a saturation *tag* grid laid over the
+  myocardium so tag deformation reveals regional strain.
+- **Aorta** (`aorta`, CMRxRecon2024) — cine of the aorta (sagittal/transverse) for vessel
+  anatomy and pulsatility.
+- **Flow2d** (`flow2d`, CMRxRecon2024) — 2‑D phase-contrast velocity mapping; encodes
+  through-plane blood velocity (e.g. for flow quantification).
+- **BlackBlood** (`blackblood`, CMRxRecon2024) — a dark-blood-prepared *anatomical* scan
+  (blood signal nulled) for vessel-wall / morphology. It has **no temporal axis** (4‑D),
+  so it loads as a single-contrast Cartesian acquisition.
+
+CMRxRecon‑300 provides **Cine (SAX + LAX) and T1/T2 mapping** for all 300 subjects.
+CMRxRecon2024 adds **Tagging, Aorta, Flow2d and BlackBlood**. Filter by modality with, e.g.
+
+```julia
+list_datasets(CMRXRECON2024; offline = true)                 # all modalities
+query(; sources = CMRXRECON2024, modality = "BlackBlood", offline = true)
+query(; sources = CMRXRECON300,  modality = "Cine SAX",   offline = true)
+```
+
 ### Copying a dataset to a custom location
 
 [`copy_dataset`](@ref) ensures the file is available at a destination path of your
@@ -214,6 +285,56 @@ img = MRIReco.reconstruction(acq, params)
 
 The result is MRIReco's `AxisArray` with axes `[x, y, z, echo, coil, rep]`.
 `AcquisitionData` is re-exported by MRIReco (from `MRIBase`).
+
+This pipeline works for **every source and CMRxRecon modality**. The example script
+`examples/reconstruct_all_types.jl` reconstructs a representative sample of each and was
+verified to succeed on all of them:
+
+| Source / modality | Example recon dimensions `[x, y, z, echo, coil, rep]` |
+| --- | --- |
+| CMRxRecon-300 Cine SAX | `(512, 162, 6, 24, 30, 1)` — 6 slices × 24 frames, 30 coils |
+| CMRxRecon-300 Cine LAX | `(448, 168, 19, 4, 30, 1)` |
+| CMRxRecon-300 T1 / T2 map | `(512, 144, 5, 9, 30, 1)` / `(384, 116, 5, 3, 30, 1)` — frames axis = weightings |
+| CMRxRecon2024 Cine / Mapping | `(416, 168, 1, 12, 10, 1)` / `(384, 116, 5, 3, 10, 1)` — 10 virtual coils |
+| CMRxRecon2024 Aorta / Tagging / Flow2d | `(416, 168, 2, 12, 10, 1)` / `(448, 180, 3, 12, 10, 1)` / `(384, 144, 2, 12, 10, 1)` |
+| CMRxRecon2024 BlackBlood | `(512, 156, 5, 1, 10, 1)` — single contrast (no temporal axis) |
+| mridata.org (3-D Cartesian) | `(640, 368, 41, 1, 15, 1)` — 41 slices, 15 coils |
+| OCMR (cardiac cine) | `(512, 208, 1, 1, 15, 1)` |
+
+(`echo` carries the temporal/parametric axis — cine frames, mapping weightings; BlackBlood
+has none. The CMRxRecon-300 raw data keeps its 30 physical coils, while CMRxRecon2024 ships
+10 SVD-compressed virtual coils. The reconstruction here is a plain direct/inverse-FFT
+recon: it gives an artifact-free image for the fully-sampled sources, but the
+**undersampled CMRxRecon-300** `_ks` data aliases — see below.)
+
+#### Representative reconstructions
+
+Coil-combined (sum-of-squares) magnitude images from the above, produced by
+`docs/generate_recon_images.jl` (the readout axis is cropped to remove CMRxRecon's 2×
+oversampling). They are pre-rendered and committed rather than built live, because
+reconstruction needs MRIReco plus real data downloads (a Synapse token and several GB).
+
+Fully-sampled sources reconstruct cleanly with a direct recon —
+
+CMRxRecon2024 — BlackBlood: dark-blood anatomical slices (blood pool nulled):
+
+![CMRxRecon2024 BlackBlood](assets/recon/cmrxrecon2024_blackblood.png)
+
+mridata.org — slices through a fully-sampled 3-D Cartesian volume:
+
+![mridata.org 3-D volume](assets/recon/mridata_3d.png)
+
+OCMR — a cardiac cine frame:
+
+![OCMR cardiac cine](assets/recon/ocmr_cine.png)
+
+In contrast, **CMRxRecon-300 is k-t undersampled** (here R≈3), so the *same* direct recon
+shows the expected aliasing — the heart replicated and overlapped along the phase-encode
+direction. `load_raw` records the true sampling pattern, so this is faithfully represented;
+an artifact-free image requires parallel imaging (ESPIRiT/CG-SENSE) using the paired
+fully-sampled ACS `_calib` data (`entry.extra["calib_id"]`):
+
+![CMRxRecon-300 Cine (R≈3 undersampled, direct recon aliases)](assets/recon/cmrxrecon300_cine_sax.png)
 
 ## Persistent settings
 

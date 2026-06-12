@@ -168,3 +168,47 @@ git add data/cmrxrecon2024_map.csv \
         data/cmrxrecon2024_aftercompetition_parts.toml
 git commit -m "Regenerate CMRxRecon2024 offset map and parts"
 ```
+
+---
+
+# CMRxRecon-300 Maintainer Scripts
+
+CMRxRecon-300 ([`syn52965326`](https://www.synapse.org/Synapse:syn52965326), CC-BY) is
+distributed as `.tar.gz` archives split into raw 16 GiB fragments. A `.tar.gz` is one
+continuous gzip stream, so — unlike the CMRxRecon2024 ZIP — individual members cannot be
+range-extracted directly. Instead a single maintainer pass builds a **zran** (zlib
+random-access) checkpoint index that lets the runtime resume decompression mid-stream and
+pull one `.mat` with HTTP range requests.
+
+| Archive | Fragments | ≈ Size |
+| --- | --- | --- |
+| `DemoData.tar.gz` | 1 (unsplit) | 1.8 GB (single subject — committed test fixture) |
+| `TrainingSet.tar.gz` | 17 (`-part-00`…`-16`) | 260 GB |
+| `ValidationSet.tar.gz` | 8 (`-part-00`…`-07`) | 122 GB |
+| `TestSet.tar.gz` | 13 (`-part-00`…`-12`) | 199 GB |
+
+## `index_cmrxrecon300.jl` — build the random-access artifacts
+
+One streaming pass over an archive records every `.mat` member's uncompressed payload
+offset + size and captures **one zran checkpoint placed just before each member**, writing
+three files to `data/`:
+
+- `cmrxrecon300_<set>_parts.toml` — fragment-name → Synapse entity-ID map
+- `cmrxrecon300_<set>_map.csv` — `path,set,subject,modality,matfile,data_offset,size`
+- `cmrxrecon300_<set>_index.bin.gz` — gzip-compressed zran checkpoint index (one per file)
+
+```sh
+# DemoData (small; the committed network-test fixture)
+julia --project=. scripts/index_cmrxrecon300.jl DemoData
+
+# Full sets (each downloads the whole archive once)
+julia --project=. scripts/index_cmrxrecon300.jl TrainingSet
+julia --project=. scripts/index_cmrxrecon300.jl ValidationSet
+julia --project=. scripts/index_cmrxrecon300.jl TestSet
+```
+
+Because checkpoints are placed per file (at the DEFLATE block boundary just before each
+`.mat`), a single-file fetch streams only that file plus a fraction of a block, and the
+index holds ~one 32 KiB window per file (≈ a few MB per set). The token is resolved exactly
+as for the CMRxRecon2024 scripts (`--token`, `$SYNAPSE_AUTH_TOKEN`, or the stored
+`synapse_token` preference); a free Synapse account suffices (no challenge registration).

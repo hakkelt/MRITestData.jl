@@ -12,6 +12,7 @@
     - **mridata.org** → [http://mridata.org/terms](http://mridata.org/terms)
     - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
     - **CMRxRecon2024** → [https://cmrxrecon.github.io/2024/FAQ.html](https://cmrxrecon.github.io/2024/FAQ.html)
+    - **CMRxRecon-300** → [https://www.synapse.org/Synapse:syn52965326](https://www.synapse.org/Synapse:syn52965326)
 
 This package is a convenience tool for *accessing* publicly available data. It does
 not host, relicense, or redistribute any dataset. When you use it to download data,
@@ -56,6 +57,23 @@ See the [Task 2 page](https://cmrxrecon.github.io/2024/Task2.html) for technical
 context on the random-sampling CMR reconstruction task, and the
 [FAQ](https://cmrxrecon.github.io/2024/FAQ.html) for terms and citation requirements.
 Cite the CMRxRecon publications as required by the organizers.
+
+## CMRxRecon-300
+
+The [CMRxRecon-300](https://www.synapse.org/Synapse:syn52965326) dataset (the
+revised CMRxRecon-2023 dataset) is hosted on
+[Synapse](https://www.synapse.org) under the **CC-BY** license. Unlike the 2024
+challenge data, access is **not** gated by a challenge application — a free Synapse
+account suffices:
+
+1. Register for a free Synapse account.
+2. Create a Synapse PAT with *view* and *download* scopes and provide it to this package
+   via [`set_synapse_token!`](@ref) (or the `SYNAPSE_AUTH_TOKEN` environment variable).
+
+CC-BY permits redistribution and reuse **with attribution**: cite the CMRxRecon
+*Scientific Data* paper (Wang C, Lyu J, Wang S, et al. *CMRxRecon: A publicly available
+k-space dataset and benchmark to advance deep learning for cardiac MRI.* Scientific Data,
+2024, 11(1): 687) when you use the data.
 
 ## Your responsibilities
 

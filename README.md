@@ -28,11 +28,12 @@ Supported sources:
 | [`MRIDATA`](https://mridata.org) | multi-vendor raw k-space (knee, brain, …) | ISMRMRD `.h5` |
 | [`OCMR_SOURCE`](https://ocmr.info) | cardiac multi-coil cine (fully sampled + undersampled) | ISMRMRD `.h5` |
 | [`CMRXRECON2024`](https://cmrxrecon.github.io/2024/) | cardiac multi-coil (cine, aorta, mapping, tagging, …) | MATLAB `.mat` |
+| [`CMRXRECON300`](https://www.synapse.org/Synapse:syn52965326) | undersampled cardiac k-space + ACS, 300 volunteers (cine + T1/T2 mapping) | MATLAB `.mat` |
 
 mridata.org and OCMR serve ISMRMRD, read via
 [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIFiles.jl)/`MRIBase`.
-CMRxRecon2024 ships MATLAB v7.3 `.mat` k-space (read via
-[`MAT.jl`](https://github.com/JuliaIO/MAT.jl)) and is converted to a cached ISMRMRD
+The CMRxRecon sources ship MATLAB v7.3 `.mat` k-space (read via
+[`MAT.jl`](https://github.com/JuliaIO/MAT.jl)) and are converted to a cached ISMRMRD
 file on first load, so every source flows through the same
 `list_datasets` → `download_dataset` → [`load_raw`](#working-with-the-raw-data)
 pipeline and yields a `RawAcquisitionData`.
@@ -51,7 +52,7 @@ reconstruction package — reconstruction is left to the caller (see below).
 ```julia
 using MRITestData
 
-list_sources()                                  # [MRIDATA, OCMR_SOURCE, CMRXRECON2024]
+list_sources()                                  # [MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300]
 list_datasets(OCMR_SOURCE; fully_sampled = true)
 list_datasets(MRIDATA; anatomy = :knee, field_strength = 3.0)
 
@@ -133,6 +134,33 @@ data  = load_mat(entry)             # downloads (cached) then reads via MAT.jl
 See the [FAQ](https://cmrxrecon.github.io/2024/FAQ.html) for terms and citation
 requirements. Maintainer tooling for regenerating the offset map and bulk-downloading
 the archives lives in [`scripts/`](scripts/README.md).
+
+## CMRxRecon-300 (Synapse access)
+
+The [CMRxRecon-300](https://www.synapse.org/Synapse:syn52965326) dataset (the *Scientific
+Data* 2024 release) is raw multi-coil cardiac k-space from 300 volunteers — cine plus
+T1/T2 mapping — hosted on Synapse as `.tar.gz` archives split into 16 GiB fragments
+(≈580 GB total). It is **CC-BY** and needs only a free Synapse account (no challenge
+registration). The `_ks` k-space is **undersampled** (regular k-t pattern, R≈3) and paired
+with fully-sampled ACS `_calib` files; `load_raw` records the true sampling, so an
+artifact-free image needs parallel imaging (ESPIRiT/CG-SENSE), not a plain inverse FFT.
+
+A `.tar.gz` is one continuous gzip stream and cannot be range-extracted per file like a
+ZIP, so `MRITestData` ships a precomputed **zran** (zlib random-access) checkpoint index
+with one checkpoint placed just before each file: to fetch one `.mat` it resumes
+decompression immediately before that file and issues HTTP range requests, streaming
+essentially just the file instead of the whole archive. Loading is identical to every
+other source:
+
+```julia
+MRITestData.set_synapse_token!("your-synapse-pat")     # a free Synapse account suffices
+
+entry = first(list_datasets(CMRXRECON300; offline = true))
+raw   = load_raw(entry)             # zran-extracts the .mat, converts to ISMRMRD, loads
+```
+
+Building or refining the checkpoint index from the archives is a maintainer task — see
+[`scripts/index_cmrxrecon300.jl`](scripts/README.md).
 
 ## Caching
 
