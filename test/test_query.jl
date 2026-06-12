@@ -4,15 +4,15 @@
 
     all_of(f, xs) = all(f, xs)
 
-    @testset "query across both sources" begin
+    @testset "query across all sources" begin
         both = query(; offline = true)
         @test both isa Vector{DatasetEntry}
-        # union of the two per-source catalogs
-        n = length(list_datasets(MRIDATA; offline = true)) +
-            length(list_datasets(OCMR_SOURCE; offline = true))
+        # union of every per-source catalog
+        n = sum(s -> length(list_datasets(s; offline = true)), list_sources())
         @test length(both) == n
         @test any(e -> e.source === MRIDATA, both)
         @test any(e -> e.source === OCMR_SOURCE, both)
+        @test any(e -> e.source === CMRXRECON2024, both)
     end
 
     @testset "single source argument" begin

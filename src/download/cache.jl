@@ -19,9 +19,11 @@ function _source_dir(source::AbstractSource)
     return dir
 end
 
-# OCMR ids may contain no extension; mridata ids are bare UUIDs. We always store
-# with a .h5 extension since both sources serve ISMRMRD HDF5.
-_cache_basename(e::DatasetEntry) = string(e.id, ".h5")
+# OCMR ids may contain no extension; mridata ids are bare UUIDs. We store these
+# with a .h5 extension since both sources serve ISMRMRD HDF5. Sources whose ids are
+# already full filenames (e.g. CMRxRecon2024 paths ending in .mat) override this.
+_cache_basename(e::DatasetEntry) = _cache_basename(e.source, e)
+_cache_basename(::AbstractSource, e::DatasetEntry) = string(e.id, ".h5")
 
 """
     cache_path(x) -> String

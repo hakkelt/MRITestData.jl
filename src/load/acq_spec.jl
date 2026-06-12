@@ -10,11 +10,16 @@
 """
     acq_spec(acq::AcquisitionData; echo=1, rep=1, slice=1) -> NamedTuple
     acq_spec(path::AbstractString; kwargs...) -> NamedTuple
+    acq_spec(entry_or_handle; kwargs...) -> NamedTuple
 
 Build a source-agnostic acquisition spec (a `NamedTuple`) from an
-`MRIBase.AcquisitionData` (or an ISMRMRD file path). The result has `kind`
-`:cartesian` or `:noncartesian` and carries `NamedDimsArray` k-space data plus the
-metadata describing the acquisition layout.
+`MRIBase.AcquisitionData` (or an ISMRMRD file path, [`DatasetEntry`](@ref) or
+[`DatasetHandle`](@ref)). The result has `kind` `:cartesian` or `:noncartesian` and
+carries `NamedDimsArray` k-space data plus the metadata describing the acquisition
+layout.
+
+For a `DatasetEntry`/`DatasetHandle` the dataset is loaded via [`load_acq`](@ref)
+(CMRxRecon2024 entries are converted from MATLAB k-space to ISMRMRD transparently).
 """
 function acq_spec(acq::AcquisitionData; echo::Int = 1, rep::Int = 1, slice::Int = 1)
     tr = trajectory(acq, echo)
@@ -23,6 +28,8 @@ function acq_spec(acq::AcquisitionData; echo::Int = 1, rep::Int = 1, slice::Int 
 end
 
 acq_spec(path::AbstractString; kwargs...) = acq_spec(load_acq(path); kwargs...)
+acq_spec(e::DatasetEntry; kwargs...) = acq_spec(load_acq(e); kwargs...)
+acq_spec(h::DatasetHandle; kwargs...) = acq_spec(h.entry; kwargs...)
 
 # Map a Cartesian AcquisitionData to an AcqSpec. The toolbox accepts two layouts:
 #  * fully sampled -> a dense grid with separate (:kx,:ky[,:kz]) dims and no

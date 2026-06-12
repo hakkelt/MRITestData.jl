@@ -38,10 +38,16 @@ using Preferences: load_preference, set_preferences!
 using PrecompileTools: @compile_workload
 
 import MRIFiles
+import MAT
+import CodecZlib
 using MRIFiles: ISMRMRDFile
+using FileIO: save
 using MRIBase:
     RawAcquisitionData,
     AcquisitionData,
+    Profile,
+    AcquisitionHeader,
+    EncodingCounters,
     trajectory,
     kspaceNodes,
     kDataCart,
@@ -72,10 +78,14 @@ include("download/cache.jl")
 include("download/fetch.jl")
 include("catalog/mridata_catalog.jl")
 include("catalog/ocmr_catalog.jl")
+include("catalog/cmrxrecon2024_catalog.jl")
+include("download/cmrxrecon2024_fetch.jl")
 include("catalog/display.jl")
 include("browse.jl")
 include("load/ismrmrd.jl")
 include("load/acq_spec.jl")
+include("load/mat.jl")
+include("load/cmrxrecon_ismrmrd.jl")
 include("api.jl")
 include("settings.jl")
 include("precompile.jl")
@@ -90,8 +100,9 @@ function __init__()
         @warn """
         MRITestData downloads data from external sources that have their own terms of use.
         Please review the terms before using downloaded data:
-          • mridata.org  →  http://mridata.org/terms
-          • OCMR         →  https://www.ocmr.info/download/
+          • mridata.org    →  http://mridata.org/terms
+          • OCMR           →  https://www.ocmr.info/download/
+          • CMRxRecon2024  →  https://cmrxrecon.github.io/2024/FAQ.html
         To permanently suppress this notice, call:
           MRITestData.dismiss_terms_notice!()
         """
@@ -99,7 +110,7 @@ function __init__()
     return nothing
 end
 
-export AbstractSource, MridataOrg, OCMR, MRIDATA, OCMR_SOURCE
+export AbstractSource, MridataOrg, OCMR, CMRxRecon2024, MRIDATA, OCMR_SOURCE, CMRXRECON2024
 export DatasetEntry, DatasetHandle
 export list_sources, list_datasets, dataset, query
 export download_dataset, copy_dataset, cache_path, is_cached, clear_cache
@@ -111,5 +122,6 @@ export dismiss_terms_notice!, enable_terms_notice!
 export set_chunk_size!, get_chunk_size
 export set_min_file_size!, get_min_file_size
 export set_refresh_period!, get_refresh_period
+export set_synapse_token!, get_synapse_token
 
 end # module

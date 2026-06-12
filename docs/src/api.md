@@ -14,8 +14,10 @@ MRITestData
 AbstractSource
 MridataOrg
 OCMR
+CMRxRecon2024
 MRIDATA
 OCMR_SOURCE
+CMRXRECON2024
 list_sources
 ```
 
@@ -56,6 +58,13 @@ load_acq
 acq_spec
 ```
 
+`MRITestData.load_mat` is not exported but is available for direct access to the raw
+MATLAB k-space arrays of CMRxRecon2024 files; see [`load_mat`](@ref MRITestData.load_mat).
+
+```@docs
+MRITestData.load_mat
+```
+
 ## Interactive browser
 
 ```@docs
@@ -73,4 +82,6 @@ set_min_file_size!
 get_min_file_size
 set_refresh_period!
 get_refresh_period
+set_synapse_token!
+get_synapse_token
 ```

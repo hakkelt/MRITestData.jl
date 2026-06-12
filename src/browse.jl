@@ -11,10 +11,14 @@ import Tachikoma: view, update!, should_quit, task_queue, pre_render!
 # ── Column definitions ────────────────────────────────────────────────────────
 
 _fmt_b0(v) = v === nothing ? "?" : string(v, "T")
-_fmt_coils(v) = v === nothing ? "?" : string(v, "ch")
-_fmt_sampled(v) = v === true ? "✓" : v === false ? "" : "?"
+_fmt_coils(v) = v === nothing ? "?" : v isa AbstractString ? v : string(v, "ch")
 _fmt_size(v) = v === nothing ? "?" : _human_bytes(v)
 _fmt_sym(v) = (v === nothing || v === :unknown) ? "?" : string(v)
+# Merged sampling column: shows the pattern token (e.g. "Uniform4") for CMRxRecon,
+# or "✓"/"?"/"" for sources that only carry a fully_sampled boolean.
+_fmt_sampling(v::Bool) = v ? "✓" : ""
+_fmt_sampling(::Nothing) = "?"
+_fmt_sampling(v) = string(v)
 
 # Column 1 holds the entry's index into the `entries` vector so the selected
 # row maps back to a DatasetEntry even after sorting/filtering.
@@ -25,12 +29,23 @@ const _COLUMNS = PagedColumn[
     PagedColumn("Anatomy"; format = _fmt_sym, col_type = :text),
     PagedColumn("B₀"; align = col_right, format = _fmt_b0, col_type = :numeric),
     PagedColumn("Trajectory"; format = _fmt_sym, col_type = :text),
-    PagedColumn("Coils"; align = col_right, format = _fmt_coils, col_type = :numeric),
-    PagedColumn("Fully sampled"; format = _fmt_sampled, col_type = :text),
+    PagedColumn("Coils"; align = col_right, format = _fmt_coils, col_type = :text),
+    PagedColumn("Sampling"; format = _fmt_sampling, col_type = :text),
     PagedColumn("Size"; align = col_right, format = _fmt_size, col_type = :numeric),
 ]
 
 function _entry_row(i::Int, e::DatasetEntry)
+    # Merged sampling column: pattern token (CMRxRecon) or fully_sampled boolean (others).
+    pat = get(e.extra, "sampling", "")
+    sampling = (pat == "" || pat == "full") ? e.fully_sampled : pat
+    # Coil count: exact if known; "multi"/"single" label for CMRxRecon MultiCoil entries.
+    coils_val = if e.coils !== nothing
+        e.coils
+    elseif get(e.extra, "coil_type", "") == "multi"
+        "multi"
+    else
+        nothing
+    end
     return Any[
         i,
         source_name(e.source),
@@ -38,8 +53,8 @@ function _entry_row(i::Int, e::DatasetEntry)
         e.anatomy,
         e.field_strength,
         e.trajectory,
-        e.coils,
-        e.fully_sampled,
+        coils_val,
+        sampling,
         e.approx_size_bytes,
     ]
 end
@@ -433,7 +448,16 @@ run_browser(; offline = true)            # skip the network
 ```
 """
 function run_browser(; sources = list_sources(), offline::Bool = false)
-    entries = query(; sources = sources, offline = offline)
+    all_entries = query(; sources = sources, offline = offline)
+    # CMRxRecon2024: hide standalone mask files (companions to k-space rows) and hide
+    # retrospectively undersampled entries when their FullSample counterpart is available
+    # in the catalog (pre-computed has_fullsample flag; users can apply any mask themselves).
+    entries = filter(all_entries) do e
+        role = get(e.extra, "role", "")
+        role == "mask" && return false
+        role == "undersampled" && get(e.extra, "has_fullsample", "") == "true" && return false
+        return true
+    end
     model = BrowserModel(entries)
     app(model; fps = 30)
 

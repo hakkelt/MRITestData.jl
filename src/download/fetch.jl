@@ -217,18 +217,24 @@ function download_dataset(
         )
     end
 
-    _download_with_progress(e.url, dest; progress = progress, desc = "Downloading $(e.name) ")
+    _fetch_dataset(e.source, e, dest; progress = progress, verify = verify)
+    return dest
+end
+download_dataset(h::DatasetHandle; kwargs...) = download_dataset(h.entry; kwargs...)
 
+# Source-dispatched fetch primitive. The default (OCMR / mridata.org) downloads the
+# entry's `url` directly; sources that need bespoke retrieval (e.g. CMRxRecon2024's
+# range-extraction from a split Synapse archive) add their own method.
+function _fetch_dataset(::AbstractSource, e::DatasetEntry, dest::AbstractString; progress::Bool, verify::Bool)
+    _download_with_progress(e.url, dest; progress = progress, desc = "Downloading $(e.name) ")
     digest = _sha256_hex(dest)
     if verify && e.sha256 !== nothing && digest != e.sha256
         rm(dest; force = true)
         error("checksum mismatch for $(e.id):\n  expected $(e.sha256)\n  got      $(digest)")
     end
-
     _write_meta(e, dest, digest)
     return dest
 end
-download_dataset(h::DatasetHandle; kwargs...) = download_dataset(h.entry; kwargs...)
 
 """
     fetch_sizes(entries; timeout=15) -> Vector{DatasetEntry}

@@ -11,6 +11,7 @@
 
     - **mridata.org** → [http://mridata.org/terms](http://mridata.org/terms)
     - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
+    - **CMRxRecon2024** → [https://cmrxrecon.github.io/2024/FAQ.html](https://cmrxrecon.github.io/2024/FAQ.html)
 
 This package is a convenience tool for *accessing* publicly available data. It does
 not host, relicense, or redistribute any dataset. When you use it to download data,
@@ -37,6 +38,24 @@ publication**:
 
 Review the terms on the OCMR website and in the dataset repository, and comply with
 any restrictions on redistribution and use.
+
+## CMRxRecon2024
+
+The [CMRxRecon2024](https://cmrxrecon.github.io/2024/) challenge dataset is hosted on
+[Synapse](https://www.synapse.org). Access is gated:
+
+1. Register for a free Synapse account.
+2. **Apply to join the challenge** and complete the external team-information form —
+   this is mandatory. Until the challenge registration is finalized, a generated
+   Personal Access Token (PAT) will **not** have permission to download the data.
+3. Create a Synapse PAT with *view* and *download* scopes and provide it to this
+   package via [`set_synapse_token!`](@ref) (or the `SYNAPSE_AUTH_TOKEN` environment
+   variable).
+
+See the [Task 2 page](https://cmrxrecon.github.io/2024/Task2.html) for technical
+context on the random-sampling CMR reconstruction task, and the
+[FAQ](https://cmrxrecon.github.io/2024/FAQ.html) for terms and citation requirements.
+Cite the CMRxRecon publications as required by the organizers.
 
 ## Your responsibilities
 

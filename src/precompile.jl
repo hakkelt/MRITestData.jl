@@ -28,6 +28,24 @@
             _ocmr_entry(_pc_data[_pc_r, :], _pc_col)
         end
     end
+    # CMRxRecon2024 offset-map parser (bypassing ensure_index, which needs CACHE_DIR).
+    _ = _cmrxrecon_entries(_CMRXRECON_MAP_PATH)
+
+    # CMRxRecon2024 .mat→ISMRMRD conversion + load (synthetic; no network/CACHE_DIR).
+    let
+        _pc_k = ComplexF32.(reshape(1:(6 * 4 * 2 * 1 * 2), 6, 4, 2, 1, 2))
+        _pc_mask = falses(6, 4, 2)
+        _pc_mask[:, [1, 3], 1] .= true
+        _pc_mask[:, [2, 4], 2] .= true
+        _pc_h5 = tempname() * ".h5"
+        try
+            _cmrxrecon_to_ismrmrd(_pc_k, _pc_mask, _pc_h5)
+            acq_spec(_pc_h5; echo = 1)
+        finally
+            isfile(_pc_h5) && rm(_pc_h5; force = true)
+            isfile(_pc_h5 * ".part") && rm(_pc_h5 * ".part"; force = true)
+        end
+    end
 
     # ── run_browser code path ────────────────────────────────────────────────────
     # app() opens a real terminal and cannot run at precompile time. record_app()
@@ -139,9 +157,11 @@
     _ = _fmt_b0(nothing)
     _ = _fmt_coils(18)
     _ = _fmt_coils(nothing)
-    _ = _fmt_sampled(true)
-    _ = _fmt_sampled(false)
-    _ = _fmt_sampled(nothing)
+    _ = _fmt_coils("multi")
+    _ = _fmt_sampling(true)
+    _ = _fmt_sampling(false)
+    _ = _fmt_sampling(nothing)
+    _ = _fmt_sampling("Uniform4")
     _ = _fmt_size(1024)
     _ = _fmt_size(nothing)
     _ = _fmt_sym(:cartesian)

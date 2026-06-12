@@ -113,3 +113,35 @@ function set_refresh_period!(days::Int)
     INDEX_TTL_DAYS[] = days
     return nothing
 end
+
+# ── Synapse Personal Access Token (CMRxRecon2024) ───────────────────────────────
+
+"""
+    set_synapse_token!(token::AbstractString)
+
+Persistently store a Synapse Personal Access Token used to download the
+[`CMRXRECON2024`](@ref) dataset. The token is saved in `LocalPreferences.toml` and
+survives across sessions. It is read by [`download_dataset`](@ref) for CMRxRecon2024
+files (the `SYNAPSE_AUTH_TOKEN` environment variable takes precedence if set).
+
+The token must belong to an account that has completed the CMRxRecon2024 challenge
+registration; otherwise it lacks permission to download the data fragments. See the
+package README for registration instructions.
+"""
+function set_synapse_token!(token::AbstractString)
+    set_preferences!(MRITestData, "synapse_token" => String(token); export_prefs = false, force = true)
+    return nothing
+end
+
+"""
+    get_synapse_token() -> String
+
+Return the Synapse Personal Access Token used for [`CMRXRECON2024`](@ref) downloads.
+The `SYNAPSE_AUTH_TOKEN` environment variable takes precedence; otherwise the value
+persisted by [`set_synapse_token!`](@ref) is returned, or `""` if none is set.
+"""
+function get_synapse_token()::String
+    env = get(ENV, "SYNAPSE_AUTH_TOKEN", "")
+    isempty(env) || return env
+    return load_preference(MRITestData, "synapse_token", "")
+end

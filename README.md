@@ -17,18 +17,22 @@ data instead of only synthetic phantoms.
 > [!IMPORTANT]
 > The MIT license covers **this package's code only**. Datasets you download are
 > governed by **each provider's own license and terms** (mridata.org per-dataset
-> terms; OCMR's data-use terms and required citation). You are responsible for
-> complying with them. See [Licensing & legal](https://hakkelt.github.io/MRITestData.jl/stable/legal/).
+> terms; OCMR's data-use terms and required citation; CMRxRecon2024's challenge
+> registration and citation). You are responsible for complying with them. See
+> [Licensing & legal](https://hakkelt.github.io/MRITestData.jl/stable/legal/).
 
-Supported sources (v1):
+Supported sources:
 
 | Source | Contents | Format |
 | --- | --- | --- |
 | [`MRIDATA`](https://mridata.org) | multi-vendor raw k-space (knee, brain, …) | ISMRMRD `.h5` |
 | [`OCMR_SOURCE`](https://ocmr.info) | cardiac multi-coil cine (fully sampled + undersampled) | ISMRMRD `.h5` |
+| [`CMRXRECON2024`](https://cmrxrecon.github.io/2024/) | cardiac multi-coil (cine, aorta, mapping, tagging, …) | MATLAB `.mat` |
 
-Both sources serve ISMRMRD, which is read via
+mridata.org and OCMR serve ISMRMRD, read via
 [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIReco.jl)/`MRIBase`.
+CMRxRecon2024 ships MATLAB v7.3 `.mat` k-space, read via
+[`MAT.jl`](https://github.com/JuliaIO/MAT.jl) with [`load_mat`](#cmrxrecon2024-synapse-access).
 
 `MRITestData` integrates with **MRIReco** through an optional package extension
 that activates automatically when the package is loaded:
@@ -96,6 +100,43 @@ raw  = load_raw(path)        # MRIBase.RawAcquisitionData (profiles + XML header
 acq  = load_acq(path)        # MRIBase.AcquisitionData
 spec = acq_spec(path)        # source-agnostic NamedTuple (:cartesian/:noncartesian)
 ```
+
+## CMRxRecon2024 (Synapse access)
+
+The [CMRxRecon2024](https://cmrxrecon.github.io/2024/) cardiac dataset is hosted on
+[Synapse](https://www.synapse.org) as a single ~835 GB archive split into 210 fragments.
+Rather than downloading all of it, `MRITestData` extracts **individual `.mat` files**
+on demand using HTTP byte-range requests against a pre-computed offset map — you only
+download the bytes for the file you ask for.
+
+Access is gated. **All of these steps are required** before a token can download data:
+
+1. Register for a free **Synapse account** at [synapse.org](https://www.synapse.org).
+2. Apply to **join the CMRxRecon2024 challenge** and complete the external
+   team-information form. This is mandatory — see the
+   [challenge site](https://cmrxrecon.github.io/2024/Task2.html).
+3. ⚠️ Until the challenge registration is finalized, your Personal Access Token (PAT)
+   will **not** have the backend permissions to download the data fragments.
+4. Create a Synapse **PAT** with *view* + *download* scopes.
+
+Then point `MRITestData` at your token and pull files:
+
+```julia
+using MRITestData
+
+MRITestData.set_synapse_token!("your-synapse-pat")   # persisted across sessions
+# …or set ENV["SYNAPSE_AUTH_TOKEN"] (takes precedence)
+
+list_datasets(CMRXRECON2024; offline = true, fully_sampled = true)
+
+entry = first(list_datasets(CMRXRECON2024; offline = true))
+path  = download_dataset(entry)     # range-extracts + inflates just this .mat
+data  = load_mat(entry)             # downloads (cached) then reads via MAT.jl
+```
+
+See the [Task 2 page](https://cmrxrecon.github.io/2024/Task2.html) for the random-sampling
+reconstruction task and the [FAQ](https://cmrxrecon.github.io/2024/FAQ.html) for terms
+and citation requirements.
 
 ## Caching
 

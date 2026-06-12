@@ -7,8 +7,11 @@ authors = ["Tamas Hakkel <hakkelt@gmail.com>"]
 projects = ["test", "docs"]
 
 [deps]
+CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
 MRIBase = "f7771a9a-6e57-4e71-863b-6e4b6a2f17df"
 MRIFiles = "5a6f062f-bf45-497d-b654-ad17aae2a530"
 NamedDims = "356022a1-0364-5f58-8944-0da4b18d706f"
@@ -21,8 +24,11 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Tachikoma = "468859d6-42d8-48b7-8ad9-1d312e0e3b0a"
 
 [compat]
+CodecZlib = "0.7"
 DelimitedFiles = "1"
 Downloads = "1"
+FileIO = "1"
+MAT = "0.10"
 MRIBase = "0.4"
 MRIFiles = "0.3"
 NamedDims = "1.2"
@@ -35,5 +41,4 @@ TOML = "1"
 Tachikoma = "2"
 julia = "1.10"
 
-[apps]
-mridata-browse = {}
+[apps.mridata-browse]

@@ -140,10 +140,46 @@ clear_cache(; source = OCMR_SOURCE) # one source
 
 ## Working with the raw data
 
+`load_raw`, `load_acq` and `acq_spec` accept an ISMRMRD file path **or** a
+[`DatasetEntry`](@ref)/[`DatasetHandle`](@ref) directly — the dataset is downloaded
+(and cached) on first use:
+
 ```julia
-raw  = load_raw(path)        # MRIBase.RawAcquisitionData (profiles + XML header)
-acq  = load_acq(path)        # MRIBase.AcquisitionData
-spec = acq_spec(path)        # source-agnostic NamedTuple (:cartesian/:noncartesian)
+raw  = load_raw(entry)       # MRIBase.RawAcquisitionData (profiles + XML header)
+acq  = load_acq(entry)       # MRIBase.AcquisitionData
+spec = acq_spec(entry)       # source-agnostic NamedTuple (:cartesian/:noncartesian)
+```
+
+This works uniformly for every source. OCMR and mridata.org files are already
+ISMRMRD; CMRxRecon2024 files are MATLAB k-space and are converted to a cached ISMRMRD
+file transparently (see below).
+
+### CMRxRecon2024: k-space, masks, and ISMRMRD
+
+CMRxRecon2024 distributes each acquisition as a MATLAB `.mat` k-space array plus, for
+undersampled scans, a **separate mask file**. MRITestData pairs them automatically and
+builds a valid ISMRMRD file the first time you load an entry, so CMRxRecon flows through
+the same `load_acq`/`acq_spec` pipeline as every other source:
+
+```julia
+entry = first(list_datasets(CMRXRECON2024; offline = true))
+spec  = acq_spec(entry)              # downloads k-space (+ paired mask), converts, loads
+```
+
+- All CMRxRecon data is Cartesian k-space — Uniform/ktUniform/ktGaussian and
+  (pseudo-)ktRadial are *sampling masks*, not non-Cartesian trajectories — so it loads
+  as `spec.kind == :cartesian` with a `spec.subsampling` mask (`nothing` for FullSample).
+  Each phase-encode frame maps to an ISMRMRD contrast, selected via the `echo` keyword.
+- ktRadial masks have gaps *within* a readout line; the k-space data preserves them
+  exactly (unsampled points are zero), but the line-level `subsampling` mask may read as
+  fully sampled. For the exact 2D pattern, load the paired mask with `load_mat`.
+- CMRxRecon does not ship a field of view; a placeholder (matrix size in mm) is written.
+
+If you need the raw MATLAB arrays instead of ISMRMRD, `MRITestData.load_mat`
+returns the `.mat` contents as a `Dict`:
+
+```julia
+d = MRITestData.load_mat(entry)     # e.g. d["kus"] or d["kspace_full"]
 ```
 
 ### Copying a dataset to a custom location

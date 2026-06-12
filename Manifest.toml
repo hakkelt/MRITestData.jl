@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "c97659ff47e19d3aac766b59005ddc1fc86c8d55"
+project_hash = "10b767e84a60f023fb3332be9ac32b8c564e593b"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -103,6 +103,11 @@ version = "0.4.9"
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 version = "1.11.0"
+
+[[deps.BufferedStreams]]
+git-tree-sha1 = "6863c5b7fc997eadcabdbaf6c5f201dc30032643"
+uuid = "e1450e63-4bb3-523b-b2a4-4ffa8c0fd77d"
+version = "1.2.2"
 
 [[deps.ChunkSplitters]]
 git-tree-sha1 = "1c52c8e2673edc030191177ff1aee42d25149acb"
@@ -482,6 +487,12 @@ git-tree-sha1 = "a2d6be586f4bb29b5b1400ea32c62c60d32f255e"
 uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
 version = "3.5.3"
 
+[[deps.MAT]]
+deps = ["BufferedStreams", "CodecZlib", "HDF5", "SparseArrays"]
+git-tree-sha1 = "1d2dd9b186742b0f317f2530ddcbf00eebb18e96"
+uuid = "23992714-dd62-5051-b70f-ba57cb901cac"
+version = "0.10.7"
+
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "oneTBB_jll"]
 git-tree-sha1 = "282cadc186e7b2ae0eeadbd7a4dffed4196ae2aa"
@@ -525,7 +536,7 @@ uuid = "5a6f062f-bf45-497d-b654-ad17aae2a530"
 version = "0.3.2"
 
 [[deps.MRITestData]]
-deps = ["DelimitedFiles", "Downloads", "MRIBase", "MRIFiles", "NamedDims", "PrecompileTools", "Preferences", "ProgressMeter", "SHA", "Scratch", "TOML", "Tachikoma"]
+deps = ["CodecZlib", "DelimitedFiles", "Downloads", "FileIO", "MAT", "MRIBase", "MRIFiles", "NamedDims", "PrecompileTools", "Preferences", "ProgressMeter", "SHA", "Scratch", "TOML", "Tachikoma"]
 path = "."
 uuid = "b3f1a2c4-5d6e-4a7b-9c8d-0e1f2a3b4c5d"
 version = "0.1.0"
