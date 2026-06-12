@@ -1,18 +1,17 @@
 # Convert CMRxRecon2024 MATLAB k-space (+ undersampling mask) into a valid ISMRMRD
-# `.h5` file, so CMRxRecon entries flow through the same `load_raw`/`load_acq`/
-# `acq_spec` pipeline as every other source. The raw `.mat` files hold a k-space
-# array (`kus` for undersampled, `kspace_full` for FullSample) shaped (nx,ny,nc,nz,nt)
-# (4D, no nt, for BlackBlood); the undersampling pattern lives in a *separate* mask
-# file (variable `mask`, 2D (nx,ny) for Task1, 3D (nx,ny,nt) for Task2) that we pair
-# by filename. See docs/src and CLAUDE.md.
+# `.h5` file, so CMRxRecon entries flow through the same `load_raw` pipeline as every
+# other source. The raw `.mat` files hold a k-space array (`kus` for undersampled,
+# `kspace_full` for FullSample) shaped (nx,ny,nc,nz,nt) (4D, no nt, for BlackBlood);
+# the undersampling pattern lives in a *separate* mask file (variable `mask`, 2D
+# (nx,ny) for Task1, 3D (nx,ny,nt) for Task2) that we pair by filename. See docs/src
+# and CLAUDE.md.
 #
 # All CMRxRecon2024 data is Cartesian k-space — the Uniform/ktUniform/ktGaussian and
 # (pseudo-)ktRadial labels are *sampling masks*, not non-Cartesian trajectories. We
 # store every acquisition as a Cartesian ISMRMRD: one profile per acquired phase-encode
 # line (frame → contrast, slice → slice). A line counts as acquired if the mask selects
 # any sample in it; the readout itself carries the `kus` values (already zero-filled at
-# unsampled points). Loads as `acq_spec(...).kind == :cartesian` with a `subsampling`
-# mask (or `nothing` for FullSample).
+# unsampled points).
 
 # ── Reading the .mat arrays ─────────────────────────────────────────────────────
 
@@ -23,11 +22,6 @@ function _cmrxrecon_kspace(d::AbstractDict)
     arrs = [v for v in values(d) if v isa AbstractArray{<:Number}]
     length(arrs) == 1 && return only(arrs)
     return error("could not identify the k-space variable in the .mat file (keys = $(collect(keys(d))))")
-end
-
-function _cmrxrecon_maskvar(d::AbstractDict)
-    haskey(d, "mask") && return d["mask"]
-    return error("mask .mat file has no \"mask\" variable (keys = $(collect(keys(d))))")
 end
 
 # Reshape to a canonical 5D (nx,ny,nc,nz,nt); BlackBlood is 4D (no temporal axis).
@@ -98,7 +92,7 @@ end
 Build a valid Cartesian ISMRMRD `.h5` at `dest` from a CMRxRecon2024 k-space array `k`
 (`(nx,ny,nc,nz,nt)`, or 4D for BlackBlood) and its `mask`. FOV kwargs (mm) and
 field_strength_T come from the info-CSV annotation; when absent the matrix size is used
-as a FOV placeholder (does not affect `acq_spec` results, which use encoding size).
+as a FOV placeholder (encoding/recon size still reflect the true matrix dimensions).
 """
 function _cmrxrecon_to_ismrmrd(
         k::AbstractArray,
@@ -137,25 +131,13 @@ function _cmrxrecon_to_ismrmrd(
     return dest
 end
 
-# Look up the paired mask entry using the mask_path pre-computed in the offset map.
-function _cmrxrecon_mask_entry(e::DatasetEntry)
-    mp = get(e.extra, "mask_path", "")
-    isempty(mp) && error("entry $(repr(e.id)) has no paired mask (mask_path missing from offset map)")
-    return dataset(CMRXRECON2024, mp).entry
-end
-
 # Resolve (building + caching if needed) the ISMRMRD `.h5` for a CMRxRecon entry. The
 # converted file lives next to the cached `.mat` (same name, `.h5` extension).
 function _cmrxrecon_ismrmrd_path(e::DatasetEntry)
     dest = string(first(splitext(cache_path(e))), ".h5")
     isfile(dest) && return dest
     k = _cmrxrecon_kspace(load_mat(download_dataset(e)))
-    if e.fully_sampled === true
-        mask = trues(size(k, 1), size(k, 2))
-    else
-        me = _cmrxrecon_mask_entry(e)
-        mask = _cmrxrecon_maskvar(load_mat(download_dataset(me)))
-    end
+    mask = trues(size(k, 1), size(k, 2))
     fov_x = get(e.extra, "fov_x", nothing)
     fov_y = get(e.extra, "fov_y", nothing)
     fs = something(e.field_strength, 3.0)

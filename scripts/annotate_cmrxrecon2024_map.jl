@@ -16,27 +16,24 @@
 #
 # Added columns (idempotent — existing annotation columns are replaced):
 #   Path-derived:
-#     role          "fullsample" | "undersampled" | "mask" | ""
-#     sampling      e.g. "Uniform4", "ktRadial20", "full"
+#     sampling      "full"
 #     coil_type     "multi" | "single" | ""
 #     modality      e.g. "Cine", "Aorta" | ""
 #     dataset_set   "TrainingSet" | "ValidationSet" | "TestSet" | ""
 #     subject       e.g. "P001" | ""
 #     matfile       filename component, e.g. "cine_sax.mat"
-#     mask_path     paired mask archive path (undersampled only) | ""
-#     has_fullsample "true" | "false"
 #   Acquisition-parameter (requires --info-dir):
-#     coils         integer, e.g. "30"
-#     field_strength real field strength in T, e.g. "2.89362"
-#     fov_x         FOV in readout direction (mm)
-#     fov_y         FOV in phase direction (mm)
-#     nx            reconstruction matrix readout
-#     ny            reconstruction matrix phase
-#     nz            number of slices
-#     nt            number of temporal/weighted phases
-#     tr_ms         TR in ms
-#     te_ms         TE in ms
-#     flip_angle    flip angle in degrees
+#     hardware_coils  physical receiver coil elements, e.g. "30"
+#     field_strength  real field strength in T, e.g. "2.89362"
+#     fov_x           FOV in readout direction (mm)
+#     fov_y           FOV in phase direction (mm)
+#     nx              reconstruction matrix readout
+#     ny              reconstruction matrix phase
+#     nz              number of slices
+#     nt              number of temporal/weighted phases
+#     tr_ms           TR in ms
+#     te_ms           TE in ms
+#     flip_angle      flip angle in degrees
 
 using DelimitedFiles
 
@@ -44,13 +41,6 @@ const MODALITIES = ("Cine", "Aorta", "Mapping", "Tagging", "Flow2d", "BlackBlood
 const SETS = ("TrainingSet", "ValidationSet", "TestSet")
 
 # ── Path-derived helpers ──────────────────────────────────────────────────────
-
-function _cmr_role(path)
-    occursin("FullSample", path) && return "fullsample"
-    occursin("UnderSample_Task", path) && return "undersampled"
-    occursin("Mask_Task", path) && return "mask"
-    return ""
-end
 
 function _cmr_sampling(matfile)
     m = match(r"_(?:kus|mask)_([^.]+)\.mat$", matfile)
@@ -86,29 +76,6 @@ end
 
 function _cmr_matfile(path)
     return String(last(split(path, '/')))
-end
-
-# Paired mask archive path for an undersampled entry, or "" if not applicable/missing.
-function _cmr_mask_path(path, path_set)
-    occursin("UnderSample_Task", path) || return ""
-    mp = replace(path, "UnderSample_Task" => "Mask_Task")
-    mp = replace(mp, "_kus_" => "_mask_")
-    return mp in path_set ? mp : ""
-end
-
-# "true" if a FullSample counterpart (same modality/subject/stem, in either
-# TrainingSet or ValidationSet) exists in the archive.
-function _cmr_has_fullsample(path, path_set)
-    m = match(
-        r"^((?:[^/]+/)*?[^/]+/)(?:Training|Validation)Set/UnderSample_Task\d+(/[^/]+/)([^/]+)_kus_[^/]+\.mat$",
-        path,
-    )
-    m === nothing && return "false"
-    prefix, subject_dir, stem = m.captures
-    for set in ("TrainingSet", "ValidationSet")
-        in(string(prefix, set, "/FullSample", subject_dir, stem, ".mat"), path_set) && return "true"
-    end
-    return "false"
 end
 
 # ── Acquisition-parameter helpers ─────────────────────────────────────────────
@@ -175,8 +142,8 @@ end
 # _cmrxrecon_entry in src/catalog/cmrxrecon2024_catalog.jl.
 const ANNOTATION_COLS = [
     # path-derived
-    "role", "sampling", "coil_type", "modality", "dataset_set",
-    "subject", "matfile", "mask_path", "has_fullsample",
+    "sampling", "coil_type", "modality", "dataset_set",
+    "subject", "matfile",
     # acquisition parameters (populated when --info-dir is supplied)
     # hardware_coils = physical receiver coil elements (not the 10 virtual stored channels)
     "hardware_coils", "field_strength", "fov_x", "fov_y",
@@ -192,7 +159,6 @@ function annotate(inpath, outpath; info_dir = nothing)
 
     nrows = size(data, 1)
     paths = [strip(String(data[r, col["path"]])) for r in 1:nrows]
-    path_set = Set(paths)
 
     # Path-derived vectors (pre-compute shared fields once).
     modalities = [_cmr_modality(p) for p in paths]
@@ -200,15 +166,12 @@ function annotate(inpath, outpath; info_dir = nothing)
     matfiles = [_cmr_matfile(p) for p in paths]
 
     annotations = Dict{String, Vector{String}}(
-        "role" => [_cmr_role(p) for p in paths],
         "sampling" => [_cmr_sampling(matfiles[r]) for r in 1:nrows],
         "coil_type" => [_cmr_coil_type(p) for p in paths],
         "modality" => modalities,
         "dataset_set" => [_cmr_dataset_set(p) for p in paths],
         "subject" => subjects,
         "matfile" => matfiles,
-        "mask_path" => [_cmr_mask_path(p, path_set) for p in paths],
-        "has_fullsample" => [_cmr_has_fullsample(p, path_set) for p in paths],
     )
 
     # Acquisition parameters from info CSVs.

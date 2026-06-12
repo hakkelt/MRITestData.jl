@@ -11,10 +11,14 @@
 # Usage:
 #   julia scripts/generate_cmrxrecon2024_map.jl <fragments_dir> [out.csv]
 #
-# <fragments_dir> must contain the raw fragments
+# <fragments_dir> must contain the raw fragments of the training archive
 #   ChallengeData.zip-part-000 … ChallengeData.zip-part-209
-# (the script reads across them; it never needs the reassembled archive). A standard
-# fragment's size (CHUNK_SIZE) is taken from part-000.
+# and, optionally, the after-competition archive
+#   ChallengeData_AfterCompetition.zip-part-00 … -91
+# (the script reads across them; it never needs a reassembled archive). Both archives
+# are split into identical 4 GiB fragments and are processed the same way; their rows
+# are tagged with an `archive` column ("training" / "aftercompetition"). When the
+# after-competition fragments are present they are appended automatically.
 #
 # Withdrawn/abnormal files are dropped (see the blacklist below + Abnormal_TrainValSet.txt
 # if it can be located inside the archive).
@@ -30,16 +34,17 @@ struct FragmentReader
     total::Int                 # total archive size
 end
 
-function FragmentReader(dir::AbstractString)
-    paths = String[]
-    i = 0
-    while true
-        p = joinpath(dir, "ChallengeData.zip-part-" * lpad(i, 3, '0'))
-        isfile(p) || break
-        push!(paths, p)
-        i += 1
+# Enumerate one archive's fragments (`<prefix>NNN`, any zero-padding) in a directory,
+# ordered by their numeric suffix. Both CMRxRecon2024 archives (training and
+# after-competition) are split into identical 4 GiB fragments, so they are read the
+# same way — only the name prefix differs.
+function FragmentReader(dir::AbstractString, prefix::AbstractString)
+    names = filter(readdir(dir)) do n
+        startswith(n, prefix) && match(r"\d+$", n) !== nothing
     end
-    isempty(paths) && error("no ChallengeData.zip-part-NNN fragments found in $dir")
+    isempty(names) && error("no $(prefix)* fragments found in $dir")
+    sort!(names; by = n -> parse(Int, match(r"(\d+)$", n).captures[1]))
+    paths = [joinpath(dir, n) for n in names]
     sizes = filesize.(paths)
     return FragmentReader(paths, sizes, sizes[1], sum(sizes))
 end
@@ -208,11 +213,16 @@ function is_blacklisted(path::AbstractString, dynamic::AbstractSet)
     return (modality, subject, file) in HARDCODED_BLACKLIST
 end
 
-# Strip any leading directory components up to and including "ChallengeData/" so the
-# recorded path matches the official challenge tree (MultiCoil/<modality>/…).
+# Strip any leading directory components up to and including "ChallengeData/" or
+# "GroundTruth/" so the recorded path matches the official challenge tree
+# (MultiCoil/<modality>/…). The AfterCompetition archive uses "GroundTruth/" as its
+# root instead of "ChallengeData/".
 function canonical_path(p::AbstractString)
     m = findlast("ChallengeData/", p)
-    return m === nothing ? String(p) : String(p[(last(m) + 1):end])
+    m !== nothing && return String(p[(last(m) + 1):end])
+    m = findlast("GroundTruth/", p)
+    m !== nothing && return String(p[(last(m) + 1):end])
+    return String(p)
 end
 
 # Load the abnormal-file list, canonicalized to challenge-tree paths. Looks inside the
@@ -258,15 +268,20 @@ end
 
 # ── Main ────────────────────────────────────────────────────────────────────────
 
-function main(args)
+const TRAINING_PREFIX = "ChallengeData.zip-part-"
+const AFTERCOMP_PREFIX = "ChallengeData_AfterCompetition.zip-part-"
+
+function main(args; archive::String = "training", prefix::String = TRAINING_PREFIX)
     length(args) >= 1 || error("usage: julia generate_cmrxrecon2024_map.jl <fragments_dir> [out.csv] [abnormal_list.txt]")
-    dir = args[1]
+    src = args[1]
     out = length(args) >= 2 ? args[2] :
         normpath(joinpath(@__DIR__, "..", "data", "cmrxrecon2024_map.csv"))
     external_abnormal = length(args) >= 3 ? args[3] : nothing
 
-    fr = FragmentReader(dir)
-    @info "archive" fragments = length(fr.paths) chunk_size = fr.chunk_size total = fr.total
+    archive_tag = archive
+
+    fr = FragmentReader(src, prefix)
+    @info "archive" tag = archive_tag fragments = length(fr.paths) total = fr.total
 
     entries = parse_central_directory(fr)
     @info "central directory parsed" files = length(entries)
@@ -277,11 +292,18 @@ function main(args)
     kept = 0
     n_mat = 0
     open(out, "w") do io
-        println(io, "path,start_frag,start_off,end_frag,end_off,lfh_size,compressed_size,uncompressed_size,compression")
+        println(io, "path,start_frag,start_off,end_frag,end_off,lfh_size,compressed_size,uncompressed_size,compression,archive")
         for e in entries
             endswith(e.path, ".mat") || continue
             n_mat += 1
             path = canonical_path(e.path)
+            # Training archive: keep only TrainingSet FullSample; skip masks and validation.
+            # AfterCompetition archive: keep ValidationSet + TestSet FullSample; skip masks.
+            if archive_tag == "training"
+                occursin("ValidationSet", path) && continue
+                occursin("TestSet", path) && continue
+            end
+            occursin("Mask_Task", path) && continue
             is_blacklisted(path, abnormal) && continue
 
             lfh = local_header_size(fr, e.lfh_offset)
@@ -296,6 +318,7 @@ function main(args)
                     (
                         path, start_frag, start_off, end_frag, end_off,
                         lfh, e.compressed_size, e.uncompressed_size, e.compression,
+                        archive_tag,
                     ), ","
                 )
             )
@@ -310,24 +333,57 @@ end
 # The standalone annotate_cmrxrecon2024_map.jl script can re-annotate an existing
 # raw CSV without re-parsing the archive. We load it into an isolated module to avoid
 # const-redefinition errors if this function is ever called more than once.
+#
+# Both archives' fragments live in the same directory; the training and
+# after-competition maps are generated identically (only the fragment-name prefix and
+# the `archive` tag differ) and concatenated into one CSV. After-competition fragments
+# are processed only if present in the directory.
+#
+# Usage:
+#   main_with_annotation(["<fragments_dir>"])
+#   main_with_annotation(["<fragments_dir>", "<out.csv>"])
 function main_with_annotation(args)
-    # Parse fragments dir — first positional argument.
-    fragments_dir = args[1]
+    length(args) >= 1 || error("usage: julia generate_cmrxrecon2024_map.jl <fragments_dir> [out.csv]")
+    dir = String(args[1])
+    out = length(args) >= 2 ? String(args[2]) :
+        normpath(joinpath(@__DIR__, "..", "data", "cmrxrecon2024_map.csv"))
 
-    csvpath = main(args)
+    has_aftercomp = any(n -> startswith(n, AFTERCOMP_PREFIX), readdir(dir))
 
-    # Extract acquisition-parameter info CSVs directly from the archive into a temp
-    # directory so the annotation phase does not require a pre-extracted copy.
-    fr = FragmentReader(fragments_dir)
-    entries = parse_central_directory(fr)
+    # Phase 1: training offset map.
+    csvpath = main([dir, out]; archive = "training", prefix = TRAINING_PREFIX)
+
+    # Phase 2: append after-competition (validation + test) entries if present.
+    if has_aftercomp
+        tmp_csv = csvpath * ".aftercomp.tmp"
+        try
+            main([dir, tmp_csv]; archive = "aftercompetition", prefix = AFTERCOMP_PREFIX)
+            # Append the data rows (skip header) to the training CSV.
+            open(csvpath, "a") do out_io
+                open(tmp_csv, "r") do in_io
+                    readline(in_io)  # skip header row
+                    write(out_io, read(in_io))
+                end
+            end
+            @info "appended after-competition entries to map"
+        finally
+            isfile(tmp_csv) && rm(tmp_csv; force = true)
+        end
+    end
+
+    # Phase 3: extract info CSVs from all archives present and annotate.
     tmpdir = mktempdir()
     try
-        n = extract_info_csvs(fr, entries, tmpdir)
-        @info "extracted info CSVs from archive" count = n
+        n_total = 0
+        fr_train = FragmentReader(dir, TRAINING_PREFIX)
+        n_total += extract_info_csvs(fr_train, parse_central_directory(fr_train), tmpdir)
+        if has_aftercomp
+            fr_ac = FragmentReader(dir, AFTERCOMP_PREFIX)
+            n_total += extract_info_csvs(fr_ac, parse_central_directory(fr_ac), tmpdir)
+        end
+        @info "extracted info CSVs" count = n_total
         ann = Module(:CMRxReconAnnotate)
         Base.include(ann, joinpath(@__DIR__, "annotate_cmrxrecon2024_map.jl"))
-        # Wrap in a closure so the ann.annotate access occurs inside the latest world,
-        # avoiding the Julia 1.12 world-age binding warning.
         let _csvpath = csvpath, _tmpdir = tmpdir
             Base.invokelatest(() -> ann.annotate(_csvpath, _csvpath; info_dir = _tmpdir))
         end

@@ -23,9 +23,13 @@
         @test all_of(e -> 2.5 <= e.field_strength <= 3.5, es)
         @test all_of(e -> e.trajectory === :cartesian, es)
         @test all_of(e -> e.approx_size_bytes !== nothing, es)
-        # ids are in-archive paths ending in .mat; no static download URL.
+        # ids are modality-rooted paths ending in .mat; no static download URL.
         @test all_of(e -> endswith(e.id, ".mat"), es)
+        @test all_of(e -> !startswith(e.id, "MultiCoil/"), es)
+        @test all_of(e -> !occursin("/FullSample/", e.id), es)
         @test all_of(e -> e.url == "", es)
+        # all entries are fully-sampled FullSample ground truth
+        @test all_of(e -> e.fully_sampled === true, es)
         # fragment coordinates carried in extra
         for k in ("start_frag", "start_off", "end_frag", "end_off", "lfh_size", "compressed_size", "compression")
             @test all_of(e -> haskey(e.extra, k), es)
@@ -34,23 +38,25 @@
 
     @testset "metadata from CSV annotations" begin
         es = list_datasets(CMRXRECON2024; offline = true)
-        # Spot-check a known FullSample entry.
-        fs = first(filter(e -> e.id == "MultiCoil/Cine/TrainingSet/FullSample/P001/cine_sax.mat", es))
+        # Spot-check a known FullSample entry using the simplified id.
+        fs = first(filter(e -> e.id == "Cine/TrainingSet/P001/cine_sax.mat", es))
         @test get(fs.extra, "modality", "") == "Cine"
         @test get(fs.extra, "dataset_set", "") == "TrainingSet"
         @test get(fs.extra, "subject", "") == "P001"
         @test fs.fully_sampled === true
         @test get(fs.extra, "mat_file", "") == "cine_sax.mat"
-        @test get(fs.extra, "role", "") == "fullsample"
         @test get(fs.extra, "sampling", "") == "full"
-        # Spot-check a known UnderSample entry.
-        us = first(filter(e -> e.id == "MultiCoil/Cine/ValidationSet/UnderSample_Task1/P001/cine_sax_kus_Uniform4.mat", es))
-        @test us.fully_sampled === false
-        @test get(us.extra, "dataset_set", "") == "ValidationSet"
-        @test get(us.extra, "sampling", "") == "Uniform4"
-        @test get(us.extra, "role", "") == "undersampled"
-        @test get(us.extra, "has_fullsample", "") == "true"
-        @test !isempty(get(us.extra, "mask_path", ""))
+        @test get(fs.extra, "archive", "") == "training"
+        # Spot-check a ValidationSet entry (from the AfterCompetition archive).
+        vs = first(filter(e -> e.id == "Cine/ValidationSet/P001/cine_sax.mat", es))
+        @test get(vs.extra, "dataset_set", "") == "ValidationSet"
+        @test get(vs.extra, "archive", "") == "aftercompetition"
+        @test vs.fully_sampled === true
+        # All three dataset sets are present.
+        sets = Set(get(e.extra, "dataset_set", "") for e in es)
+        @test "TrainingSet" in sets
+        @test "ValidationSet" in sets
+        @test "TestSet" in sets
     end
 
     @testset "filtering + query" begin
@@ -74,7 +80,7 @@
 
     @testset "synthesis of unknown file errors" begin
         # Files absent from the offset map cannot be extracted.
-        @test_throws ErrorException dataset(CMRXRECON2024, "MultiCoil/Cine/Nope/x.mat"; offline = true)
+        @test_throws ErrorException dataset(CMRXRECON2024, "Cine/Nope/x.mat"; offline = true)
         # A known id round-trips through `dataset`.
         e = list_datasets(CMRXRECON2024; offline = true)[1]
         @test dataset(CMRXRECON2024, e.id; offline = true).entry.id == e.id
@@ -88,50 +94,39 @@
     end
 end
 
-@testitem "CMRxRecon2024 role/sampling/pairing (offline)" begin
+@testitem "CMRxRecon2024 sampling/ids (offline)" begin
     using MRITestData
-    using MRITestData: _cmrxrecon_mask_entry
 
     es = list_datasets(CMRXRECON2024; offline = true)
 
-    @testset "entries carry pre-computed metadata from CSV" begin
-        for key in ("role", "sampling", "has_fullsample")
-            @test all(e -> haskey(e.extra, key), es)
-        end
-        # Roles cover the three expected values.
-        roles = Set(get(e.extra, "role", "") for e in es)
-        @test "fullsample" in roles
-        @test "undersampled" in roles
-        @test "mask" in roles
-        # The browser hides standalone masks; there must be far fewer non-mask rows.
-        nonmask = count(e -> get(e.extra, "role", "") != "mask", es)
-        @test 0 < nonmask < length(es)
+    @testset "sampling annotation present" begin
+        @test all(e -> haskey(e.extra, "sampling"), es)
+        @test all(e -> get(e.extra, "sampling", "") == "full", es)
     end
 
-    @testset "fully_sampled field matches role" begin
-        @test all(es) do e
-            role = get(e.extra, "role", "")
-            role == "fullsample" ? e.fully_sampled === true : e.fully_sampled === false
-        end
+    @testset "ids use simplified (no MultiCoil/, no FullSample/) form" begin
+        @test all(e -> !startswith(e.id, "MultiCoil/"), es)
+        @test all(e -> !occursin("/FullSample/", e.id), es)
     end
+end
 
-    @testset "has_fullsample pre-computed in CSV" begin
-        us = filter(e -> get(e.extra, "role", "") == "undersampled", es)
-        @test !isempty(us)
-        # All entries have a boolean string value.
-        @test all(e -> get(e.extra, "has_fullsample", "") in ("true", "false"), us)
-        # At least some undersampled entries have a FullSample counterpart.
-        @test any(e -> get(e.extra, "has_fullsample", "") == "true", us)
-    end
+@testitem "CMRxRecon2024 fetch: archive specs + entity-id lookup (offline)" begin
+    using MRITestData
+    using MRITestData: _ARCHIVES, _load_cmrxrecon_parts!, _cmrxrecon_entity_id
 
-    @testset "mask_path pre-computed in CSV + round-trips via dataset()" begin
-        kus = first(filter(e -> get(e.extra, "role", "") == "undersampled", es))
-        @test haskey(kus.extra, "mask_path")
-        me = _cmrxrecon_mask_entry(kus)
-        @test get(me.extra, "role", "") == "mask"
-        @test get(me.extra, "sampling", "") == get(kus.extra, "sampling", "")
-        # mask_path stored in CSV must equal the mask entry's id.
-        @test kus.extra["mask_path"] == me.id
+    @test haskey(_ARCHIVES, "training")
+    @test haskey(_ARCHIVES, "aftercompetition")
+
+    # Both committed entity-ID maps load, share the 4 GiB chunk size, and resolve a
+    # real Synapse id for fragment 0; out-of-range fragments error clearly. This is the
+    # symmetric runtime path both archives now share (no offset conversion).
+    for archive in ("training", "aftercompetition")
+        parts, chunk = _load_cmrxrecon_parts!(archive)
+        @test chunk == 4 * 1024^3
+        @test !isempty(parts)
+        spec = _ARCHIVES[archive]
+        @test startswith(_cmrxrecon_entity_id(spec, parts, 0), "syn")
+        @test_throws ErrorException _cmrxrecon_entity_id(spec, parts, 99_999)
     end
 end
 
@@ -142,7 +137,18 @@ end
     nx, ny, nc, nz, nt = 10, 8, 3, 2, 2
     k = ComplexF32.(reshape(1:(nx * ny * nc * nz * nt), nx, ny, nc, nz, nt))
 
-    @testset "Cartesian, Task1 2D line mask" begin
+    # contrast (1-based) → sorted acquired ky lines (1-based), read off the profiles
+    # written into the ISMRMRD file.
+    function ky_by_contrast(raw)
+        d = Dict{Int, Vector{Int}}()
+        for p in raw.profiles
+            c = Int(p.head.idx.contrast) + 1
+            push!(get!(d, c, Int[]), Int(p.head.idx.kspace_encode_step_1) + 1)
+        end
+        return Dict(c => sort(unique(v)) for (c, v) in d)
+    end
+
+    @testset "Task1 2D line mask (applies to every frame)" begin
         acquired = [2, 4, 5, 6]
         mask = falses(nx, ny)
         for ky in acquired
@@ -150,51 +156,45 @@ end
         end
         dest = tempname() * ".h5"
         _cmrxrecon_to_ismrmrd(k, mask, dest)
-        spec = acq_spec(dest; echo = 1)
-        @test spec.kind == :cartesian
-        @test spec.coils == nc
-        @test spec.image_size == (nx, ny)
-        @test spec.subsampling !== nothing
-        m2 = spec.subsampling[1]
-        @test [ky for ky in 1:ny if all(@view m2[:, ky])] == acquired
-        @test !any(ky -> any(@view m2[:, ky]), setdiff(1:ny, acquired))
+        raw = load_raw(dest)
+        @test lowercase(get(raw.params, "trajectory", "")) == "cartesian"
+        @test size(raw.profiles[1].data) == (nx, nc)
+        @test raw.params["encodedSize"][1:2] == [nx, ny]
+        kbc = ky_by_contrast(raw)
+        @test kbc[1] == acquired
+        @test kbc[2] == acquired
+        # both slices are emitted
+        @test sort(unique(Int(p.head.idx.slice) for p in raw.profiles)) == [0, 1]
     end
 
-    @testset "Cartesian, Task2 per-frame 3D mask (frame → contrast)" begin
+    @testset "Task2 per-frame 3D mask (frame → contrast)" begin
         mask = falses(nx, ny, nt)
         mask[:, [2, 3], 1] .= true
         mask[:, [5, 6, 7], 2] .= true
         dest = tempname() * ".h5"
         _cmrxrecon_to_ismrmrd(k, mask, dest)
-        acq = load_acq(dest)
-        s1 = acq_spec(acq; echo = 1)
-        s2 = acq_spec(acq; echo = 2)
-        @test [ky for ky in 1:ny if all(@view s1.subsampling[1][:, ky])] == [2, 3]
-        @test [ky for ky in 1:ny if all(@view s2.subsampling[1][:, ky])] == [5, 6, 7]
+        kbc = ky_by_contrast(load_raw(dest))
+        @test kbc[1] == [2, 3]
+        @test kbc[2] == [5, 6, 7]
     end
 
-    @testset "FullSample (mask = trues) → fully sampled" begin
+    @testset "FullSample (mask = trues) → all lines, every frame" begin
         dest = tempname() * ".h5"
         _cmrxrecon_to_ismrmrd(k, trues(nx, ny), dest)
-        spec = acq_spec(dest; echo = 1)
-        @test spec.kind == :cartesian
-        @test spec.subsampling === nothing
+        kbc = ky_by_contrast(load_raw(dest))
+        @test kbc[1] == collect(1:ny)
+        @test kbc[2] == collect(1:ny)
     end
 
-    @testset "Pseudo-radial 2D mask still loads as Cartesian" begin
-        # ktRadial masks have gaps within a readout line, but the data is Cartesian
-        # k-space; a line is "acquired" if it holds any sample.
+    @testset "Pseudo-radial 2D mask: a line is acquired if it holds any sample" begin
         mask = falses(nx, ny, nt)
         mask[2, 2, 1] = true; mask[5, 3, 1] = true; mask[8, 6, 1] = true   # ky 2,3,6
         mask[1, 1, 2] = true; mask[4, 4, 2] = true                          # ky 1,4
         dest = tempname() * ".h5"
         _cmrxrecon_to_ismrmrd(k, mask, dest)
-        acq = load_acq(dest)
-        s1 = acq_spec(acq; echo = 1)
-        @test s1.kind == :cartesian
-        @test [ky for ky in 1:ny if all(@view s1.subsampling[1][:, ky])] == [2, 3, 6]
-        s2 = acq_spec(acq; echo = 2)
-        @test [ky for ky in 1:ny if all(@view s2.subsampling[1][:, ky])] == [1, 4]
+        kbc = ky_by_contrast(load_raw(dest))
+        @test kbc[1] == [2, 3, 6]
+        @test kbc[2] == [1, 4]
     end
 
     @testset "BlackBlood 4D (no temporal axis)" begin
@@ -203,34 +203,33 @@ end
         mask[:, [3, 4]] .= true
         dest = tempname() * ".h5"
         _cmrxrecon_to_ismrmrd(kb, mask, dest)
-        spec = acq_spec(dest; echo = 1)
-        @test spec.kind == :cartesian
-        @test spec.image_size == (nx, ny)
+        raw = load_raw(dest)
+        @test ky_by_contrast(raw)[1] == [3, 4]
+        @test size(raw.profiles[1].data) == (nx, nc)
     end
 end
 
-@testitem "CMRxRecon2024 transparent load (network)" tags = [:network] begin
+@testitem "CMRxRecon2024 transparent load — TrainingSet (network)" tags = [:network] begin
     using MRITestData
 
     es = list_datasets(CMRXRECON2024; offline = true)
-    bysize(p) = first(sort(filter(p, es); by = e -> something(e.approx_size_bytes, typemax(Int))))
+    training = filter(e -> get(e.extra, "dataset_set", "") == "TrainingSet", es)
+    @test !isempty(training)
+    fs = first(sort(training; by = e -> something(e.approx_size_bytes, typemax(Int))))
+    raw = load_raw(fs)
+    @test lowercase(get(raw.params, "trajectory", "")) == "cartesian"
+    @test !isempty(raw.profiles)
+end
 
-    uniform = bysize(
-        e -> get(e.extra, "role", "") == "undersampled" &&
-            startswith(get(e.extra, "sampling", ""), "Uniform"),
-    )
-    spec = acq_spec(load_acq(uniform); echo = 1)     # downloads kus + mask, converts, caches, loads
-    @test spec.kind == :cartesian
-    @test spec.subsampling !== nothing
-    @test 0 < count(spec.subsampling[1]) < length(spec.subsampling[1])
+@testitem "CMRxRecon2024 transparent load — AfterCompetition (network)" tags = [:network] begin
+    using MRITestData
 
-    radial = bysize(
-        e -> get(e.extra, "role", "") == "undersampled" &&
-            occursin("ktRadial", get(e.extra, "sampling", "")),
-    )
-    # Pseudo-radial is Cartesian k-space; every ky line is touched, so it reads as
-    # line-fully-sampled with the intra-line pattern carried by zeros in the data.
-    sr = acq_spec(load_acq(radial); echo = 1)
-    @test sr.kind == :cartesian
-    @test sr.coils > 0
+    es = list_datasets(CMRXRECON2024; offline = true)
+    aftercomp = filter(e -> get(e.extra, "archive", "") == "aftercompetition", es)
+    @test !isempty(aftercomp)
+    # Smallest entry across ValidationSet and TestSet, fetched via Synapse range requests.
+    fs = first(sort(aftercomp; by = e -> something(e.approx_size_bytes, typemax(Int))))
+    raw = load_raw(fs)
+    @test lowercase(get(raw.params, "trajectory", "")) == "cartesian"
+    @test !isempty(raw.profiles)
 end

@@ -79,10 +79,19 @@ function _probe_url(url::AbstractString; timeout::Real = 15)::Tuple{Bool, Int}
     end
 end
 
-# Download a single byte range [start_byte, end_byte] and return the data.
-function _download_range(url::AbstractString, start_byte::Int, end_byte::Int)::Vector{UInt8}
+# Download a single byte range [start_byte, end_byte] and return the data. An optional
+# `on_progress(total, now)` callback (the Downloads progress signature) drives a bar.
+function _download_range(
+        url::AbstractString, start_byte::Int, end_byte::Int;
+        on_progress::Union{Nothing, Function} = nothing,
+    )::Vector{UInt8}
     buf = IOBuffer()
-    Downloads.download(String(url), buf; headers = ["Range" => "bytes=$start_byte-$end_byte"])
+    headers = ["Range" => "bytes=$start_byte-$end_byte"]
+    if on_progress === nothing
+        Downloads.download(String(url), buf; headers = headers)
+    else
+        Downloads.download(String(url), buf; headers = headers, progress = on_progress)
+    end
     return take!(buf)
 end
 

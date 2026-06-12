@@ -1,101 +1,78 @@
 #!/usr/bin/env julia
 #
-# Phase 1b maintainer tool — generate data/cmrxrecon2024_parts.toml.
+# Maintainer tool — generate a Synapse fragment entity-ID map for one CMRxRecon2024
+# archive (data/cmrxrecon2024_parts.toml or data/cmrxrecon2024_aftercompetition_parts.toml).
 #
-# Lists the Synapse file entities that hold the ChallengeData.zip fragments and
-# writes a fragment-name → entity-ID map (plus the fragment chunk size) used by the
-# runtime to resolve pre-signed S3 URLs.
+# Lists the Synapse file entities that hold the archive's split fragments and writes a
+# fragment-name → entity-ID map (plus the fragment chunk size) used by the runtime to
+# resolve pre-signed S3 URLs for HTTP range requests.
 #
-# Usage:
-#   julia scripts/list_cmrxrecon2024_parts.jl <SYNAPSE_PAT> <PARENT_SYNAPSE_ID> [chunk_size] [out.toml]
+# Both archives are handled identically; only the parent container, fragment-name
+# prefix, and output path differ.
 #
-# <PARENT_SYNAPSE_ID> is the Synapse folder/container holding the
-# ChallengeData.zip-part-NNN files (e.g. "syn12345678"). <chunk_size> defaults to
-# 4 GiB (4294967296). Requires outbound HTTPS to repo-prod.prod.sagebase.org.
+# Usage (training archive):
+#   julia --project=. scripts/list_cmrxrecon2024_parts.jl <PARENT_SYNAPSE_ID>
+#
+# Usage (after-competition archive):
+#   julia --project=. scripts/list_cmrxrecon2024_parts.jl <PARENT_SYNAPSE_ID> \
+#       --prefix ChallengeData_AfterCompetition.zip-part- \
+#       --out data/cmrxrecon2024_aftercompetition_parts.toml
+#
+# Options:
+#   --prefix <str>       Fragment name prefix (default: "ChallengeData.zip-part-").
+#   --out <path>         Output TOML path (default: data/cmrxrecon2024_parts.toml).
+#   --chunk-size <n>     Standard fragment size in bytes (default: 4 GiB).
+#   --token <PAT>        Synapse Personal Access Token. If omitted, falls back to
+#                        $SYNAPSE_AUTH_TOKEN, then the stored synapse_token preference.
+#
+# <PARENT_SYNAPSE_ID> is the Synapse folder/container holding the fragment files.
+# Requires outbound HTTPS to repo-prod.prod.sagebase.org.
 
-using Downloads
-
-const SYNAPSE_REPO = "https://repo-prod.prod.sagebase.org/repo/v1"
-
-# POST a JSON body and return the response as a String.
-function synapse_post(path::AbstractString, body::AbstractString, token::AbstractString)
-    out = IOBuffer()
-    Downloads.request(
-        SYNAPSE_REPO * path;
-        method = "POST",
-        input = IOBuffer(body),
-        output = out,
-        headers = [
-            "Authorization" => "Bearer $(token)",
-            "Content-Type" => "application/json",
-            "Accept" => "application/json",
-        ],
-    )
-    return String(take!(out))
-end
-
-# Extract (name, id) pairs from a Synapse `/entity/children` page response. Entity
-# headers are flat JSON objects, so splitting the "page" array on object boundaries
-# and pulling "id"/"name" from each is sufficient (no JSON dependency).
-function extract_children(resp::AbstractString)
-    pairs = Tuple{String, String}[]
-    pstart = findfirst("\"page\":[", resp)
-    pstart === nothing && return pairs, nothing
-    # Take the page array body up to the matching closing bracket.
-    rest = resp[(last(pstart) + 1):end]
-    pend = findfirst(']', rest)
-    page = pend === nothing ? rest : rest[1:(pend - 1)]
-    for obj in split(page, "},{")
-        idm = match(r"\"id\"\s*:\s*\"(syn\d+)\"", obj)
-        nm = match(r"\"name\"\s*:\s*\"([^\"]+)\"", obj)
-        (idm === nothing || nm === nothing) && continue
-        push!(pairs, (String(nm.captures[1]), String(idm.captures[1])))
-    end
-    tokm = match(r"\"nextPageToken\"\s*:\s*\"([^\"]+)\"", resp)
-    next = tokm === nothing ? nothing : String(tokm.captures[1])
-    return pairs, next
-end
-
-function list_children(parent::AbstractString, token::AbstractString)
-    parts = Dict{String, String}()
-    next = nothing
-    while true
-        tokfield = next === nothing ? "" : ",\"nextPageToken\":\"$(next)\""
-        body = "{\"parentId\":\"$(parent)\",\"includeTypes\":[\"file\"],\"sortBy\":\"NAME\"$(tokfield)}"
-        resp = synapse_post("/entity/children", body, token)
-        pairs, next = extract_children(resp)
-        for (name, id) in pairs
-            startswith(name, "ChallengeData.zip-part-") && (parts[name] = id)
-        end
-        next === nothing && break
-    end
-    return parts
-end
+include(joinpath(@__DIR__, "synapse_common.jl"))
 
 function main(args)
-    length(args) >= 2 || error("usage: julia list_cmrxrecon2024_parts.jl <SYNAPSE_PAT> <PARENT_SYNAPSE_ID> [chunk_size] [out.toml]")
-    token = args[1]
-    parent = args[2]
-    chunk_size = length(args) >= 3 ? parse(Int, args[3]) : 4 * 1024^3
-    out = length(args) >= 4 ? args[4] :
-        normpath(joinpath(@__DIR__, "..", "data", "cmrxrecon2024_parts.toml"))
+    prefix = "ChallengeData.zip-part-"
+    out = normpath(joinpath(@__DIR__, "..", "data", "cmrxrecon2024_parts.toml"))
+    chunk_size = 4 * 1024^3
+    token_arg = nothing
+    positional = String[]
+    i = 1
+    while i <= length(args)
+        if args[i] == "--prefix" && i < length(args)
+            prefix = args[i + 1]; i += 2
+        elseif args[i] == "--out" && i < length(args)
+            out = args[i + 1]; i += 2
+        elseif args[i] == "--chunk-size" && i < length(args)
+            chunk_size = parse(Int, args[i + 1]); i += 2
+        elseif args[i] == "--token" && i < length(args)
+            token_arg = args[i + 1]; i += 2
+        else
+            push!(positional, args[i]); i += 1
+        end
+    end
+    isempty(positional) && error(
+        "usage: julia list_cmrxrecon2024_parts.jl <PARENT_SYNAPSE_ID> " *
+            "[--prefix <str>] [--out <path>] [--chunk-size <n>] [--token <PAT>]",
+    )
+    parent = positional[1]
+    token = resolve_synapse_token(token_arg)
 
-    parts = list_children(parent, token)
-    isempty(parts) && error("no ChallengeData.zip-part-* entities found under $parent")
-    @info "found fragments" count = length(parts)
+    frags = list_fragments(parent, token, prefix)
+    isempty(frags) && error("no $(prefix)* entities found under $parent")
+    @info "found fragments" count = length(frags) prefix = prefix
 
     open(out, "w") do io
-        println(io, "# Synapse entity IDs for the ChallengeData.zip fragments.")
-        println(io, "# Generated by scripts/list_cmrxrecon2024_parts.jl.")
+        println(io, "# Synapse entity IDs for the $(prefix)* fragments.")
+        println(io, "# Generated by scripts/list_cmrxrecon2024_parts.jl from parent $(parent).")
         println(io)
         println(io, "chunk_size = ", chunk_size)
         println(io)
         println(io, "[parts]")
-        for name in sort(collect(keys(parts)))
-            println(io, "\"", name, "\" = \"", parts[name], "\"")
+        for (name, id) in frags
+            println(io, "\"", name, "\" = \"", id, "\"")
         end
     end
-    return @info "wrote parts map" out fragments = length(parts)
+    return @info "wrote parts map" out fragments = length(frags)
 end
 
 abspath(PROGRAM_FILE) == abspath(@__FILE__) && main(ARGS)

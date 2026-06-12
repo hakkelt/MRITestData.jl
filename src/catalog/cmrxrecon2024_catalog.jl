@@ -1,17 +1,17 @@
 # CMRxRecon2024 catalog. Unlike OCMR/mridata, there is no remote index to scrape:
-# the catalog is a *static* offset map, generated once from the local archive
+# the catalog is a *static* offset map, generated once from the local archives
 # (see scripts/generate_cmrxrecon2024_map.jl) and committed to the package as
-# `data/cmrxrecon2024_map.csv`. Each row records where one `.mat` file lives inside
-# the 210-fragment split archive (which fragment(s), byte offsets, ZIP local-header
-# length and compressed size) plus pre-computed metadata (role, sampling pattern,
-# coil type, mask pairing, etc.) so the runtime can pull and inflate individual files
-# with HTTP range requests without downloading the full ~835 GB.
+# `data/cmrxrecon2024_map.csv`. Each row records where one fully-sampled `.mat` file
+# lives inside one of the two split archives — `archive` tags it "training" or
+# "aftercompetition" — as which fragment(s) + byte offsets + ZIP local-header length +
+# compressed size, plus pre-computed metadata (modality, subject, acquisition
+# parameters). The runtime uses this to pull and inflate individual files with HTTP
+# range requests instead of downloading the multi-hundred-GB archives.
 #
 # Map CSV schema (see scripts/annotate_cmrxrecon2024_map.jl for column definitions):
 #   path, start_frag, start_off, end_frag, end_off, lfh_size, compressed_size,
-#   uncompressed_size, compression,
-#   role, sampling, coil_type, modality, dataset_set, subject, matfile,
-#   mask_path, has_fullsample,
+#   uncompressed_size, compression, archive,
+#   sampling, coil_type, modality, dataset_set, subject, matfile,
 #   hardware_coils, field_strength, fov_x, fov_y, nx, ny, nz, nt, tr_ms, te_ms, flip_angle
 #
 # Note: hardware_coils is the physical receiver element count (30-38 in this dataset).
@@ -65,6 +65,14 @@ function _cmrxrecon_str(row, col, key)
     return strip(v isa AbstractString ? String(v) : string(v))
 end
 
+# Convert an archive-canonical path to a user-facing entry id.
+# Strips the redundant "MultiCoil/" prefix (all distributed data is MultiCoil) and the
+# "FullSample/" folder component (retained TrainingSet data is entirely FullSample).
+function _cmrxrecon_path_to_id(path::AbstractString)
+    s = replace(String(path), r"^MultiCoil/" => "")
+    return replace(s, "/FullSample/" => "/")
+end
+
 function _cmrxrecon_entry(row, col)
     path = strip(String(row[col["path"]]))
     isempty(path) && return nothing
@@ -81,16 +89,14 @@ function _cmrxrecon_entry(row, col)
     # A usable entry must carry the full coordinate tuple needed to fetch it.
     any(x -> x === nothing, (start_frag, start_off, end_frag, end_off, lfh_size, compressed_size, compression)) && return nothing
 
+    archive = _cmrxrecon_str(row, col, "archive")
     # Metadata columns pre-computed by scripts/annotate_cmrxrecon2024_map.jl.
-    role = _cmrxrecon_str(row, col, "role")
     sampling = _cmrxrecon_str(row, col, "sampling")
     coil_type = _cmrxrecon_str(row, col, "coil_type")
     modality = _cmrxrecon_str(row, col, "modality")
     dataset_set = _cmrxrecon_str(row, col, "dataset_set")
     subject = _cmrxrecon_str(row, col, "subject")
     matfile = _cmrxrecon_str(row, col, "matfile")
-    mask_path = _cmrxrecon_str(row, col, "mask_path")
-    has_fullsample = _cmrxrecon_str(row, col, "has_fullsample")
     # Acquisition parameters from info CSVs (present for TrainingSet; "" for others).
     hardware_coils = _cmrxrecon_int(row, col, "hardware_coils")
     field_strength = _cmrxrecon_float(row, col, "field_strength")
@@ -109,7 +115,7 @@ function _cmrxrecon_entry(row, col)
     label = string(label, " — ", isempty(matfile) ? last(split(path, '/')) : matfile)
 
     extra = Dict{String, Any}(
-        "path" => path,
+        "path" => path,    # full archive path, used by the fetch engine
         "start_frag" => start_frag,
         "start_off" => start_off,
         "end_frag" => end_frag,
@@ -117,16 +123,14 @@ function _cmrxrecon_entry(row, col)
         "lfh_size" => lfh_size,
         "compressed_size" => compressed_size,
         "compression" => compression,
-        "role" => role,
+        "archive" => archive,
         "sampling" => sampling,
-        "has_fullsample" => has_fullsample,
     )
     isempty(coil_type) || (extra["coil_type"] = coil_type)
     isempty(modality) || (extra["modality"] = modality)
     isempty(dataset_set) || (extra["dataset_set"] = dataset_set)
     isempty(subject) || (extra["subject"] = subject)
     isempty(matfile) || (extra["mat_file"] = matfile)
-    isempty(mask_path) || (extra["mask_path"] = mask_path)
     hardware_coils === nothing || (extra["hardware_coils"] = hardware_coils)
     fov_x === nothing || (extra["fov_x"] = fov_x)
     fov_y === nothing || (extra["fov_y"] = fov_y)
@@ -147,14 +151,14 @@ function _cmrxrecon_entry(row, col)
 
     return DatasetEntry(;
         source = CMRXRECON2024,
-        id = path,
+        id = _cmrxrecon_path_to_id(path),
         name = label,
         anatomy = :cardiac,
         vendor = :siemens,
         field_strength = fs_val,
         trajectory = :cartesian,
         coils = coils_val,
-        fully_sampled = role == "fullsample",
+        fully_sampled = true,
         is3D = false,
         approx_size_bytes = uncompressed_size,
         url = "",
@@ -187,7 +191,8 @@ end
 # An id absent from the catalog therefore cannot be synthesised into a usable entry.
 function _synthesize_entry(::CMRxRecon2024, id::String)
     error(
-        "unknown CMRxRecon2024 file $(repr(id)); it is not in the bundled offset map " *
-            "(data/cmrxrecon2024_map.csv). Only files present in the map can be extracted.",
+        "unknown CMRxRecon2024 file $(repr(id)); ids have the form " *
+            "\"<Modality>/{TrainingSet,ValidationSet,TestSet}/<Subject>/<file>.mat\" " *
+            "and must be present in the bundled offset map (data/cmrxrecon2024_map.csv).",
     )
 end
