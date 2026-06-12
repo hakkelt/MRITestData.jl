@@ -1,7 +1,7 @@
 # ── Browse ────────────────────────────────────────────────────────────────────
 # Interactive full-screen dataset browser built on Tachikoma.jl's PagedDataTable.
 # Can be used directly from the Julia REPL via `run_browser()`, or installed as
-# the standalone shell command `mridata-browse` via Pkg.Apps.
+# the standalone shell command `mridata-browser` via Pkg.Apps.
 
 using Tachikoma
 using Tachikoma.Paged
@@ -14,11 +14,25 @@ _fmt_b0(v) = v === nothing ? "?" : string(v, "T")
 _fmt_coils(v) = v === nothing ? "?" : v isa AbstractString ? v : string(v, "ch")
 _fmt_size(v) = v === nothing ? "?" : _human_bytes(v)
 _fmt_sym(v) = (v === nothing || v === :unknown) ? "?" : string(v)
-# Merged sampling column: shows the pattern token (e.g. "Uniform4") for CMRxRecon,
-# or "✓"/"?"/"" for sources that only carry a fully_sampled boolean.
-_fmt_sampling(v::Bool) = v ? "✓" : ""
+# Sampling column, normalised across sources so the same concept reads the same way,
+# using explicit words rather than glyphs:
+#   true → "fully sampled", false → "undersampled" (pattern unknown),
+#   a String → a named undersampling pattern (e.g. "pseudo-random"), nothing → "?".
+_fmt_sampling(v::Bool) = v ? "fully sampled" : "undersampled"
 _fmt_sampling(::Nothing) = "?"
 _fmt_sampling(v) = string(v)
+
+# Collapse each source's own sampling encoding into the shared representation above.
+# OCMR stores verbose strings ("fully sampled" / "pseudo-random undersampled"); mridata
+# and CMRxRecon rely on the fully_sampled boolean (CMRxRecon is all FullSample).
+function _sampling_value(e::DatasetEntry)
+    e.fully_sampled === true && return true
+    pat = get(e.extra, "sampling", "")
+    if pat isa AbstractString && !isempty(pat) && pat != "full" && pat != "fully sampled"
+        return replace(pat, " undersampled" => "")
+    end
+    return e.fully_sampled
+end
 
 # Column 1 holds the entry's index into the `entries` vector so the selected
 # row maps back to a DatasetEntry even after sorting/filtering.
@@ -35,9 +49,7 @@ const _COLUMNS = PagedColumn[
 ]
 
 function _entry_row(i::Int, e::DatasetEntry)
-    # Merged sampling column: pattern token (CMRxRecon) or fully_sampled boolean (others).
-    pat = get(e.extra, "sampling", "")
-    sampling = (pat == "" || pat == "full") ? e.fully_sampled : pat
+    sampling = _sampling_value(e)
     # Coil count: exact if known; "multi"/"single" label for CMRxRecon MultiCoil entries.
     coils_val = if e.coils !== nothing
         e.coils
@@ -76,6 +88,7 @@ end
 # stage:
 #   :browse   — the paged table is active
 #   :confirm  — download confirmation overlay (y/n)
+#   :token    — Synapse PAT input overlay (shown for CMRxRecon2024 when no token is set)
 #   :path     — destination path input overlay
 mutable struct BrowserModel <: Model
     entries::Vector{DatasetEntry}
@@ -83,6 +96,7 @@ mutable struct BrowserModel <: Model
     stage::Symbol
     selected::Union{Nothing, DatasetEntry}
     path_input::TextInput
+    token_input::TextInput
     quit::Bool
     # filled in when the user confirms a download; consumed after app() exits
     download::Union{Nothing, Tuple{DatasetEntry, String}}
@@ -94,7 +108,7 @@ end
 
 function BrowserModel(entries::Vector{DatasetEntry})
     provider = _build_provider(entries)
-    pdt = PagedDataTable(provider; page_size = 20, page_sizes = Int[20, 50, 100])
+    pdt = PagedDataTable(provider; page_size = 20, page_sizes = Int[20, 30, 50, 100])
     tq = TaskQueue()
     return BrowserModel(
         entries,
@@ -102,6 +116,7 @@ function BrowserModel(entries::Vector{DatasetEntry})
         :browse,
         nothing,
         TextInput(; label = "Path: ", focused = true),
+        TextInput(; label = "Token: ", focused = true),
         false,
         nothing,
         tq,
@@ -109,6 +124,11 @@ function BrowserModel(entries::Vector{DatasetEntry})
         0,
     )
 end
+
+# CMRxRecon2024 downloads require a Synapse Personal Access Token. An entry needs the
+# token-entry modal when it comes from that source and none is currently configured.
+_needs_synapse_token(e::DatasetEntry) = e.source isa CMRxRecon2024 && isempty(get_synapse_token())
+_needs_synapse_token(::Nothing) = false
 
 should_quit(m::BrowserModel) = m.quit
 task_queue(m::BrowserModel) = m.tq
@@ -185,6 +205,7 @@ pre_render!(m::BrowserModel) = _maybe_prefetch!(m)
 function update!(m::BrowserModel, evt::KeyEvent)
     m.stage === :browse && return _update_browse!(m, evt)
     m.stage === :confirm && return _update_confirm!(m, evt)
+    m.stage === :token && return _update_token!(m, evt)
     m.stage === :path && return _update_path!(m, evt)
     return nothing
 end
@@ -281,13 +302,32 @@ end
 
 function _update_confirm!(m::BrowserModel, evt::KeyEvent)
     if evt.key == :char && (evt.char == 'y' || evt.char == 'Y')
-        m.stage = :path
+        # Synapse-backed sources need a PAT first; otherwise go straight to the path.
+        m.stage = _needs_synapse_token(m.selected) ? :token : :path
     elseif evt.key == :escape || (evt.key == :char && (evt.char == 'n' || evt.char == 'N'))
         m.selected = nothing
         m.stage = :browse
     elseif evt.key == :char && (evt.char == 'q' || evt.char == 'Q')
         m.quit = true
     end
+    return nothing
+end
+
+function _update_token!(m::BrowserModel, evt::KeyEvent)
+    if evt.key == :escape
+        m.stage = :confirm
+        return nothing
+    end
+    if evt.key == :enter
+        tok = strip(text(m.token_input))
+        if !isempty(tok)
+            set_synapse_token!(String(tok))
+            set_text!(m.token_input, "")
+            m.stage = :path
+        end
+        return nothing
+    end
+    handle_key!(m.token_input, evt)
     return nothing
 end
 
@@ -311,6 +351,9 @@ function _update_path!(m::BrowserModel, evt::KeyEvent)
 end
 
 # ── Rendering ─────────────────────────────────────────────────────────────────
+
+# Table title: the full dataset count, or "shown / total" when a filter/search narrows it.
+_header_title(total::Int, shown::Int) = shown == total ? "MRI Datasets ($(total))" : "MRI Datasets ($(shown) / $(total))"
 
 const _HELP_BAR = StatusBar(
     left = [
@@ -337,8 +380,9 @@ function view(m::BrowserModel, f::Frame)
     # Reserve the last row for the help bar.
     table_area = Rect(area.x, area.y, area.width, max(1, area.height - 1))
     bar_area = Rect(area.x, bottom(area), area.width, 1)
+    # Show the filtered/searched count vs the full total when any filter is active.
     m.pdt.block = Block(
-        title = "MRI Datasets ($(length(m.entries)))",
+        title = _header_title(length(m.entries), m.pdt.total_count),
         border_style = tstyle(:border),
         title_style = tstyle(:title),
     )
@@ -346,6 +390,7 @@ function view(m::BrowserModel, f::Frame)
     render(_HELP_BAR, bar_area, buf)
 
     m.stage === :confirm && _render_confirm!(m, area, buf)
+    m.stage === :token && _render_token!(m, area, buf)
     m.stage === :path && _render_path!(m, area, buf)
     return nothing
 end
@@ -385,6 +430,24 @@ function _render_path!(m::BrowserModel, area::Rect, buf)
     body = inner(rect)
     set_string!(buf, body.x, body.y, "Enter to confirm, Esc to go back:", tstyle(:text_dim))
     render(m.path_input, Rect(body.x, body.y + 2, body.width, 1), buf)
+    return nothing
+end
+
+function _render_token!(m::BrowserModel, area::Rect, buf)
+    w = min(72, area.width - 4)
+    h = 9
+    rect = center(area, w, h)
+    block = Block(
+        title = " Synapse access token ", border_style = tstyle(:accent),
+        title_style = tstyle(:title, bold = true)
+    )
+    _clear_rect!(buf, rect)
+    render(block, rect, buf)
+    body = inner(rect)
+    set_string!(buf, body.x, body.y, "CMRxRecon2024 downloads need a Synapse Personal Access Token.", tstyle(:text))
+    set_string!(buf, body.x, body.y + 1, "Paste it below (stored in LocalPreferences.toml for reuse).", tstyle(:text_dim))
+    set_string!(buf, body.x, body.y + 4, "Enter to save & continue, Esc to go back:", tstyle(:text_dim))
+    render(m.token_input, Rect(body.x, body.y + 6, body.width, 1), buf)
     return nothing
 end
 
@@ -434,7 +497,8 @@ terminal, including from within the Julia REPL.
 
 After selecting a dataset you are asked to confirm (`y`/`n`) and to choose a
 destination path. The default is `<current directory>/<id>.h5`; press Enter to
-accept it.
+accept it. CMRxRecon2024 downloads need a Synapse access token; if none is
+configured you are prompted for one (saved to `LocalPreferences.toml` for reuse).
 
 Dataset sizes (the Size column) are fetched in the background via HTTP HEAD
 requests as you browse. Sizes for the current page and the adjacent pages are
@@ -448,16 +512,7 @@ run_browser(; offline = true)            # skip the network
 ```
 """
 function run_browser(; sources = list_sources(), offline::Bool = false)
-    all_entries = query(; sources = sources, offline = offline)
-    # CMRxRecon2024: hide standalone mask files (companions to k-space rows) and hide
-    # retrospectively undersampled entries when their FullSample counterpart is available
-    # in the catalog (pre-computed has_fullsample flag; users can apply any mask themselves).
-    entries = filter(all_entries) do e
-        role = get(e.extra, "role", "")
-        role == "mask" && return false
-        role == "undersampled" && get(e.extra, "has_fullsample", "") == "true" && return false
-        return true
-    end
+    entries = query(; sources = sources, offline = offline)
     model = BrowserModel(entries)
     app(model; fps = 30)
 

@@ -40,7 +40,7 @@
         _pc_h5 = tempname() * ".h5"
         try
             _cmrxrecon_to_ismrmrd(_pc_k, _pc_mask, _pc_h5)
-            acq_spec(_pc_h5; echo = 1)
+            load_raw(_pc_h5)
         finally
             isfile(_pc_h5) && rm(_pc_h5; force = true)
             isfile(_pc_h5 * ".part") && rm(_pc_h5 * ".part"; force = true)
@@ -133,6 +133,14 @@
     end
     update!(_pc_model, KeyEvent(:escape))
 
+    # :token stage — render the Synapse PAT overlay and exercise typing + escape.
+    # :enter is excluded — it calls set_synapse_token! which writes a preference file.
+    _pc_model.stage = :token
+    _pc_model.selected = _pc_entries[1]
+    view(_pc_model, _pc_frame)
+    update!(_pc_model, KeyEvent('x'))
+    update!(_pc_model, KeyEvent(:escape))
+
     # :path stage — render path input overlay and test escape.
     # :enter is excluded — with an empty path input it falls back to cache_path
     # which needs CACHE_DIR initialised by __init__.
@@ -161,7 +169,7 @@
     _ = _fmt_sampling(true)
     _ = _fmt_sampling(false)
     _ = _fmt_sampling(nothing)
-    _ = _fmt_sampling("Uniform4")
+    _ = _fmt_sampling("pseudo-random")
     _ = _fmt_size(1024)
     _ = _fmt_size(nothing)
     _ = _fmt_sym(:cartesian)

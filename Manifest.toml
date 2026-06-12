@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "10b767e84a60f023fb3332be9ac32b8c564e593b"
+project_hash = "0efb10ecf1bc14b8bad1e909b6c685ca2f4e343b"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -536,7 +536,7 @@ uuid = "5a6f062f-bf45-497d-b654-ad17aae2a530"
 version = "0.3.2"
 
 [[deps.MRITestData]]
-deps = ["CodecZlib", "DelimitedFiles", "Downloads", "FileIO", "MAT", "MRIBase", "MRIFiles", "NamedDims", "PrecompileTools", "Preferences", "ProgressMeter", "SHA", "Scratch", "TOML", "Tachikoma"]
+deps = ["CodecZlib", "DelimitedFiles", "Downloads", "FileIO", "MAT", "MRIBase", "MRIFiles", "PrecompileTools", "Preferences", "ProgressMeter", "SHA", "Scratch", "TOML", "Tachikoma"]
 path = "."
 uuid = "b3f1a2c4-5d6e-4a7b-9c8d-0e1f2a3b4c5d"
 version = "0.1.0"
@@ -576,25 +576,6 @@ deps = ["AbstractFFTs", "AbstractNFFTs", "FFTW", "LinearAlgebra"]
 git-tree-sha1 = "e20ac21560b314a7c38c4cd2fdcece34c66f36b6"
 uuid = "7424e34d-94f7-41d6-98a0-85abaf1b6c91"
 version = "0.2.7"
-
-[[deps.NamedDims]]
-deps = ["LinearAlgebra", "Statistics"]
-git-tree-sha1 = "f9e4a49ecd1ea2eccfb749a506fa882c094152b4"
-uuid = "356022a1-0364-5f58-8944-0da4b18d706f"
-version = "1.2.3"
-
-    [deps.NamedDims.extensions]
-    AbstractFFTsExt = "AbstractFFTs"
-    ChainRulesCoreExt = "ChainRulesCore"
-    CovarianceEstimationExt = "CovarianceEstimation"
-    TrackerExt = "Tracker"
-
-    [deps.NamedDims.weakdeps]
-    AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
-    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-    CovarianceEstimation = "587fd27a-f159-11e8-2dae-1979310e6154"
-    Requires = "ae029012-a4dd-5104-9daa-d747884805df"
-    Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -751,16 +732,6 @@ version = "1.12.0"
 git-tree-sha1 = "c4f6610f85cb965bee5bfafa64cbeeda55a4e0b2"
 uuid = "91464d47-22a1-43fe-8b7f-2d57ee82463f"
 version = "0.1.7"
-
-[[deps.Statistics]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "ae3bb1eb3bba077cd276bc5cfc337cc65c3075c0"
-uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-version = "1.11.1"
-weakdeps = ["SparseArrays"]
-
-    [deps.Statistics.extensions]
-    SparseArraysExt = ["SparseArrays"]
 
 [[deps.StructUtils]]
 deps = ["Dates", "UUIDs"]

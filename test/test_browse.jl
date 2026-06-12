@@ -49,3 +49,51 @@
         end
     end
 end
+
+@testitem "Browse: sampling/header/token modal (offline)" begin
+    using MRITestData
+    using MRITestData: _sampling_value, _fmt_sampling, _needs_synapse_token, _header_title,
+        BrowserModel, _update_token!, DatasetEntry
+    using Tachikoma: KeyEvent
+
+    @testset "sampling column renders the same concept the same way" begin
+        fully = DatasetEntry(;
+            source = OCMR_SOURCE, id = "x", name = "x", fully_sampled = true,
+            url = "", extra = Dict{String, Any}("sampling" => "fully sampled"),
+        )
+        under = DatasetEntry(;
+            source = OCMR_SOURCE, id = "y", name = "y", fully_sampled = false,
+            url = "", extra = Dict{String, Any}("sampling" => "pseudo-random undersampled"),
+        )
+        ubool = DatasetEntry(; source = MRIDATA, id = "z", name = "z", fully_sampled = false, url = "")
+        unkwn = DatasetEntry(; source = MRIDATA, id = "w", name = "w", url = "")
+        @test _fmt_sampling(_sampling_value(fully)) == "fully sampled"   # explicit, no glyphs
+        @test _fmt_sampling(_sampling_value(under)) == "pseudo-random"
+        @test _fmt_sampling(_sampling_value(ubool)) == "undersampled"
+        @test _fmt_sampling(_sampling_value(unkwn)) == "?"
+    end
+
+    @testset "header shows filtered count only when narrowed" begin
+        @test _header_title(100, 100) == "MRI Datasets (100)"
+        @test _header_title(100, 12) == "MRI Datasets (12 / 100)"
+    end
+
+    @testset "Synapse-token-needed predicate" begin
+        @test _needs_synapse_token(nothing) === false
+        ocmr_e = DatasetEntry(; source = OCMR_SOURCE, id = "a", name = "a", url = "")
+        @test _needs_synapse_token(ocmr_e) === false
+        cmr_e = first(list_datasets(CMRXRECON2024; offline = true))
+        # Only CMRxRecon needs a token, and only when none is configured.
+        @test _needs_synapse_token(cmr_e) == isempty(get_synapse_token())
+    end
+
+    @testset ":token stage accepts input and Esc returns without saving" begin
+        m = BrowserModel(list_datasets(CMRXRECON2024; offline = true))
+        m.stage = :token
+        _update_token!(m, KeyEvent('p'))
+        _update_token!(m, KeyEvent('w'))
+        @test MRITestData.text(m.token_input) == "pw"
+        _update_token!(m, KeyEvent(:escape))      # Esc: back to confirm, no set_synapse_token!
+        @test m.stage == :confirm
+    end
+end
