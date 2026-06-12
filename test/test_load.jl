@@ -1,63 +1,48 @@
-@testitem "load: acq_spec conversion" setup = [Fixtures] begin
+@testitem "load: load_raw round-trips ISMRMRD" setup = [Fixtures] begin
     using MRITestData
-    using NamedDims: dimnames, dim
+    using MRIBase: RawAcquisitionData
+
+    # Sorted unique phase-encode (ky) indices present across all profiles (1-based).
+    acquired_ky(raw) = sort(unique(Int(p.head.idx.kspace_encode_step_1) + 1 for p in raw.profiles))
 
     mktempdir() do tmp
         @testset "cartesian (fully sampled)" begin
             f = write_cartesian_fixture(joinpath(tmp, "cart_full.h5"); nx = 16, ny = 16, ncoil = 2)
-            acq = load_acq(f)
-            spec = acq_spec(acq)
+            raw = load_raw(f)
 
-            @test spec.kind === :cartesian
-            @test spec.is3D === false
-            @test spec.image_size == (16, 16)
-            @test spec.coils == 2
-            @test dimnames(spec.kspace_data) == (:kx, :ky, :coil, :z)
-            @test size(spec.kspace_data, dim(spec.kspace_data, :coil)) == 2
-
-            # fully sampled -> dense grid, no subsampling pattern
-            @test spec.subsampling === nothing
+            @test raw isa RawAcquisitionData
+            @test lowercase(get(raw.params, "trajectory", "")) == "cartesian"
+            @test !isempty(raw.profiles)
+            # data is (samples × channels)
+            @test size(raw.profiles[1].data, 2) == 2
+            # fully sampled -> every ky line acquired
+            @test acquired_ky(raw) == collect(1:16)
         end
 
         @testset "cartesian (undersampled)" begin
             f = write_cartesian_fixture(joinpath(tmp, "cart_us.h5"); nx = 16, ny = 16, ncoil = 2, accel = 2)
-            acq = load_acq(f)
-            spec = acq_spec(acq)
+            raw = load_raw(f)
 
-            @test spec.kind === :cartesian
-            # undersampled -> compressed samples + Bool mask tuple
-            @test spec.subsampling isa Tuple{<:AbstractArray{Bool, 2}}
-            mask = spec.subsampling[1]
-            @test count(mask) < prod(spec.image_size)
-            @test count(mask) == length(unique(acq.subsampleIndices[1]))
-            # compressed spatial axis -> (:kxy, :coil, :z); kxy length == #samples
-            @test dimnames(spec.kspace_data) == (:kxy, :coil, :z)
-            @test size(spec.kspace_data, dim(spec.kspace_data, :kxy)) == count(mask)
+            ky = acquired_ky(raw)
+            # accel = 2 -> only half the lines carry data
+            @test length(ky) < 16
+            @test all(isodd, ky)        # the fixture fills ky = 1:accel:ny
         end
 
         @testset "radial (non-cartesian)" begin
             f = write_radial_fixture(joinpath(tmp, "radial.h5"); nspokes = 16, nsamp = 32, ncoil = 2)
-            acq = load_acq(f)
-            spec = acq_spec(acq)
+            raw = load_raw(f)
 
-            @test spec.kind === :noncartesian
-            @test spec.dcf === nothing
-            @test spec.coils == 2
-            @test dimnames(spec.trajectory) == (:coord, :sample)
-            @test dimnames(spec.kspace_data) == (:sample, :coil)
-
-            # trajectory: 2 coords, normalized to [-0.5, 0.5)
-            @test size(spec.trajectory, dim(spec.trajectory, :coord)) == 2
-            @test maximum(abs, spec.trajectory) <= 0.5 + 1.0e-4
-
-            # samples axis of k-space matches trajectory sample count
-            nsamp = size(spec.trajectory, dim(spec.trajectory, :sample))
-            @test size(spec.kspace_data, dim(spec.kspace_data, :sample)) == nsamp
+            @test !isempty(raw.profiles)
+            # per-profile trajectory coordinates are recorded (2D radial)
+            @test Int(raw.profiles[1].head.trajectory_dimensions) == 2
+            @test size(raw.profiles[1].data, 2) == 2
         end
 
-        @testset "acq_spec from path" begin
+        @testset "load_raw from a DatasetEntry path and with filters" begin
             f = write_cartesian_fixture(joinpath(tmp, "cart2.h5"))
-            @test acq_spec(f).kind === :cartesian
+            @test load_raw(f) isa RawAcquisitionData
+            @test load_raw(f; slice = 1) isa RawAcquisitionData
         end
     end
 end

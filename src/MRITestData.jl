@@ -2,10 +2,12 @@
     MRITestData
 
 Query and download free, open-access MRI k-space datasets and load them into
-`MRIBase` acquisition containers.
+`MRIBase.RawAcquisitionData`.
 
-Supported sources: [`MRIDATA`](@ref) (mridata.org) and [`OCMR_SOURCE`](@ref)
-(the OCMR cardiac repository). Both serve ISMRMRD `.h5` files, which are read via
+Supported sources: [`MRIDATA`](@ref) (mridata.org), [`OCMR_SOURCE`](@ref) (the OCMR
+cardiac repository), and [`CMRXRECON2024`](@ref) (the CMRxRecon2024 challenge data).
+mridata.org and OCMR serve ISMRMRD `.h5` files; CMRxRecon2024 ships MATLAB `.mat`
+k-space that is converted to a cached ISMRMRD file on first load. All are read via
 `MRIFiles`/`MRIBase`.
 
 !!! warning "Data source terms of use"
@@ -13,6 +15,7 @@ Supported sources: [`MRIDATA`](@ref) (mridata.org) and [`OCMR_SOURCE`](@ref)
     by each provider's own license and terms. Please review them before using the data:
     - mridata.org: http://mridata.org/terms
     - OCMR: https://www.ocmr.info/download/
+    - CMRxRecon2024: https://cmrxrecon.github.io/2024/FAQ.html
 
     Call `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
     notice once you have reviewed the terms.
@@ -22,7 +25,7 @@ Supported sources: [`MRIDATA`](@ref) (mridata.org) and [`OCMR_SOURCE`](@ref)
 using MRITestData
 entries = list_datasets(OCMR_SOURCE; field_strength = 1.5)
 path = download_dataset(entries[1])     # downloads (cached), returns path
-acq  = load_acq(path)                   # MRIBase.AcquisitionData
+raw  = load_raw(path)                   # MRIBase.RawAcquisitionData
 ```
 """
 module MRITestData
@@ -32,7 +35,6 @@ using Downloads: Downloads
 using SHA: sha256
 using TOML: TOML
 using DelimitedFiles: readdlm
-using NamedDims: NamedDimsArray
 using ProgressMeter: ProgressMeter
 using Preferences: load_preference, set_preferences!
 using PrecompileTools: @compile_workload
@@ -44,18 +46,9 @@ using MRIFiles: ISMRMRDFile
 using FileIO: save
 using MRIBase:
     RawAcquisitionData,
-    AcquisitionData,
     Profile,
     AcquisitionHeader,
-    EncodingCounters,
-    trajectory,
-    kspaceNodes,
-    kDataCart,
-    isCartesian,
-    encodingSize,
-    numChannels,
-    numSlices,
-    numRepetitions
+    EncodingCounters
 
 # Lazily-populated cache directory (set in __init__ to the package scratchspace).
 const CACHE_DIR = Ref{String}("")
@@ -83,7 +76,6 @@ include("download/cmrxrecon2024_fetch.jl")
 include("catalog/display.jl")
 include("browse.jl")
 include("load/ismrmrd.jl")
-include("load/acq_spec.jl")
 include("load/mat.jl")
 include("load/cmrxrecon_ismrmrd.jl")
 include("api.jl")
@@ -116,7 +108,7 @@ export list_sources, list_datasets, dataset, query
 export download_dataset, copy_dataset, cache_path, is_cached, clear_cache
 export fetch_sizes
 export refresh_index, index_path, index_age_days, sizes_path, read_sizes, write_sizes
-export load_raw, load_acq, acq_spec
+export load_raw
 export run_browser
 export dismiss_terms_notice!, enable_terms_notice!
 export set_chunk_size!, get_chunk_size

@@ -39,6 +39,10 @@ and `contrast` filter which profiles are loaded.
 Given a [`DatasetEntry`](@ref) or [`DatasetHandle`](@ref), the dataset is downloaded
 (and cached) first; CMRxRecon2024 entries are converted from their MATLAB k-space
 (plus the paired undersampling mask) into a cached ISMRMRD file transparently.
+
+To reconstruct, build an `MRIBase.AcquisitionData` from the result and hand it to a
+reconstruction package such as MRIReco.jl — see the "Reconstruction with MRIReco"
+section of the documentation.
 """
 function load_raw(path::AbstractString; slice = nothing, repetition = nothing, contrast = nothing)
     _patch_ismrmrd_if_needed!(path)
@@ -47,23 +51,3 @@ end
 
 load_raw(e::DatasetEntry; kwargs...) = load_raw(_ismrmrd_path(e.source, e); kwargs...)
 load_raw(h::DatasetHandle; kwargs...) = load_raw(h.entry; kwargs...)
-
-"""
-    load_acq(path) -> AcquisitionData
-    load_acq(entry_or_handle) -> AcquisitionData
-
-Read an ISMRMRD `.h5` file at `path` into an `MRIBase.AcquisitionData`: profiles
-placed onto the encoded grid, with `subsampleIndices`, trajectories, `encodingSize`
-and `fov` resolved. This is the intermediate that [`acq_spec`](@ref) consumes.
-
-Given a [`DatasetEntry`](@ref) or [`DatasetHandle`](@ref), the dataset is downloaded
-(and cached) first; CMRxRecon2024 entries are converted from their MATLAB k-space
-(plus the paired undersampling mask) into a cached ISMRMRD file transparently.
-"""
-function load_acq(path::AbstractString)
-    _patch_ismrmrd_if_needed!(path)
-    return AcquisitionData(ISMRMRDFile(path))
-end
-
-load_acq(e::DatasetEntry) = load_acq(_ismrmrd_path(e.source, e))
-load_acq(h::DatasetHandle) = load_acq(h.entry)

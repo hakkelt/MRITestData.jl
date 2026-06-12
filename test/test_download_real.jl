@@ -1,11 +1,10 @@
 # Opt-in real-download tests (tag :network). Skipped unless the runner includes the
 # :network tag (see runtests.jl, gated by MRITESTDATA_NETWORK_TESTS=true). These hit
 # OCMR / mridata.org live, refresh the index, download a relatively-small dataset,
-# and reconstruct it with MRIReco.
+# and load it into a RawAcquisitionData.
 
-@testitem "OCMR: refresh index + download + reconstruct" tags = [:network] begin
+@testitem "OCMR: refresh index + download + load" tags = [:network] begin
     using MRITestData
-    using MRIReco  # loads MRITestDataMRIRecoExt
 
     mktempdir() do tmp
         old = MRITestData.CACHE_DIR[]
@@ -24,7 +23,7 @@
             )
             @test !isempty(candidates)
 
-            img = nothing
+            raw = nothing
             chosen = nothing
             for e in candidates
                 path = download_dataset(e; progress = false)
@@ -33,7 +32,7 @@
                 @test is_cached(e)
                 @test download_dataset(e; progress = false) == path   # cached, same path
                 try
-                    img = recon(path; reco = "direct")
+                    raw = load_raw(path)
                     chosen = e
                     break
                 catch err
@@ -41,18 +40,16 @@
                 end
             end
             @test chosen !== nothing  # at least one candidate loaded successfully
-            @test img !== nothing
-            @test ndims(img) >= 2
-            @test all(>(0), size(img)[1:2])
+            @test raw !== nothing
+            @test !isempty(raw.profiles)
         finally
             MRITestData.CACHE_DIR[] = old
         end
     end
 end
 
-@testitem "mridata: download + reconstruct (2D curated entry)" tags = [:network] begin
+@testitem "mridata: download + load (2D curated entry)" tags = [:network] begin
     using MRITestData
-    using MRIReco
 
     mktempdir() do tmp
         old = MRITestData.CACHE_DIR[]
@@ -75,14 +72,14 @@ end
                 e -> e.approx_size_bytes !== nothing && e.is3D !== false,
                 entries,
             )
-            # Try 2D first, then 3D (may still work), both sorted smallest-first.
+            # Try 2D first, then 3D, both sorted smallest-first.
             candidates = vcat(
                 sort(curated_2d; by = e -> e.approx_size_bytes),
                 sort(curated_3d; by = e -> e.approx_size_bytes),
             )
             @test !isempty(candidates)
 
-            img = nothing
+            raw = nothing
             chosen = nothing
             for e in candidates
                 path = try
@@ -108,7 +105,7 @@ end
                 @test isfile(path)
                 @test filesize(path) > 0
                 try
-                    img = recon(path; reco = "direct")
+                    raw = load_raw(path)
                     chosen = e
                     break
                 catch err
@@ -116,9 +113,8 @@ end
                 end
             end
             @test chosen !== nothing
-            @test img !== nothing
-            @test ndims(img) >= 2
-            @test all(>(0), size(img)[1:2])
+            @test raw !== nothing
+            @test !isempty(raw.profiles)
         finally
             MRITestData.CACHE_DIR[] = old
         end
