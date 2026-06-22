@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "julia-bench": {
+      "source": "Krastanov/JuliaLLMAgentSkills",
+      "sourceType": "github",
+      "skillPath": "julia-bench/SKILL.md",
+      "computedHash": "82128a51e39a8b9416b6d263eccab8685751d1722d59d8c304881f8befd18093"
+    },
+    "julia-docs": {
+      "source": "Krastanov/JuliaLLMAgentSkills",
+      "sourceType": "github",
+      "skillPath": "julia-docs/SKILL.md",
+      "computedHash": "f1cacfece89b8cb4a333ff194c2a8beb1032fd2916b99232dffe63a51fd7bd95"
+    },
+    "julia-jet": {
+      "source": "Krastanov/JuliaLLMAgentSkills",
+      "sourceType": "github",
+      "skillPath": "julia-jet/SKILL.md",
+      "computedHash": "f012681584bd5609845d86f3218552710e553b1eadb1a6094bf041a223e1fc85"
+    },
+    "julia-package-dev": {
+      "source": "Krastanov/JuliaLLMAgentSkills",
+      "sourceType": "github",
+      "skillPath": "julia-package-dev/SKILL.md",
+      "computedHash": "cb0c8305b97b187a7106ba71fc6a03e0f59dd0464fadcf1ad9a0b75942cd14a7"
+    },
+    "julia-perf": {
+      "source": "Krastanov/JuliaLLMAgentSkills",
+      "sourceType": "github",
+      "skillPath": "julia-perf/SKILL.md",
+      "computedHash": "fdc8686a87336a745cf8b79a79c6b993976efb3d67501209f55b13b5c8ac3f55"
+    }
+  }
+}
