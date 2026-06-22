@@ -43,7 +43,11 @@ function save_montage(vol3d, file, title)
         vol3d = vol3d[lo:(lo + nx ÷ 2 - 1), :, :]
     end
     # Robust window: clip a handful of hot pixels so the anatomy is not crushed to black.
-    hi = quantile(vec(vol3d), 0.995)
+    # Filter out NaNs/Infs to prevent quantile from returning NaN, which causes a segfault in GR.
+    valid = filter(isfinite, vec(vol3d))
+    hi = isempty(valid) ? 1.0 : quantile(valid, 0.995)
+    # Prevent clim=(0,0) which can also cause plotting issues.
+    hi = max(hi, 1e-6)
     n = size(vol3d, 3)
     ncol = n == 1 ? 1 : (n <= 3 ? n : 3)
     jim(vol3d; title = title, color = :grays, clim = (0, hi), ncol = ncol)

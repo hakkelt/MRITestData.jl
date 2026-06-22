@@ -122,6 +122,10 @@ function _cmrxrecon_to_ismrmrd(
         "systemVendor" => "Siemens",
         "systemFieldStrength_T" => Float32(field_strength_T),
         "H1resonanceFrequency_Hz" => 123_200_000,
+        "enc_lim_kspace_encoding_step_1" => MRIFiles.Limit(0, ny - 1, div(ny, 2)),
+        "enc_lim_kspace_encoding_step_2" => MRIFiles.Limit(0, 0, 0),
+        "enc_lim_slice" => MRIFiles.Limit(0, nz - 1, div(nz, 2)),
+        "enc_lim_contrast" => MRIFiles.Limit(0, nt - 1, div(nt, 2))
     )
 
     mkpath(dirname(dest))
