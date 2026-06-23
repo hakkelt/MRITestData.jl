@@ -123,6 +123,7 @@ end
 
 @testitem "OCMR parallel chunked download produces correct file" tags = [:network] begin
     using MRITestData
+    import Downloads
     using MRITestData: CACHE_DIR, PARALLEL_CHUNKS, PARALLEL_MIN_BYTES, _probe_url, _download_parallel
 
     # Verify that parallel chunked download produces the same bytes as a normal download.
@@ -146,7 +147,6 @@ end
         mv(par_tmp, par_dest; force = true)
 
         # Single-connection download of the same range
-        using Downloads
         single_dest = joinpath(tmp, "single.bin")
         Downloads.download(url, single_dest; headers = ["Range" => "bytes=0-$(nbytes - 1)"])
 

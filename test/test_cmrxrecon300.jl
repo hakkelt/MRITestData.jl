@@ -15,11 +15,13 @@
         @test all(e -> e.anatomy === :cardiac, es)
         @test all(e -> e.vendor === :siemens, es)
         @test all(e -> e.trajectory === :cartesian, es)
-        # `_ks` k-space is undersampled; only the `_calib` ACS files are fully sampled.
-        @test all(e -> e.fully_sampled === false, filter(e -> endswith(e.id, "_ks"), es))
-        @test all(e -> e.fully_sampled === true, filter(e -> endswith(e.id, "_calib"), es))
-        @test all(e -> haskey(e.extra, "calib_id"), filter(e -> endswith(e.id, "_ks"), es))
+        # Since _calib entries are merged into the main entry, they no longer appear separately.
+        # IDs drop the _ks or _calib extension.
+        @test all(e -> e.fully_sampled === false, es)
+        @test all(e -> haskey(e.extra, "calib_path"), es)
         @test all(e -> !endswith(e.id, ".mat"), es)   # ids drop the .mat extension
+        @test all(e -> !endswith(e.id, "_ks"), es)
+        @test all(e -> !endswith(e.id, "_calib"), es)
         @test all(e -> e.url == "", es)
         # every entry carries the coordinates the zran engine needs
         @test all(e -> haskey(e.extra, "set"), es)
@@ -30,15 +32,16 @@
 
     @testset "DemoData members + metadata" begin
         es = list_datasets(CMRXRECON300; offline = true)
-        ks = first(filter(e -> endswith(e.id, "t2map_ks"), es))
+        ks = first(filter(e -> endswith(e.id, "t2map"), es))
         @test get(ks.extra, "set", "") == "DemoData"
         @test get(ks.extra, "subject", "") == "P001"
         @test get(ks.extra, "modality", "") == "T2map"
         @test ks.extra["data_offset"] isa Int && ks.extra["size"] isa Int
         @test get(ks.extra, "mat_file", "") == "t2map_ks.mat"   # original filename retained
-        # both k-space and calibration members are catalogued
-        @test any(e -> endswith(e.id, "_ks"), es)
-        @test any(e -> endswith(e.id, "_calib"), es)
+        # calibration members are merged
+        @test haskey(ks.extra, "calib_path")
+        @test haskey(ks.extra, "calib_data_offset")
+        @test haskey(ks.extra, "calib_size")
     end
 
     @testset "filtering + query" begin

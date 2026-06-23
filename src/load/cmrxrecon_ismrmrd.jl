@@ -16,11 +16,25 @@
 # ── Reading the .mat arrays ─────────────────────────────────────────────────────
 
 function _cmrxrecon_kspace(d::AbstractDict)
-    for k in ("kus", "kspace_full", "Recon_ks", "Calib")
-        haskey(d, k) && return d[k]
+    k = nothing
+    for key in ("kus", "kspace_full", "Recon_ks")
+        if haskey(d, key)
+            k = d[key]
+            break
+        end
     end
+    
+    if k !== nothing
+        if haskey(d, "Calib")
+            return k, d["Calib"]
+        end
+        return k, nothing
+    end
+
+    haskey(d, "Calib") && return d["Calib"], nothing
+
     arrs = [v for v in values(d) if v isa AbstractArray{<:Number}]
-    length(arrs) == 1 && return only(arrs)
+    length(arrs) == 1 && return only(arrs), nothing
     return error("could not identify the k-space variable in the .mat file (keys = $(collect(keys(d))))")
 end
 
@@ -50,16 +64,17 @@ end
 # Cartesian: one whole-line profile per acquired (frame → contrast, slice, ky). A line
 # is acquired if the mask selects any sample in it. Real slice/contrast indices (MRIBase
 # handles multi-slice Cartesian); repetition stays 0.
-function _cmrxrecon_cartesian_profiles(k, mb, nx, ny, nc, nz, nt, nmt)
+function _cmrxrecon_cartesian_profiles(k, mb, nx, ny, nc, nz, nt, nmt; ky_offset::Int = 0, flags::UInt64 = UInt64(0), start_counter::UInt32 = UInt32(0))
     center = UInt16(div(nx, 2))
     profiles = Profile[]
-    counter = UInt32(0)
+    counter = start_counter
     for t in 1:nt
         mt = nmt == 1 ? 1 : t
-        kys = [ky for ky in 1:ny if any(@view mb[:, ky, mt])]
+        kys = [ky for ky in 1:size(mb, 2) if any(@view mb[:, ky, mt])]
         for z in 1:nz, ky in kys
             counter += UInt32(1)
             data = ComplexF32.(@view k[:, ky, :, z, t])     # (nx, nc)
+            
             head = AcquisitionHeader(;
                 number_of_samples = UInt16(nx),
                 available_channels = UInt16(nc),
@@ -71,17 +86,18 @@ function _cmrxrecon_cartesian_profiles(k, mb, nx, ny, nc, nz, nt, nmt)
                 slice_dir = (0.0f0, 0.0f0, 1.0f0),
                 scan_counter = counter,
                 idx = EncodingCounters(;
-                    kspace_encode_step_1 = UInt16(ky - 1),
+                    kspace_encode_step_1 = UInt16(ky + ky_offset - 1),
                     kspace_encode_step_2 = UInt16(0),
                     slice = UInt16(z - 1),
                     contrast = UInt16(t - 1),
                     repetition = UInt16(0),
                 ),
+                flags = flags
             )
             push!(profiles, Profile(head, Matrix{Float32}(undef, 0, 0), data))
         end
     end
-    return profiles
+    return profiles, counter
 end
 
 # ── Builder + orchestration ─────────────────────────────────────────────────────
@@ -101,6 +117,7 @@ function _cmrxrecon_to_ismrmrd(
         fov_x::Union{Float64, Nothing} = nothing,
         fov_y::Union{Float64, Nothing} = nothing,
         field_strength_T::Float64 = 3.0,
+        calib_data::Union{AbstractArray, Nothing} = nothing,
     )
     k5 = _cmrxrecon_as5d(k)
     nx, ny, nc, nz, nt = size(k5)
@@ -108,7 +125,16 @@ function _cmrxrecon_to_ismrmrd(
     nmt = size(mb, 3)
     (nmt == 1 || nmt == nt) || error("mask has $nmt frames, incompatible with k-space $nt frames")
 
-    profiles = _cmrxrecon_cartesian_profiles(k5, mb, nx, ny, nc, nz, nt, nmt)
+    profiles, counter = _cmrxrecon_cartesian_profiles(k5, mb, nx, ny, nc, nz, nt, nmt)
+    
+    if calib_data !== nothing
+        c5 = _cmrxrecon_as5d(calib_data)
+        ncalib = size(c5, 2)
+        lo = div(ny, 2) - div(ncalib, 2) + 1
+        calib_mb = _cmrxrecon_mask3(trues(nx, ncalib), nx, ncalib)
+        c_profiles, _ = _cmrxrecon_cartesian_profiles(c5, calib_mb, nx, ny, nc, nz, nt, 1; ky_offset = lo - 1, flags = MRIFiles.ACQ_IS_PARALLEL_CALIBRATION, start_counter = counter)
+        append!(profiles, c_profiles)
+    end
 
     enc_fov_x = fov_x !== nothing ? fov_x : Float64(nx)
     enc_fov_y = fov_y !== nothing ? fov_y : Float64(ny)
@@ -159,10 +185,41 @@ end
 function _cmrxrecon_ismrmrd_path(e::DatasetEntry; derive_mask::Bool = false)
     dest = string(first(splitext(cache_path(e))), ".h5")
     isfile(dest) && return dest
-    k = _cmrxrecon_kspace(load_mat(download_dataset(e)))
+    
+    d = load_mat(download_dataset(e))
+    
+    if haskey(e.extra, "calib_data_offset") && !haskey(d, "Calib")
+        calib_e = DatasetEntry(;
+            source = e.source,
+            id = string(e.id, "_calib"),
+            name = string(e.name, " (calibration)"),
+            anatomy = e.anatomy,
+            vendor = e.vendor,
+            field_strength = e.field_strength,
+            trajectory = e.trajectory,
+            coils = e.coils,
+            fully_sampled = true,
+            is3D = e.is3D,
+            approx_size_bytes = e.extra["calib_size"],
+            url = e.url,
+            extra = Dict{String, Any}(
+                "path" => e.extra["calib_path"],
+                "set" => e.extra["set"],
+                "data_offset" => e.extra["calib_data_offset"],
+                "size" => e.extra["calib_size"],
+                "mat_file" => replace(e.extra["mat_file"], r"_ks\.mat$" => "_calib.mat")
+            )
+        )
+        calib_d = load_mat(download_dataset(calib_e))
+        if haskey(calib_d, "Calib")
+            d["Calib"] = calib_d["Calib"]
+        end
+    end
+    
+    k, calib_data = _cmrxrecon_kspace(d)
     mask = derive_mask ? _cmrxrecon_sampling_mask(k) : trues(size(k, 1), size(k, 2))
     fov_x = get(e.extra, "fov_x", nothing)
     fov_y = get(e.extra, "fov_y", nothing)
     fs = something(e.field_strength, 3.0)
-    return _cmrxrecon_to_ismrmrd(k, mask, dest; fov_x = fov_x, fov_y = fov_y, field_strength_T = fs)
+    return _cmrxrecon_to_ismrmrd(k, mask, dest; fov_x = fov_x, fov_y = fov_y, field_strength_T = fs, calib_data = calib_data)
 end

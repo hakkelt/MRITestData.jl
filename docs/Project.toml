@@ -1,6 +1,10 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+MIRTjim = "170b2178-6dee-4cb0-8729-b3e8b57834cc"
 MRIBase = "f7771a9a-6e57-4e71-863b-6e4b6a2f17df"
+MRICoilSensitivities = "c57eb701-aafc-44a2-a53c-128049758959"
 MRIFiles = "5a6f062f-bf45-497d-b654-ad17aae2a530"
+MRIReco = "bdf86e05-2d2b-5731-a332-f3fe1f9e047f"
 MRITestData = "b3f1a2c4-5d6e-4a7b-9c8d-0e1f2a3b4c5d"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Tachikoma = "468859d6-42d8-48b7-8ad9-1d312e0e3b0a"

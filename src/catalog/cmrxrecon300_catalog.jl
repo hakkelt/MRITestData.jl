@@ -56,7 +56,7 @@ function _cmrx300_kind(matfile::AbstractString)
     return ""
 end
 
-function _cmrx300_entry(row, col)
+function _cmrx300_entry(row, col; base_id::String)
     path = _cmrx300_str(row, col, "path")
     isempty(path) && return nothing
     data_offset = _cmrx300_int(row, col, "data_offset")
@@ -69,38 +69,30 @@ function _cmrx300_entry(row, col)
     matfile = _cmrx300_str(row, col, "matfile")
     isempty(matfile) && (matfile = String(last(split(path, '/'))))
 
-    kind = _cmrx300_kind(matfile)
     label = "CMRxRecon-300"
     isempty(modality) || (label = string(label, " ", modality))
     isempty(subject) || (label = string(label, " ", subject))
-    label = string(label, " — ", matfile)
-    isempty(kind) || (label = string(label, " (", kind, ")"))
 
     extra = Dict{String, Any}(
         "path" => path,
         "set" => set,
         "data_offset" => data_offset,
         "size" => size,
+        "mat_file" => matfile
     )
     isempty(subject) || (extra["subject"] = subject)
     isempty(modality) || (extra["modality"] = modality)
-    isempty(matfile) || (extra["mat_file"] = matfile)
-    # The `_ks` k-space is *undersampled* (regular k-t pattern, R≈3); only the `_calib`
-    # ACS file is fully sampled. Record the paired calibration id for `_ks` entries.
-    is_calib = endswith(lowercase(matfile), "_calib.mat")
-    is_ks = endswith(lowercase(matfile), "_ks.mat")
-    is_ks && (extra["calib_id"] = replace(replace(path, r"\.mat$" => ""), r"_ks$" => "_calib"))
 
     return DatasetEntry(;
         source = CMRXRECON300,
-        id = replace(path, r"\.mat$" => ""),   # user-facing id drops the .mat extension
+        id = base_id,
         name = label,
         anatomy = :cardiac,
         vendor = :siemens,
         field_strength = 3.0,
         trajectory = :cartesian,
         coils = nothing,
-        fully_sampled = is_calib ? true : false,
+        fully_sampled = false,
         is3D = false,
         approx_size_bytes = size,
         url = "",
@@ -108,16 +100,41 @@ function _cmrx300_entry(row, col)
     )
 end
 
-# Parse one set's member-map CSV into entries (empty if the file is absent).
 function _cmrx300_entries(path::AbstractString)
     isfile(path) || return DatasetEntry[]
     data, header = readdlm(path, ','; header = true)
     col = Dict(strip(String(h)) => i for (i, h) in enumerate(vec(header)))
     haskey(col, "path") || return DatasetEntry[]
-    entries = DatasetEntry[]
+    
+    groups = Dict{String, Dict{String, Any}}()
     for r in axes(data, 1)
-        e = _cmrx300_entry(data[r, :], col)
-        e === nothing || push!(entries, e)
+        p = _cmrx300_str(data[r, :], col, "path")
+        isempty(p) && continue
+        matfile = _cmrx300_str(data[r, :], col, "matfile")
+        isempty(matfile) && (matfile = String(last(split(p, '/'))))
+        
+        base_id = replace(replace(p, r"\.mat$" => ""), r"(_ks|_calib)$" => "")
+        
+        g = get!(groups, base_id, Dict{String, Any}())
+        kind = endswith(lowercase(matfile), "_calib.mat") ? "calib" : "ks"
+        g[kind] = data[r, :]
+    end
+    
+    entries = DatasetEntry[]
+    for (base_id, rows) in groups
+        main_row = get(rows, "ks", get(rows, "calib", nothing))
+        main_row === nothing && continue
+        
+        e = _cmrx300_entry(main_row, col; base_id=base_id)
+        if e !== nothing
+            if haskey(rows, "calib") && haskey(rows, "ks")
+                calib_row = rows["calib"]
+                e.extra["calib_path"] = _cmrx300_str(calib_row, col, "path")
+                e.extra["calib_data_offset"] = _cmrx300_int(calib_row, col, "data_offset")
+                e.extra["calib_size"] = _cmrx300_int(calib_row, col, "size")
+            end
+            push!(entries, e)
+        end
     end
     return entries
 end
