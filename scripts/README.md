@@ -212,3 +212,37 @@ Because checkpoints are placed per file (at the DEFLATE block boundary just befo
 index holds ~one 32 KiB window per file (≈ a few MB per set). The token is resolved exactly
 as for the CMRxRecon2024 scripts (`--token`, `$SYNAPSE_AUTH_TOKEN`, or the stored
 `synapse_token` preference); a free Synapse account suffices (no challenge registration).
+
+---
+
+# USC Speech Maintainer Scripts
+
+The USC SPAN 75-speaker dataset ([figshare 13725546](https://doi.org/10.6084/m9.figshare.13725546),
+CC-BY) is delivered as a single ~570 GB `dataset.zip`. Because it is a ZIP (not a single
+gzip stream like CMRxRecon-300), individual `.h5` members **can** be range-extracted
+directly — the runtime only needs each member's byte span, local-header length and
+compression method, which one maintainer pass over the ZIP central directory records.
+
+## `generate_usc_speech_map.jl` — generate the offset map
+
+Reads the archive's **ZIP64** central directory over HTTP range requests (no full download)
+and, for every `*/2drt/raw/*_raw.h5` member, writes one row to `data/usc_speech_map.csv`:
+
+```
+path,start_off,end_off,lfh_size,compressed_size,uncompressed_size,compression,file_id,subject,modality,stimulus,repetition
+```
+
+```sh
+# Full corpus (dataset.zip, figshare file id 26378810 — the default)
+julia --project=. scripts/generate_usc_speech_map.jl
+
+# Small per-subject archive (example_for_sub001.zip, file id 26375235) — cheap to index,
+# useful for a real, end-to-end-working sample map
+julia --project=. scripts/generate_usc_speech_map.jl --file-id 26375235 --out data/usc_speech_map.csv
+```
+
+No authentication is needed (public CC-BY). figshare's `ndownloader` 302-redirects to a
+short-lived presigned S3 URL; the script resolves it and re-resolves on a 403 (expiry).
+`dataset.zip` is >4 GB, so ZIP64 central-directory handling is mandatory. The `--file-id`
+value is written verbatim into every row, so the runtime fetches each member from the same
+archive the map was built against.

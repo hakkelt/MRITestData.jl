@@ -13,6 +13,7 @@
     - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
     - **CMRxRecon2024** → [https://cmrxrecon.github.io/2024/FAQ.html](https://cmrxrecon.github.io/2024/FAQ.html)
     - **CMRxRecon-300** → [https://www.synapse.org/Synapse:syn52965326](https://www.synapse.org/Synapse:syn52965326)
+    - **USC Speech** → [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/)
 
 This package is a convenience tool for *accessing* publicly available data. It does
 not host, relicense, or redistribute any dataset. When you use it to download data,
@@ -74,6 +75,24 @@ CC-BY permits redistribution and reuse **with attribution**: cite the CMRxRecon
 *Scientific Data* paper (Wang C, Lyu J, Wang S, et al. *CMRxRecon: A publicly available
 k-space dataset and benchmark to advance deep learning for cardiac MRI.* Scientific Data,
 2024, 11(1): 687) when you use the data.
+
+## USC Speech (SPAN 75-speaker)
+
+The [USC SPAN 75-speaker](https://sail.usc.edu/span/75speakers/) real-time speech
+production MRI dataset is hosted on figshare
+([13725546](https://doi.org/10.6084/m9.figshare.13725546)) under the
+[**Creative Commons Attribution 4.0 (CC BY 4.0)**](https://creativecommons.org/licenses/by/4.0/)
+license. No account or registration is required to download it.
+
+CC BY 4.0 permits redistribution and reuse — including commercially — **provided you give
+appropriate credit**. Cite the *Scientific Data* data descriptor when you use the data:
+
+> Lim Y, Toutios A, Bliesener Y, et al. *A multispeaker dataset of raw and reconstructed
+> speech production real-time MRI video and 3D volumetric images.* Scientific Data, 2021,
+> 8(1): 187.
+
+and acknowledge the figshare dataset DOI
+([10.6084/m9.figshare.13725546](https://doi.org/10.6084/m9.figshare.13725546)).
 
 ## Your responsibilities
 

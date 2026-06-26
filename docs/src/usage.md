@@ -8,6 +8,7 @@
     - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
     - **CMRxRecon2024** → [https://cmrxrecon.github.io/2024/FAQ.html](https://cmrxrecon.github.io/2024/FAQ.html)
     - **CMRxRecon-300** → [https://www.synapse.org/Synapse:syn52965326](https://www.synapse.org/Synapse:syn52965326)
+    - **USC Speech** → [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/)
 
     Call `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
     reminder once you have reviewed the terms.
@@ -204,6 +205,36 @@ raw   = load_raw(entry)              # zran-extracts the .mat, converts, loads
 Files are stored as Cartesian ISMRMRD (one profile per phase-encode line, frames →
 contrasts), the same as CMRxRecon2024. Building or refining the checkpoint index from the
 archives is a maintainer task — see `scripts/index_cmrxrecon300.jl` and `scripts/README.md`.
+
+### USC Speech: non-Cartesian spiral + figshare ZIP range-extraction
+
+The USC SPAN 75-speaker dataset is the package's first **non-Cartesian** source: real-time
+speech production MRI acquired on a GE Signa Excite **1.5 T** scanner with an 8-channel
+upper-airway array using a **13-interleaf spiral-out** spoiled GRE. Only the **2drt**
+mid-sagittal vocal-tract raw k-space is cataloged. Unlike the CMRxRecon sources, the raw
+data already ships as vendor-agnostic **MRD/ISMRMRD `.h5`** — it stores the spiral k-space
+samples together with their trajectory (k-space coordinate) and density-compensation tables
+— so there is no `.mat`→ISMRMRD conversion: it flows straight through the default
+`load_raw` path. Because the trajectory is non-Cartesian, the loaded `RawAcquisitionData`'s
+`params["trajectory"]` is *not* `"cartesian"`; build a non-Cartesian `AcquisitionData` (with
+the trajectory + density compensation) for reconstruction rather than an inverse FFT.
+
+The whole corpus is a single ~570 GB `dataset.zip` on figshare (CC-BY, no account). To pull
+one `.h5` member the package reads the archive's ZIP central directory once — committed as
+`data/usc_speech_map.csv`, recording each member's byte span, local-header length and
+compression method — and issues a single HTTP **range** request for that member, stripping
+the ZIP local header and inflating it if DEFLATE. figshare's `ndownloader` 302-redirects to
+a short-lived presigned S3 URL (which supports ranges); the URL is resolved immediately
+before the range GET and re-resolved once on a 403 (expiry). Loading is otherwise identical
+to every other source:
+
+```julia
+entry = first(list_datasets(USC_SPEECH; offline = true))
+raw   = load_raw(entry)              # ZIP range-extracts + inflates the .h5, then loads
+```
+
+Regenerating the offset map from the figshare archive is a maintainer task — see
+`scripts/generate_usc_speech_map.jl` and `scripts/README.md`.
 
 ### CMRxRecon data types
 

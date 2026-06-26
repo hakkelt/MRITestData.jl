@@ -53,6 +53,20 @@ instance is [`CMRXRECON300`](@ref).
 """
 struct CMRxRecon300 <: AbstractSource end
 
+"""
+    USCSpeech <: AbstractSource
+
+The USC SPAN 75-speaker speech-production real-time MRI dataset (figshare
+`13725546`, CC BY 4.0). Provides 2D sagittal-view **raw spiral k-space** of the
+vocal tract acquired on a GE Signa Excite 1.5 T scanner (13-interleaf spiral-out
+GRE, custom 8-channel upper-airway array) in vendor-agnostic MRD/ISMRMRD `.h5`.
+The whole corpus is a single ~570 GB `dataset.zip`; individual `.h5` files are
+extracted over the network with HTTP byte-range requests against a pre-computed
+offset map (see `data/usc_speech_map.csv`). The data is public CC-BY — no account
+or token is required. The shared instance is [`USC_SPEECH`](@ref).
+"""
+struct USCSpeech <: AbstractSource end
+
 """Shared [`MridataOrg`](@ref) source instance."""
 const MRIDATA = MridataOrg()
 
@@ -65,6 +79,9 @@ const CMRXRECON2024 = CMRxRecon2024()
 """Shared [`CMRxRecon300`](@ref) source instance."""
 const CMRXRECON300 = CMRxRecon300()
 
+"""Shared [`USCSpeech`](@ref) source instance."""
+const USC_SPEECH = USCSpeech()
+
 """
     source_name(source) -> String
 
@@ -74,13 +91,14 @@ source_name(::MridataOrg) = "mridata.org"
 source_name(::OCMR) = "ocmr"
 source_name(::CMRxRecon2024) = "cmrxrecon2024"
 source_name(::CMRxRecon300) = "cmrxrecon300"
+source_name(::USCSpeech) = "usc_speech"
 
 """
     list_sources() -> Vector{AbstractSource}
 
 Return all dataset sources supported in this version.
 """
-list_sources() = AbstractSource[MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300]
+list_sources() = AbstractSource[MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH]
 
 """
     terms_url(source) -> String
@@ -91,3 +109,4 @@ terms_url(::MridataOrg) = "http://mridata.org/terms"
 terms_url(::OCMR) = "https://www.ocmr.info/download/"
 terms_url(::CMRxRecon2024) = "https://cmrxrecon.github.io/2024/FAQ.html"
 terms_url(::CMRxRecon300) = "https://www.synapse.org/Synapse:syn52965326"
+terms_url(::USCSpeech) = "https://creativecommons.org/licenses/by/4.0/"

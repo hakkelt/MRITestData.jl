@@ -30,6 +30,8 @@
     end
     # CMRxRecon2024 offset-map parser (bypassing ensure_index, which needs CACHE_DIR).
     _ = _cmrxrecon_entries(_CMRXRECON_MAP_PATH)
+    # USC Speech offset-map parser (bypassing ensure_index, which needs CACHE_DIR).
+    _ = _usc_speech_entries(_USC_MAP_PATH)
 
     # CMRxRecon2024 .mat→ISMRMRD conversion + load (synthetic; no network/CACHE_DIR).
     let

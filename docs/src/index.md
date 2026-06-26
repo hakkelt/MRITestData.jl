@@ -12,6 +12,7 @@ Supported sources:
 | [`OCMR_SOURCE`](https://ocmr.info) | cardiac multi-coil cine (fully sampled + undersampled) | ISMRMRD `.h5` | direct download |
 | [`CMRXRECON2024`](https://cmrxrecon.github.io/2024/) | multi-coil Cartesian cardiac k-space (Cine, Mapping, Aorta, Tagging, Flow, BlackBlood) | MATLAB `.mat` → ISMRMRD | Synapse (token) |
 | [`CMRXRECON300`](https://www.synapse.org/Synapse:syn52965326) | undersampled multi-coil cardiac k-space + ACS, 300 volunteers (cine + T1/T2 mapping) | MATLAB `.mat` → ISMRMRD | Synapse (token) |
+| [`USC_SPEECH`](https://sail.usc.edu/span/75speakers/) | 8-channel spiral vocal-tract real-time speech rtMRI (GE 1.5 T), 75 speakers | ISMRMRD `.h5` | figshare (CC-BY) |
 
 All sources are exposed through one uniform pipeline — [`list_datasets`](@ref)/[`query`](@ref)
 → [`download_dataset`](@ref) → [`load_raw`](@ref) — yielding `MRIBase.RawAcquisitionData`.
@@ -49,6 +50,16 @@ the CMRxRecon sources' `.mat` k-space is converted to a cached ISMRMRD file on f
   before each file — that lets it resume decompression immediately before the requested
   `.mat` and pull it with HTTP range requests, streaming essentially just that file rather
   than the whole archive.
+- **USC Speech (SPAN 75-speaker)** — real-time speech production MRI from the USC Speech
+  Production and Articulation kNowledge (SPAN) group: 75 speakers imaged on a GE Signa
+  Excite **1.5 T** scanner with a custom **8-channel** upper-airway array, using a
+  **13-interleaf spiral-out** spoiled GRE. Only the **2drt** mid-sagittal vocal-tract raw
+  k-space is cataloged; it ships already as vendor-agnostic **MRD/ISMRMRD `.h5`** (k-space
+  samples plus trajectory and density-compensation tables), so it loads through the default
+  `load_raw` path with no conversion. This adds **non-Cartesian (spiral), 1.5 T** raw data
+  — a different acquisition regime from the package's other (Cartesian, cardiac) sources.
+  The corpus is a single ~570 GB `dataset.zip` on figshare (CC-BY, no account); this package
+  pulls one `.h5` member via ZIP range-extraction rather than downloading the whole archive.
 
 !!! warning "Data source terms of use"
     This package's MIT license covers **its code only**. Downloaded **data is

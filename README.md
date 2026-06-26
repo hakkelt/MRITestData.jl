@@ -29,8 +29,9 @@ Supported sources:
 | [`OCMR_SOURCE`](https://ocmr.info) | cardiac multi-coil cine (fully sampled + undersampled) | ISMRMRD `.h5` |
 | [`CMRXRECON2024`](https://cmrxrecon.github.io/2024/) | cardiac multi-coil (cine, aorta, mapping, tagging, …) | MATLAB `.mat` |
 | [`CMRXRECON300`](https://www.synapse.org/Synapse:syn52965326) | undersampled cardiac k-space + ACS, 300 volunteers (cine + T1/T2 mapping) | MATLAB `.mat` |
+| [`USC_SPEECH`](https://sail.usc.edu/span/75speakers/) | 8-channel spiral vocal-tract speech rtMRI (GE 1.5 T), 75 speakers | ISMRMRD `.h5` |
 
-mridata.org and OCMR serve ISMRMRD, read via
+mridata.org, OCMR and USC Speech serve ISMRMRD, read via
 [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIFiles.jl)/`MRIBase`.
 The CMRxRecon sources ship MATLAB v7.3 `.mat` k-space (read via
 [`MAT.jl`](https://github.com/JuliaIO/MAT.jl)) and are converted to a cached ISMRMRD
@@ -52,7 +53,7 @@ reconstruction package — reconstruction is left to the caller (see below).
 ```julia
 using MRITestData
 
-list_sources()                                  # [MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300]
+list_sources()                                  # [MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH]
 list_datasets(OCMR_SOURCE; fully_sampled = true)
 list_datasets(MRIDATA; anatomy = :knee, field_strength = 3.0)
 
@@ -161,6 +162,32 @@ raw   = load_raw(entry)             # zran-extracts the .mat, converts to ISMRMR
 
 Building or refining the checkpoint index from the archives is a maintainer task — see
 [`scripts/index_cmrxrecon300.jl`](scripts/README.md).
+
+## USC Speech (figshare, CC-BY)
+
+The [USC SPAN 75-speaker](https://sail.usc.edu/span/75speakers/) dataset (figshare
+[13725546](https://doi.org/10.6084/m9.figshare.13725546), CC-BY 4.0) is real-time speech
+production MRI: 75 speakers on a GE Signa Excite **1.5 T** scanner with a custom
+**8-channel** upper-airway array, acquired with a **13-interleaf spiral-out** spoiled GRE.
+Only the **2drt** mid-sagittal vocal-tract raw k-space is cataloged. Unlike the CMRxRecon
+sources it is already vendor-agnostic **MRD/ISMRMRD `.h5`** (k-space samples plus
+trajectory and density-compensation tables), so it loads through the default `load_raw`
+path with no `.mat` conversion — and adds **non-Cartesian (spiral), 1.5 T** raw data to the
+otherwise Cartesian collection.
+
+The corpus is a single ~570 GB `dataset.zip` on figshare (no account needed). To fetch one
+`.h5` member, `MRITestData` reads the archive's ZIP central directory once (committed as
+`data/usc_speech_map.csv`) and issues an HTTP range request for just that member —
+figshare's `ndownloader` 302-redirects to a short-lived presigned S3 URL that supports
+ranges. Loading is identical to every other source:
+
+```julia
+entry = first(list_datasets(USC_SPEECH; offline = true))
+raw   = load_raw(entry)             # ZIP range-extracts + inflates the .h5, then loads
+```
+
+Regenerating the offset map from the figshare archive is a maintainer task — see
+[`scripts/generate_usc_speech_map.jl`](scripts/README.md).
 
 ## Caching
 
