@@ -175,7 +175,6 @@ function _fire_prefetch!(m::BrowserModel)
     to_fetch = [m.entries[i] for i in indices if m.entries[i].approx_size_bytes === nothing]
     isempty(to_fetch) && return
     gen = m.prefetch_generation
-    entries_snapshot = copy(m.entries)   # snapshot so the task closure is self-contained
     fetch_indices = indices
     return spawn_task!(m.tq, :size_prefetch) do
         sized = fetch_sizes(to_fetch)

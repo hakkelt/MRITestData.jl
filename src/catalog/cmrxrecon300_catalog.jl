@@ -105,27 +105,27 @@ function _cmrx300_entries(path::AbstractString)
     data, header = readdlm(path, ','; header = true)
     col = Dict(strip(String(h)) => i for (i, h) in enumerate(vec(header)))
     haskey(col, "path") || return DatasetEntry[]
-    
+
     groups = Dict{String, Dict{String, Any}}()
     for r in axes(data, 1)
         p = _cmrx300_str(data[r, :], col, "path")
         isempty(p) && continue
         matfile = _cmrx300_str(data[r, :], col, "matfile")
         isempty(matfile) && (matfile = String(last(split(p, '/'))))
-        
+
         base_id = replace(replace(p, r"\.mat$" => ""), r"(_ks|_calib)$" => "")
-        
+
         g = get!(groups, base_id, Dict{String, Any}())
         kind = endswith(lowercase(matfile), "_calib.mat") ? "calib" : "ks"
         g[kind] = data[r, :]
     end
-    
+
     entries = DatasetEntry[]
     for (base_id, rows) in groups
         main_row = get(rows, "ks", get(rows, "calib", nothing))
         main_row === nothing && continue
-        
-        e = _cmrx300_entry(main_row, col; base_id=base_id)
+
+        e = _cmrx300_entry(main_row, col; base_id = base_id)
         if e !== nothing
             if haskey(rows, "calib") && haskey(rows, "ks")
                 calib_row = rows["calib"]

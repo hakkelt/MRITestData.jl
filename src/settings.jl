@@ -13,8 +13,10 @@ end
 
 Permanently suppress the data-source terms-of-use warning that is printed when
 `using MRITestData` is called. Only call this after you have reviewed the terms:
-  • mridata.org  →  http://mridata.org/terms
-  • OCMR         →  https://www.ocmr.info/download/
+  • mridata.org    →  http://mridata.org/terms
+  • OCMR           →  https://www.ocmr.info/download/
+  • CMRxRecon2024  →  https://cmrxrecon.github.io/2024/FAQ.html
+  • CMRxRecon-300  →  https://www.synapse.org/Synapse:syn52965326
 
 The setting is stored in `LocalPreferences.toml` and persists across Julia sessions.
 Re-enable the notice with [`enable_terms_notice!`](@ref).
@@ -119,14 +121,16 @@ end
 """
     set_synapse_token!(token::AbstractString)
 
-Persistently store a Synapse Personal Access Token used to download the
-[`CMRXRECON2024`](@ref) dataset. The token is saved in `LocalPreferences.toml` and
-survives across sessions. It is read by [`download_dataset`](@ref) for CMRxRecon2024
-files (the `SYNAPSE_AUTH_TOKEN` environment variable takes precedence if set).
+Persistently store a Synapse Personal Access Token used to download the Synapse-hosted
+sources, [`CMRXRECON2024`](@ref) and [`CMRXRECON300`](@ref). The token is saved in
+`LocalPreferences.toml` and survives across sessions. It is read by
+[`download_dataset`](@ref) for both CMRxRecon sources (the `SYNAPSE_AUTH_TOKEN`
+environment variable takes precedence if set).
 
-The token must belong to an account that has completed the CMRxRecon2024 challenge
-registration; otherwise it lacks permission to download the data fragments. See the
-package README for registration instructions.
+CMRxRecon-300 is CC-BY and only needs a free Synapse account. CMRxRecon2024
+additionally requires that the account has completed the CMRxRecon2024 challenge
+registration; otherwise the token lacks permission to download its data fragments. See
+the package README for registration instructions.
 """
 function set_synapse_token!(token::AbstractString)
     set_preferences!(MRITestData, "synapse_token" => String(token); export_prefs = false, force = true)
@@ -136,9 +140,10 @@ end
 """
     get_synapse_token() -> String
 
-Return the Synapse Personal Access Token used for [`CMRXRECON2024`](@ref) downloads.
-The `SYNAPSE_AUTH_TOKEN` environment variable takes precedence; otherwise the value
-persisted by [`set_synapse_token!`](@ref) is returned, or `""` if none is set.
+Return the Synapse Personal Access Token used for [`CMRXRECON2024`](@ref) and
+[`CMRXRECON300`](@ref) downloads. The `SYNAPSE_AUTH_TOKEN` environment variable takes
+precedence; otherwise the value persisted by [`set_synapse_token!`](@ref) is returned,
+or `""` if none is set.
 """
 function get_synapse_token()::String
     env = get(ENV, "SYNAPSE_AUTH_TOKEN", "")

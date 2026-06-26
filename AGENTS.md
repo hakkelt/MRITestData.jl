@@ -37,8 +37,10 @@ the `[workspace] projects = ["test"]` layout, never editing `Manifest.toml`,
   - The index is cached in the Scratch space, refreshed after `INDEX_TTL_DAYS`
     (default 30) or via `refresh_index`. On any network failure it falls back to the
     committed files in `data/` (`ocmr_attributes.csv`, `mridata_index.toml`). The
-    committed mridata TOML is a **fallback only** — a successful scrape is used
-    verbatim, not overlaid.
+    committed mridata TOML is a **curated overlay**: a successful scrape supplies the
+    bulk metadata, then the committed TOML is merged on top per-field (curated values
+    win, e.g. hand-filled `approx_size_bytes`). It is used **verbatim only** when the
+    live scrape fails entirely (`_catalog_entries(::MridataOrg)`).
 - **Download/cache** (`src/download/`): `download_dataset` → Scratch cache, with
   `.part`→atomic-rename, SHA-256 sidecars, and a `ProgressMeter` bar (opt out with
   `progress=false`). `_download_with_progress` is the shared primitive. CMRxRecon2024

@@ -23,7 +23,7 @@ function _cmrxrecon_kspace(d::AbstractDict)
             break
         end
     end
-    
+
     if k !== nothing
         if haskey(d, "Calib")
             return k, d["Calib"]
@@ -74,7 +74,7 @@ function _cmrxrecon_cartesian_profiles(k, mb, nx, ny, nc, nz, nt, nmt; ky_offset
         for z in 1:nz, ky in kys
             counter += UInt32(1)
             data = ComplexF32.(@view k[:, ky, :, z, t])     # (nx, nc)
-            
+
             head = AcquisitionHeader(;
                 number_of_samples = UInt16(nx),
                 available_channels = UInt16(nc),
@@ -126,13 +126,24 @@ function _cmrxrecon_to_ismrmrd(
     (nmt == 1 || nmt == nt) || error("mask has $nmt frames, incompatible with k-space $nt frames")
 
     profiles, counter = _cmrxrecon_cartesian_profiles(k5, mb, nx, ny, nc, nz, nt, nmt)
-    
+
     if calib_data !== nothing
         c5 = _cmrxrecon_as5d(calib_data)
-        ncalib = size(c5, 2)
+        # The ACS calibration shares the readout and coil axes with the imaging k-space
+        # but is its own (smaller) phase-encode region and may carry a different number of
+        # slices/frames; drive the calib profiles from the calib array's own dimensions
+        # (not the imaging array's) so a mismatched temporal/slice extent neither overruns
+        # nor mislabels. Readout (nx) and channels (nc) must match for the profiles to
+        # combine into one coherent acquisition.
+        ncx, ncalib, ncc, ncz, nct = size(c5)
+        (ncx == nx && ncc == nc) || error(
+            "calibration array $(size(c5)) is incompatible with k-space $(size(k5)): " *
+                "readout (nx) and channel (nc) dimensions must match",
+        )
+        # Centre the ACS lines within the full phase-encode extent of the imaging k-space.
         lo = div(ny, 2) - div(ncalib, 2) + 1
-        calib_mb = _cmrxrecon_mask3(trues(nx, ncalib), nx, ncalib)
-        c_profiles, _ = _cmrxrecon_cartesian_profiles(c5, calib_mb, nx, ny, nc, nz, nt, 1; ky_offset = lo - 1, flags = MRIFiles.ACQ_IS_PARALLEL_CALIBRATION, start_counter = counter)
+        calib_mb = _cmrxrecon_mask3(trues(ncx, ncalib), ncx, ncalib)
+        c_profiles, _ = _cmrxrecon_cartesian_profiles(c5, calib_mb, ncx, ny, ncc, ncz, nct, 1; ky_offset = lo - 1, flags = MRIFiles.ACQ_IS_PARALLEL_CALIBRATION, start_counter = counter)
         append!(profiles, c_profiles)
     end
 
@@ -185,9 +196,9 @@ end
 function _cmrxrecon_ismrmrd_path(e::DatasetEntry; derive_mask::Bool = false)
     dest = string(first(splitext(cache_path(e))), ".h5")
     isfile(dest) && return dest
-    
+
     d = load_mat(download_dataset(e))
-    
+
     if haskey(e.extra, "calib_data_offset") && !haskey(d, "Calib")
         calib_e = DatasetEntry(;
             source = e.source,
@@ -215,7 +226,7 @@ function _cmrxrecon_ismrmrd_path(e::DatasetEntry; derive_mask::Bool = false)
             d["Calib"] = calib_d["Calib"]
         end
     end
-    
+
     k, calib_data = _cmrxrecon_kspace(d)
     mask = derive_mask ? _cmrxrecon_sampling_mask(k) : trues(size(k, 1), size(k, 2))
     fov_x = get(e.extra, "fov_x", nothing)

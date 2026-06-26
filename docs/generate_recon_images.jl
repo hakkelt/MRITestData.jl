@@ -21,19 +21,19 @@ haskey(ENV, "RECON_CACHE") && (MRITestData.CACHE_DIR[] = ENV["RECON_CACHE"])
 outdir = normpath(joinpath(@__DIR__, "src", "assets", "recon"))
 mkpath(outdir)
 
-function recon_sos(entry; reco="direct")
+function recon_sos(entry; reco = "direct")
     raw = load_raw(entry)
-    
+
     # Extract calibration profiles if any
     calib_profiles = [p for p in raw.profiles if (p.head.flags & MRIFiles.ACQ_IS_PARALLEL_CALIBRATION) != 0]
-    
+
     # AcquisitionData(raw) drops the calib profiles because they are marked with ACQ_IS_PARALLEL_CALIBRATION.
     # This is desired so that the main imaging data (with different phase) does not contain them.
     acq = AcquisitionData(raw)
-    
+
     params = MRIReco.defaultRecoParams()
     params[:reco] = reco
-    
+
     if reco == "multiCoil"
         if !isempty(calib_profiles)
             # Create a new raw object with JUST the calibration profiles
@@ -44,12 +44,12 @@ function recon_sos(entry; reco="direct")
             end
             raw_calib = RawAcquisitionData(raw.params, calib_profiles_clean)
             acq_calib = AcquisitionData(raw_calib)
-            params[:senseMaps] = espirit(acq_calib, (6,6), 24, eigThresh_1=0.02, eigThresh_2=0.95)
+            params[:senseMaps] = espirit(acq_calib, (6, 6), 24, eigThresh_1 = 0.02, eigThresh_2 = 0.95)
         else
-            params[:senseMaps] = espirit(acq, (6,6), 24, eigThresh_1=0.02, eigThresh_2=0.95)
+            params[:senseMaps] = espirit(acq, (6, 6), 24, eigThresh_1 = 0.02, eigThresh_2 = 0.95)
         end
     end
-    
+
     d = Array(MRIReco.reconstruction(acq, params))               # [x,y,z,echo,coil,rep]
     return sqrt.(dropdims(sum(abs2, d; dims = 5); dims = 5))      # [x,y,z,echo,rep]
 end
@@ -72,7 +72,7 @@ function save_montage(vol3d, file, title)
     valid = filter(isfinite, vec(vol3d))
     hi = isempty(valid) ? 1.0 : quantile(valid, 0.995)
     # Prevent clim=(0,0) which can also cause plotting issues.
-    hi = max(hi, 1e-6)
+    hi = max(hi, 1.0e-6)
     n = size(vol3d, 3)
     ncol = n == 1 ? 1 : (n <= 3 ? n : 3)
     jim(vol3d; title = title, color = :grays, clim = (0, hi), ncol = ncol)
@@ -82,7 +82,7 @@ end
 
 # CMRxRecon-300 Cine (short-axis): slice stack at one cardiac frame. NOTE the `_ks` data is
 # k-t undersampled (R≈3), so we use SENSE (multiCoil) to reconstruct without aliasing.
-sax = recon_sos(pick(CMRXRECON300, e -> get(e.extra, "modality", "") == "Cine SAX"); reco="multiCoil")
+sax = recon_sos(pick(CMRXRECON300, e -> get(e.extra, "modality", "") == "Cine SAX"); reco = "multiCoil")
 save_montage(sax[:, :, :, cld(size(sax, 4), 2), 1], "cmrxrecon300_cine_sax.png", "CMRxRecon-300 Cine (R≈3 undersampled — SENSE recon)")
 
 # CMRxRecon2024 BlackBlood: dark-blood anatomical slices (single contrast).

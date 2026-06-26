@@ -135,12 +135,19 @@ function _fetch_dataset(::CMRxRecon300, e::DatasetEntry, dest::AbstractString; p
     ex = Zran.ExtractState(ck; skip = data_offset - ck.unc_off, nbytes = size)
     bar = progress ? ProgressMeter.Progress(size; desc = "Downloading $(e.name) ", dt = 0.2) : nothing
 
+    # Presigned S3 URLs are per-fragment and valid for a while, so re-presign only when
+    # the stream crosses into a new fragment rather than on every range request.
     pos = ck.comp_off
+    cur_frag = -1
+    url = ""
     while !Zran.extract_done(ex)
         frag = div(pos, chunk)
         within = pos - frag * chunk
         rend = min(within + _CMRX300_BLOCK - 1, chunk - 1)
-        url = _synapse_presigned_url(_cmrx300_entity_id(ordered, frag), token)
+        if frag != cur_frag
+            url = _synapse_presigned_url(_cmrx300_entity_id(ordered, frag), token)
+            cur_frag = frag
+        end
         bytes = _download_range(url, within, rend)
         isempty(bytes) && error("unexpected end of stream fetching $(e.id) at offset $pos")
         Zran.extract_feed!(ex, bytes)
