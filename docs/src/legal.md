@@ -14,6 +14,7 @@
     - **CMRxRecon2024** → [https://cmrxrecon.github.io/2024/FAQ.html](https://cmrxrecon.github.io/2024/FAQ.html)
     - **CMRxRecon-300** → [https://www.synapse.org/Synapse:syn52965326](https://www.synapse.org/Synapse:syn52965326)
     - **USC Speech** → [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/)
+    - **M4Raw** → [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/)
 
 This package is a convenience tool for *accessing* publicly available data. It does
 not host, relicense, or redistribute any dataset. When you use it to download data,
@@ -93,6 +94,22 @@ appropriate credit**. Cite the *Scientific Data* data descriptor when you use th
 
 and acknowledge the figshare dataset DOI
 ([10.6084/m9.figshare.13725546](https://doi.org/10.6084/m9.figshare.13725546)).
+
+## M4Raw
+
+The [M4Raw](https://github.com/mylyu/M4Raw) low-field brain MRI dataset is hosted on
+Zenodo ([record 8056074](https://doi.org/10.5281/zenodo.8056074)) under the
+[**Creative Commons Attribution 4.0 (CC BY 4.0)**](https://creativecommons.org/licenses/by/4.0/)
+license. No account or registration is required to download it.
+
+CC BY 4.0 permits redistribution and reuse — including commercially — **provided you give
+appropriate credit**. Cite the *Scientific Data* data descriptor when you use the data:
+
+> Lyu M, Mei L, Huang S, et al. *M4Raw: A multi-contrast, multi-repetition, multi-channel
+> MRI k-space dataset for low-field MRI research.* Scientific Data, 2023, 10(1): 264.
+
+and acknowledge the Zenodo record DOI
+([10.5281/zenodo.8056074](https://doi.org/10.5281/zenodo.8056074)).
 
 ## Your responsibilities
 

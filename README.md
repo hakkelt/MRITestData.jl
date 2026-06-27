@@ -30,11 +30,13 @@ Supported sources:
 | [`CMRXRECON2024`](https://cmrxrecon.github.io/2024/) | cardiac multi-coil (cine, aorta, mapping, tagging, …) | MATLAB `.mat` |
 | [`CMRXRECON300`](https://www.synapse.org/Synapse:syn52965326) | undersampled cardiac k-space + ACS, 300 volunteers (cine + T1/T2 mapping) | MATLAB `.mat` |
 | [`USC_SPEECH`](https://sail.usc.edu/span/75speakers/) | 8-channel spiral vocal-tract speech rtMRI (GE 1.5 T), 75 speakers | ISMRMRD `.h5` |
+| [`M4RAW`](https://github.com/mylyu/M4Raw) | 4-channel fully-sampled Cartesian brain k-space (0.3 T low-field), 183 subjects | fastMRI `.h5` |
 
 mridata.org, OCMR and USC Speech serve ISMRMRD, read via
 [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIFiles.jl)/`MRIBase`.
 The CMRxRecon sources ship MATLAB v7.3 `.mat` k-space (read via
-[`MAT.jl`](https://github.com/JuliaIO/MAT.jl)) and are converted to a cached ISMRMRD
+[`MAT.jl`](https://github.com/JuliaIO/MAT.jl)), and M4Raw ships fastMRI-layout `.h5`
+(`kspace`/`reconstruction_rss`/`ismrmrd_header`); both are converted to a cached ISMRMRD
 file on first load, so every source flows through the same
 `list_datasets` → `download_dataset` → [`load_raw`](#working-with-the-raw-data)
 pipeline and yields a `RawAcquisitionData`.
@@ -53,7 +55,7 @@ reconstruction package — reconstruction is left to the caller (see below).
 ```julia
 using MRITestData
 
-list_sources()                                  # [MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH]
+list_sources()                                  # [MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH, M4RAW]
 list_datasets(OCMR_SOURCE; fully_sampled = true)
 list_datasets(MRIDATA; anatomy = :knee, field_strength = 3.0)
 
@@ -188,6 +190,30 @@ raw   = load_raw(entry)             # ZIP range-extracts + inflates the .h5, the
 
 Regenerating the offset map from the figshare archive is a maintainer task — see
 [`scripts/generate_usc_speech_map.jl`](scripts/README.md).
+
+## M4Raw (Zenodo, CC-BY)
+
+The [M4Raw](https://github.com/mylyu/M4Raw) dataset (Zenodo
+[8056074](https://doi.org/10.5281/zenodo.8056074), CC-BY 4.0) is **low-field brain** MRI:
+183 volunteers on a **0.3 T** whole-body scanner with a **4-channel** head coil. Each member
+is one *study × contrast × repetition* (T1w / T2w / FLAIR, plus T1 GRE) of **fully-sampled
+Cartesian** k-space in the **fastMRI HDF5** layout
+(`kspace`/`reconstruction_rss`/`ismrmrd_header`), converted to a cached ISMRMRD file on first
+load — so a plain inverse FFT reconstructs it. This adds the package's first **low-field
+(0.3 T) brain** source.
+
+The corpus ships as several multi-GB ZIPs on Zenodo (no account needed). To fetch one `.h5`
+member, `MRITestData` reads each archive's ZIP central directory once (committed as
+`data/m4raw_map.csv`) and issues a single HTTP range request for just that member. Loading is
+identical to every other source:
+
+```julia
+entry = first(list_datasets(M4RAW; offline = true))
+raw   = load_raw(entry)             # ZIP range-extracts + inflates the .h5, then converts + loads
+```
+
+Regenerating the offset map from the Zenodo archives is a maintainer task — see
+[`scripts/generate_m4raw_map.jl`](scripts/README.md).
 
 ## Caching
 

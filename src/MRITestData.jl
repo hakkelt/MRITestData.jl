@@ -6,11 +6,13 @@ Query and download free, open-access MRI k-space datasets and load them into
 
 Supported sources: [`MRIDATA`](@ref) (mridata.org), [`OCMR_SOURCE`](@ref) (the OCMR
 cardiac repository), [`CMRXRECON2024`](@ref) (the CMRxRecon2024 challenge data),
-[`CMRXRECON300`](@ref) (the CMRxRecon-300 undersampled cardiac dataset), and
-[`USC_SPEECH`](@ref) (the USC SPAN 75-speaker spiral speech rtMRI dataset). mridata.org,
-OCMR and USC Speech serve ISMRMRD `.h5` files (USC Speech range-extracted from a figshare
-ZIP); the CMRxRecon sources ship MATLAB `.mat` k-space that is converted to a cached
-ISMRMRD file on first load. All are read via `MRIFiles`/`MRIBase`.
+[`CMRXRECON300`](@ref) (the CMRxRecon-300 undersampled cardiac dataset),
+[`USC_SPEECH`](@ref) (the USC SPAN 75-speaker spiral speech rtMRI dataset), and
+[`M4RAW`](@ref) (the M4Raw 0.3 T low-field brain dataset). mridata.org, OCMR and USC
+Speech serve ISMRMRD `.h5` files (USC Speech range-extracted from a figshare ZIP); the
+CMRxRecon sources ship MATLAB `.mat` k-space and M4Raw ships fastMRI-layout `.h5`
+(range-extracted from Zenodo ZIPs), both converted to a cached ISMRMRD file on first
+load. All are read via `MRIFiles`/`MRIBase`.
 
 !!! warning "Data source terms of use"
     This package's MIT license covers **its code only**. Downloaded data is governed
@@ -20,6 +22,7 @@ ISMRMRD file on first load. All are read via `MRIFiles`/`MRIBase`.
     - CMRxRecon2024: https://cmrxrecon.github.io/2024/FAQ.html
     - CMRxRecon-300: https://www.synapse.org/Synapse:syn52965326
     - USC Speech: https://creativecommons.org/licenses/by/4.0/
+    - M4Raw: https://creativecommons.org/licenses/by/4.0/
 
     Call `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
     notice once you have reviewed the terms.
@@ -82,14 +85,17 @@ include("catalog/ocmr_catalog.jl")
 include("catalog/cmrxrecon2024_catalog.jl")
 include("catalog/cmrxrecon300_catalog.jl")
 include("catalog/usc_speech_catalog.jl")
+include("catalog/m4raw_catalog.jl")
 include("download/cmrxrecon2024_fetch.jl")
 include("download/cmrxrecon300_fetch.jl")
 include("download/usc_speech_fetch.jl")
+include("download/m4raw_fetch.jl")
 include("catalog/display.jl")
 include("browse.jl")
 include("load/ismrmrd.jl")
 include("load/mat.jl")
 include("load/cmrxrecon_ismrmrd.jl")
+include("load/m4raw_ismrmrd.jl")
 include("api.jl")
 include("settings.jl")
 include("precompile.jl")
@@ -109,6 +115,7 @@ function __init__()
           • CMRxRecon2024  →  https://cmrxrecon.github.io/2024/FAQ.html
           • CMRxRecon-300  →  https://www.synapse.org/Synapse:syn52965326
           • USC Speech     →  https://creativecommons.org/licenses/by/4.0/
+          • M4Raw          →  https://creativecommons.org/licenses/by/4.0/
         To permanently suppress this notice, call:
           MRITestData.dismiss_terms_notice!()
         """
@@ -116,8 +123,8 @@ function __init__()
     return nothing
 end
 
-export AbstractSource, MridataOrg, OCMR, CMRxRecon2024, CMRxRecon300, USCSpeech
-export MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH
+export AbstractSource, MridataOrg, OCMR, CMRxRecon2024, CMRxRecon300, USCSpeech, M4Raw
+export MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH, M4RAW
 export DatasetEntry, DatasetHandle
 export list_sources, list_datasets, dataset, query
 export download_dataset, copy_dataset, cache_path, is_cached, clear_cache

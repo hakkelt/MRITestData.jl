@@ -9,6 +9,7 @@
     - **CMRxRecon2024** → [https://cmrxrecon.github.io/2024/FAQ.html](https://cmrxrecon.github.io/2024/FAQ.html)
     - **CMRxRecon-300** → [https://www.synapse.org/Synapse:syn52965326](https://www.synapse.org/Synapse:syn52965326)
     - **USC Speech** → [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/)
+    - **M4Raw** → [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/)
 
     Call `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
     reminder once you have reviewed the terms.
@@ -235,6 +236,33 @@ raw   = load_raw(entry)              # ZIP range-extracts + inflates the .h5, th
 
 Regenerating the offset map from the figshare archive is a maintainer task — see
 `scripts/generate_usc_speech_map.jl` and `scripts/README.md`.
+
+### M4Raw: fastMRI-layout low-field brain + Zenodo ZIP range-extraction
+
+The M4Raw dataset is the package's first **low-field (0.3 T) brain** source: multi-contrast
+(T1w / T2w / FLAIR, plus T1 GRE), multi-repetition k-space from 183 volunteers acquired with
+a **4-channel** head coil. Each member is one *study × contrast × repetition* of
+**fully-sampled Cartesian** k-space in the **fastMRI HDF5** layout — three datasets
+(`kspace`, shaped `(slices, coils, freq, phase)`; `reconstruction_rss`; and an
+`ismrmrd_header` XML string). Because that is not a complete ISMRMRD file, the package
+converts the k-space to a cached Cartesian ISMRMRD on first load (reusing the same builder as
+the CMRxRecon sources, with an all-true / fully-sampled mask). The loaded
+`RawAcquisitionData`'s `params["trajectory"]` is `"cartesian"`, so a plain inverse FFT (a
+gridding / "direct" reconstruction) reconstructs it — no parallel imaging required.
+
+The corpus ships as several multi-GB ZIPs on Zenodo (CC-BY, no account). To pull one `.h5`
+member the package reads each archive's ZIP central directory once — committed as
+`data/m4raw_map.csv`, recording each member's byte span, local-header length and compression
+method — and issues a single HTTP **range** request for that member, stripping the ZIP local
+header and inflating it if DEFLATE. Loading is otherwise identical to every other source:
+
+```julia
+entry = first(list_datasets(M4RAW; offline = true))
+raw   = load_raw(entry)              # ZIP range-extracts + inflates the .h5, then converts + loads
+```
+
+Regenerating the offset map from the Zenodo archives is a maintainer task — see
+`scripts/generate_m4raw_map.jl` and `scripts/README.md`.
 
 ### CMRxRecon data types
 

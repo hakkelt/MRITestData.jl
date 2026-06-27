@@ -31,6 +31,9 @@ _ismrmrd_path(::CMRxRecon2024, e::DatasetEntry) = _cmrxrecon_ismrmrd_path(e)
 # matrix); derive the true acquired-line mask from the data so the cached ISMRMRD records
 # the real sampling rather than claiming it is fully sampled.
 _ismrmrd_path(::CMRxRecon300, e::DatasetEntry) = _cmrxrecon_ismrmrd_path(e; derive_mask = true)
+# M4Raw members are fastMRI-layout `.h5` (kspace/reconstruction_rss/ismrmrd_header), not
+# complete ISMRMRD files; convert the fully-sampled Cartesian k-space on first use.
+_ismrmrd_path(::M4Raw, e::DatasetEntry) = _m4raw_ismrmrd_path(e)
 
 """
     load_raw(path; slice=nothing, repetition=nothing, contrast=nothing) -> RawAcquisitionData

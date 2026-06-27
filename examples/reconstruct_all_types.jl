@@ -234,6 +234,15 @@ let usc = sort(
     end
 end
 
+# M4Raw — fully-sampled Cartesian low-field (0.3 T) brain. One representative validation
+# member per contrast (smallest first to keep the range-extract cheap); direct recon.
+let m4 = list_datasets(M4RAW; offline = true)
+    val = filter(e -> get(e.extra, "set", "") == "multicoil_val", m4)
+    for con in ("T1", "T2", "FLAIR")
+        add!("M4Raw $con", smallest(filter(e -> get(e.extra, "contrast", "") == con, val)))
+    end
+end
+
 println("=== MRIReco reconstruction across data types ===")
 FILTER === nothing || println("filter: $(repr(ARGS[1]))")
 println("results → $(RESULTS_DIR)")

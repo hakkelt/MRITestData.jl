@@ -7,6 +7,7 @@
         srcs = list_sources()
         @test MRIDATA in srcs
         @test OCMR_SOURCE in srcs
+        @test M4RAW in srcs
     end
 
     @testset "mridata catalog + filtering" begin

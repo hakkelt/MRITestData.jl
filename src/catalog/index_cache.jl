@@ -15,6 +15,7 @@ index_ext(::OCMR) = "csv"
 index_ext(::MridataOrg) = "toml"
 index_ext(::CMRxRecon2024) = "csv"
 index_ext(::USCSpeech) = "csv"
+index_ext(::M4Raw) = "csv"
 
 # Bundled fallback index shipped with the package (defined per source in the
 # catalog reader files as `_BUNDLED_INDEX_PATH(source)`).

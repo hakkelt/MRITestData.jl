@@ -67,6 +67,20 @@ or token is required. The shared instance is [`USC_SPEECH`](@ref).
 """
 struct USCSpeech <: AbstractSource end
 
+"""
+    M4Raw <: AbstractSource
+
+The M4Raw low-field brain MRI dataset (Zenodo record `8056074`, CC BY 4.0). Provides
+multi-contrast (T1w/T2w/FLAIR + T1 GRE), multi-repetition, multi-slice raw **Cartesian
+k-space** acquired on a 0.3 T whole-body scanner with a 4-channel head coil. Each `.h5`
+member follows the fastMRI layout (`kspace`, `reconstruction_rss`, `ismrmrd_header`) and
+is converted to a cached ISMRMRD file on first load. The corpus ships as several multi-GB
+Zenodo ZIPs; individual `.h5` files are extracted over the network with HTTP byte-range
+requests against a pre-computed offset map (see `data/m4raw_map.csv`). The data is public
+CC-BY — no account or token is required. The shared instance is [`M4RAW`](@ref).
+"""
+struct M4Raw <: AbstractSource end
+
 """Shared [`MridataOrg`](@ref) source instance."""
 const MRIDATA = MridataOrg()
 
@@ -82,6 +96,9 @@ const CMRXRECON300 = CMRxRecon300()
 """Shared [`USCSpeech`](@ref) source instance."""
 const USC_SPEECH = USCSpeech()
 
+"""Shared [`M4Raw`](@ref) source instance."""
+const M4RAW = M4Raw()
+
 """
     source_name(source) -> String
 
@@ -92,13 +109,14 @@ source_name(::OCMR) = "ocmr"
 source_name(::CMRxRecon2024) = "cmrxrecon2024"
 source_name(::CMRxRecon300) = "cmrxrecon300"
 source_name(::USCSpeech) = "usc_speech"
+source_name(::M4Raw) = "m4raw"
 
 """
     list_sources() -> Vector{AbstractSource}
 
 Return all dataset sources supported in this version.
 """
-list_sources() = AbstractSource[MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH]
+list_sources() = AbstractSource[MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH, M4RAW]
 
 """
     terms_url(source) -> String
@@ -110,3 +128,4 @@ terms_url(::OCMR) = "https://www.ocmr.info/download/"
 terms_url(::CMRxRecon2024) = "https://cmrxrecon.github.io/2024/FAQ.html"
 terms_url(::CMRxRecon300) = "https://www.synapse.org/Synapse:syn52965326"
 terms_url(::USCSpeech) = "https://creativecommons.org/licenses/by/4.0/"
+terms_url(::M4Raw) = "https://creativecommons.org/licenses/by/4.0/"

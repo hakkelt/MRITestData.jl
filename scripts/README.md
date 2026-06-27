@@ -246,3 +246,39 @@ short-lived presigned S3 URL; the script resolves it and re-resolves on a 403 (e
 `dataset.zip` is >4 GB, so ZIP64 central-directory handling is mandatory. The `--file-id`
 value is written verbatim into every row, so the runtime fetches each member from the same
 archive the map was built against.
+
+---
+
+# M4Raw Maintainer Scripts
+
+The M4Raw low-field brain dataset ([Zenodo 8056074](https://doi.org/10.5281/zenodo.8056074),
+CC-BY) is delivered as several multi-GB ZIPs (multicoil train/val/test + GRE; the
+metrics-only `motion` archive is not indexed). Like USC Speech (and unlike CMRxRecon-300),
+each ZIP member can be range-extracted directly — the runtime only needs each member's byte
+span, local-header length and compression method, which one maintainer pass over each ZIP
+central directory records.
+
+## `generate_m4raw_map.jl` — generate the offset map
+
+Reads each archive's **ZIP64** central directory over HTTP range requests (no full download)
+and, for every `.h5` member, writes one row to `data/m4raw_map.csv`:
+
+```
+path,start_off,end_off,lfh_size,compressed_size,uncompressed_size,compression,archive,study,contrast,repetition,set
+```
+
+```sh
+# All four indexed archives (the default: multicoil train/val/test + GRE)
+julia --project=. scripts/generate_m4raw_map.jl
+
+# A subset (repeat --archive to pick more than one)
+julia --project=. scripts/generate_m4raw_map.jl --archive M4RawV1.5_multicoil_val.zip
+```
+
+No authentication is needed (public CC-BY). Zenodo serves the file directly from `/content`
+(no redirect) and honours byte ranges, but **rate-limits to ~133 requests/minute** (sending
+`Retry-After` on a 429); the script paces its requests (~0.55 s apart) and backs off on a
+429. The archives are >4 GB, so ZIP64 central-directory handling is mandatory. The `archive`
+ZIP name is written into every row, so the runtime fetches each member from the right Zenodo
+archive (`https://zenodo.org/api/records/8056074/files/<archive>/content`). Indexing the full
+training set (~1k members) therefore takes several minutes.
