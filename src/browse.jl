@@ -529,8 +529,10 @@ function run_browser(; sources = list_sources(), offline::Bool = false)
     return nothing
 end
 
-function (@main)(ARGS)
-    offline = "--offline" in ARGS
-    run_browser(; offline = offline)
-    return 0
+@static if VERSION >= v"1.11"
+    function (@main)(ARGS)
+        offline = "--offline" in ARGS
+        run_browser(; offline = offline)
+        return 0
+    end
 end
