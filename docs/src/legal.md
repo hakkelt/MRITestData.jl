@@ -15,6 +15,7 @@
     - **CMRxRecon-300** → [https://www.synapse.org/Synapse:syn52965326](https://www.synapse.org/Synapse:syn52965326)
     - **USC Speech** → [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/)
     - **M4Raw** → [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/)
+    - **fastMRI** → [https://fastmri.med.nyu.edu](https://fastmri.med.nyu.edu) (fastMRI Dataset Agreement)
 
 This package is a convenience tool for *accessing* publicly available data. It does
 not host, relicense, or redistribute any dataset. When you use it to download data,
@@ -110,6 +111,43 @@ appropriate credit**. Cite the *Scientific Data* data descriptor when you use th
 
 and acknowledge the Zenodo record DOI
 ([10.5281/zenodo.8056074](https://doi.org/10.5281/zenodo.8056074)).
+
+## fastMRI
+
+The [fastMRI](https://fastmri.med.nyu.edu) dataset is a collaborative research project
+from NYU and Facebook AI Research (FAIR), providing knee, brain, prostate, and breast
+MRI k-space data. Access requires completing the **fastMRI Dataset Agreement** form at
+[fastmri.med.nyu.edu](https://fastmri.med.nyu.edu) — submission is required before any
+download. The confirmation email contains time-limited (90-day) pre-signed AWS S3 URLs
+for the dataset archives.
+
+Key obligations:
+
+- You must complete the Dataset Agreement form for **each** dataset (knee, brain,
+  prostate, breast) you wish to use. Approval is typically automatic but requires an
+  institutional affiliation.
+- Re-request download links after 90 days. Supply new links to MRITestData with
+  [`set_fastmri_urls!`](@ref).
+- Cite the relevant fastMRI publications for the anatomy or task you use:
+
+  - **fastMRI benchmark dataset (knee + brain)**:
+    > Zbontar J, Knoll F, Sriram A, et al. *fastMRI: An Open Dataset and Benchmarks for
+    > Accelerated MRI.* arXiv:1811.08839, 2018.
+
+  - **fastMRI+ annotations (knee)**:
+    > Zhao R, Yaman B, Zhang Y, et al. *fastMRI+: Clinical Pathology Annotations for
+    > Knee and Brain Fully Sampled Multi-Coil MRI Data.* Scientific Data, 2022, 9: 717.
+
+  - **fastMRI prostate**:
+    > Tibrewala R, Tamir JI, Sriram A, et al. *fastMRI Prostate: A Publicly Available,
+    > Multimodal Dataset for Prostate MRI.* arXiv:2304.09254, 2023.
+
+  - **fastMRI breast**:
+    > Steinhardt J, Fabian MS, Liu S, et al. *The fastMRI Breast Dataset.* ISMRM, 2024.
+    > (Check fastmri.med.nyu.edu for the current citation.)
+
+Compliance with the Dataset Agreement is your responsibility. The MRITestData.jl
+maintainers cannot grant rights to the fastMRI data.
 
 ## Your responsibilities
 

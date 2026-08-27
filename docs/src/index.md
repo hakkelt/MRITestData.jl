@@ -14,6 +14,7 @@ Supported sources:
 | [`CMRXRECON300`](https://www.synapse.org/Synapse:syn52965326) | undersampled multi-coil cardiac k-space + ACS, 300 volunteers (cine + T1/T2 mapping) | MATLAB `.mat` → ISMRMRD | Synapse (token) |
 | [`USC_SPEECH`](https://sail.usc.edu/span/75speakers/) | 8-channel spiral vocal-tract real-time speech rtMRI (GE 1.5 T), 75 speakers | ISMRMRD `.h5` | figshare (CC-BY) |
 | [`M4RAW`](https://github.com/mylyu/M4Raw) | 4-channel fully-sampled Cartesian brain k-space (0.3 T low-field), multi-contrast/repetition, 183 subjects | fastMRI `.h5` → ISMRMRD | Zenodo (CC-BY) |
+| [`FASTMRI`](https://fastmri.med.nyu.edu) | knee, brain, prostate, breast multi-coil k-space (NYU/FAIR) | fastMRI `.h5` → ISMRMRD | form-gated (90-day signed URLs) |
 
 All sources are exposed through one uniform pipeline — [`list_datasets`](@ref)/[`query`](@ref)
 → [`download_dataset`](@ref) → [`load_raw`](@ref) — yielding `MRIBase.RawAcquisitionData`.
@@ -70,6 +71,19 @@ the CMRxRecon sources' `.mat` k-space is converted to a cached ISMRMRD file on f
   the package's first **low-field (0.3 T) brain** source. The corpus ships as several multi-GB
   ZIPs on Zenodo (CC-BY, no account); this package pulls one `.h5` member via ZIP
   range-extraction rather than downloading the whole archive.
+- **fastMRI** — the NYU / FAIR fastMRI dataset: knee, brain, prostate, and breast multi-coil
+  k-space in the **fastMRI HDF5** layout (`kspace`/`reconstruction_rss`/`ismrmrd_header`), the
+  same format M4Raw uses (converted to cached ISMRMRD on first load). Scan counts per anatomy
+  range from a few hundred to tens of thousands, acquired on clinical Siemens/GE scanners.
+  Access is **form-gated**: fill the request form at [fastmri.med.nyu.edu](https://fastmri.med.nyu.edu);
+  the confirmation email contains **90-day pre-signed AWS S3 URLs**. Knee and brain ship as
+  `.tar.xz`, range-extracted per member via **xz block-level HTTP range requests** (each xz
+  block is independently compressed); prostate and breast ship as `.tar.gz`, range-extracted
+  via the same **zran** checkpoint approach used for CMRxRecon-300. A pre-built offset map
+  (`data/fastmri_map.csv`, plus per-archive checkpoint indices in `data/fastmri_zran/` for the
+  `.tar.gz` archives) records member positions; it is generated once by the maintainer scripts
+  `scripts/index_fastmri.jl` (xz) and `scripts/index_fastmri_gz.jl` (gz). See
+  [fastMRI: form-gated credentials](@ref) in Usage for the credential setup workflow.
 
 !!! warning "Data source terms of use"
     This package's MIT license covers **its code only**. Downloaded **data is
@@ -79,6 +93,7 @@ the CMRxRecon sources' `.mat` k-space is converted to a cached ISMRMRD file on f
 
     - **mridata.org** → [http://mridata.org/terms](http://mridata.org/terms)
     - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
+    - **fastMRI** → [https://fastmri.med.nyu.edu](https://fastmri.med.nyu.edu) (fastMRI Dataset Agreement)
 
     See [Licensing & legal](@ref) for full details. Call
     `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup

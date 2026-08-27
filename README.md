@@ -18,7 +18,8 @@ on real scanner data instead of only synthetic phantoms.
 > The MIT license covers **this package's code only**. Datasets you download are
 > governed by **each provider's own license and terms** (mridata.org per-dataset
 > terms; OCMR's data-use terms and required citation; CMRxRecon2024's challenge
-> registration and citation). You are responsible for complying with them. See
+> registration and citation; fastMRI's Dataset Agreement). You are responsible for
+> complying with them. See
 > [Licensing & legal](https://hakkelt.github.io/MRITestData.jl/stable/legal/).
 
 Supported sources:
@@ -31,13 +32,14 @@ Supported sources:
 | [`CMRXRECON300`](https://www.synapse.org/Synapse:syn52965326) | undersampled cardiac k-space + ACS, 300 volunteers (cine + T1/T2 mapping) | MATLAB `.mat` |
 | [`USC_SPEECH`](https://sail.usc.edu/span/75speakers/) | 8-channel spiral vocal-tract speech rtMRI (GE 1.5 T), 75 speakers | ISMRMRD `.h5` |
 | [`M4RAW`](https://github.com/mylyu/M4Raw) | 4-channel fully-sampled Cartesian brain k-space (0.3 T low-field), 183 subjects | fastMRI `.h5` |
+| [`FASTMRI`](https://fastmri.med.nyu.edu) | knee, brain, prostate, breast multi-coil k-space (NYU/FAIR); form-gated, 90-day signed URLs | fastMRI `.h5` |
 
 mridata.org, OCMR and USC Speech serve ISMRMRD, read via
 [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIFiles.jl)/`MRIBase`.
 The CMRxRecon sources ship MATLAB v7.3 `.mat` k-space (read via
-[`MAT.jl`](https://github.com/JuliaIO/MAT.jl)), and M4Raw ships fastMRI-layout `.h5`
-(`kspace`/`reconstruction_rss`/`ismrmrd_header`); both are converted to a cached ISMRMRD
-file on first load, so every source flows through the same
+[`MAT.jl`](https://github.com/JuliaIO/MAT.jl)); M4Raw and fastMRI ship fastMRI-layout
+`.h5` (`kspace`/`reconstruction_rss`/`ismrmrd_header`); all are converted to a cached
+ISMRMRD file on first load, so every source flows through the same
 `list_datasets` → `download_dataset` → [`load_raw`](#working-with-the-raw-data)
 pipeline and yields a `RawAcquisitionData`.
 
@@ -55,7 +57,7 @@ reconstruction package — reconstruction is left to the caller (see below).
 ```julia
 using MRITestData
 
-list_sources()                                  # [MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH, M4RAW]
+list_sources()                                  # [MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH, M4RAW, FASTMRI]
 list_datasets(OCMR_SOURCE; fully_sampled = true)
 list_datasets(MRIDATA; anatomy = :knee, field_strength = 3.0)
 
@@ -214,6 +216,39 @@ raw   = load_raw(entry)             # ZIP range-extracts + inflates the .h5, the
 
 Regenerating the offset map from the Zenodo archives is a maintainer task — see
 [`scripts/generate_m4raw_map.jl`](scripts/README.md).
+
+## fastMRI (NYU / FAIR, form-gated)
+
+The [fastMRI](https://fastmri.med.nyu.edu) dataset provides knee, brain, prostate, and
+breast multi-coil k-space acquired on clinical Siemens/GE scanners, in the fastMRI HDF5
+layout (`kspace`/`reconstruction_rss`/`ismrmrd_header`) — the same format as M4Raw.
+
+Access is gated by a [data-use agreement](https://fastmri.med.nyu.edu) form. After
+approval you receive an automated email containing AWS S3 pre-signed URLs for all four
+anatomies (≈60–250 GB each as `.tar.xz` archives). The URLs are **time-limited** (90 days)
+and carry per-file unique signatures.
+
+To register the credentials, paste the full email body once:
+
+```julia
+using MRITestData
+
+# Paste the entire confirmation email (or just the curl-command block) as a string:
+MRITestData.set_fastmri_urls!(read("fastmri_email.txt", String))  # persisted across sessions
+
+MRITestData.fastmri_url_expires()   # check when credentials expire (DateTime UTC)
+```
+
+Individual `.h5` scan files are extracted from the `.tar.xz` archives via **xz block-level
+HTTP range requests** (analogous to the zran approach used for CMRxRecon-300). An offset map
+(`data/fastmri_map.csv`) encodes each member's xz block position; it is built once by the
+maintainer script `scripts/index_fastmri.jl` against the actual archives. Until the map is
+populated the catalog is empty. Loading is identical to every other source:
+
+```julia
+entries = list_datasets(FASTMRI; offline = true)
+raw     = load_raw(first(entries))    # range-extracts the .h5, converts to ISMRMRD, loads
+```
 
 ## Caching
 
