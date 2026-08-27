@@ -32,6 +32,12 @@ function _m4raw_read_kspace(path::AbstractString)
         end
         return [ComplexF32(getfield(v, re), getfield(v, im)) for v in raw]
     end
+    if eltype(raw) == Float64 && ndims(raw) == 5 && size(raw, 5) == 2
+        # Breast data is saved as Float64 (slice, coil, kx, ky, 2). Convert to complex
+        # and permute to match standard fastMRI (ky, kx, coil, slice).
+        c = complex.(raw[:, :, :, :, 1], raw[:, :, :, :, 2])
+        return permutedims(ComplexF32.(c), (4, 3, 2, 1))
+    end
     return error("unexpected eltype $(eltype(raw)) for M4Raw `kspace`")
 end
 

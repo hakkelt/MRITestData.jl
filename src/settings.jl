@@ -150,3 +150,86 @@ function get_synapse_token()::String
     isempty(env) || return env
     return load_preference(MRITestData, "synapse_token", "")
 end
+
+# ── fastMRI signed-URL credentials ────────────────────────────────────────────────
+
+"""
+    set_fastmri_urls!(text::AbstractString)
+
+Parse the confirmation email from fastmri.med.nyu.edu (or the curl-command block within
+it) and persistently store all signed download URLs in `LocalPreferences.toml`.
+
+`text` must contain one or more lines of the form:
+```
+curl -C - "https://fastmri-dataset.s3.amazonaws.com/..." --output filename.tar.xz
+```
+All matching URLs and their output filenames are extracted and stored as a
+`filename => url` mapping. The `Expires` Unix timestamp (the same across all URLs in one
+email) is extracted from any URL and stored separately; [`fastmri_url_expires`](@ref)
+converts it to a `DateTime`.
+
+Call this once after receiving the access email — credentials last 90 days. Re-run after
+requesting a new set of links at [https://fastmri.med.nyu.edu](https://fastmri.med.nyu.edu).
+"""
+function set_fastmri_urls!(text::AbstractString)
+    urls = Dict{String, String}()
+    expires = 0
+    for m in eachmatch(r"""curl\s+-C\s+-\s+"([^"]+)"\s+--output\s+(\S+)""", text)
+        c1, c2 = m.captures[1], m.captures[2]
+        (c1 === nothing || c2 === nothing) && continue
+        url = string(c1)
+        filename = string(c2)
+        urls[filename] = url
+        em = match(r"[?&]Expires=(\d+)", url)
+        if em !== nothing && expires == 0
+            ec = em.captures[1]
+            ec === nothing || (expires = parse(Int, ec))
+        end
+    end
+    isempty(urls) &&
+        throw(ArgumentError("no `curl -C - \"<url>\" --output <file>` commands found in the provided text"))
+    set_preferences!(MRITestData, "fastmri_urls" => urls; export_prefs = false, force = true)
+    set_preferences!(MRITestData, "fastmri_expires" => expires; export_prefs = false, force = true)
+    exp_str = expires > 0 ? string(Dates.unix2datetime(expires), " UTC") : "unknown"
+    @info "Stored $(length(urls)) fastMRI signed URLs; credentials expire $exp_str."
+    return nothing
+end
+
+"""
+    get_fastmri_url(filename) -> String
+
+Return the stored signed URL for the fastMRI archive `filename`
+(e.g. `"knee_singlecoil_train.tar.xz"`). Errors with instructions if the URL is missing
+or the credentials have expired. Use [`set_fastmri_urls!`](@ref) to store new URLs.
+"""
+function get_fastmri_url(filename::AbstractString)::String
+    urls = load_preference(MRITestData, "fastmri_urls", Dict{String, Any}())
+    if !haskey(urls, filename)
+        error(
+            "No fastMRI signed URL stored for $(repr(filename)). " *
+                "Call `MRITestData.set_fastmri_urls!(email_text)` with the text of your " *
+                "fastmri.med.nyu.edu confirmation email to register the download links.",
+        )
+    end
+    exp = load_preference(MRITestData, "fastmri_expires", 0)
+    if exp > 0 && time() > exp
+        error(
+            "fastMRI signed URLs expired on $(Dates.unix2datetime(exp)) UTC. " *
+                "Request new links at https://fastmri.med.nyu.edu and call " *
+                "`MRITestData.set_fastmri_urls!(email_text)` again.",
+        )
+    end
+    return String(urls[filename])
+end
+
+"""
+    fastmri_url_expires() -> Union{DateTime, Nothing}
+
+Return the expiry `DateTime` (UTC) of the stored fastMRI signed URLs, or `nothing` if no
+URLs have been stored yet. Use [`set_fastmri_urls!`](@ref) to register new URLs.
+"""
+function fastmri_url_expires()::Union{Dates.DateTime, Nothing}
+    exp = load_preference(MRITestData, "fastmri_expires", 0)
+    exp == 0 && return nothing
+    return Dates.unix2datetime(exp)
+end

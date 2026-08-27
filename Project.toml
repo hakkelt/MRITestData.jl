@@ -4,10 +4,11 @@ version = "0.1.0"
 authors = ["Tamas Hakkel <hakkelt@gmail.com>"]
 
 [workspace]
-projects = ["test", "docs"]
+projects = ["test", "docs", "examples"]
 
 [deps]
 CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
@@ -21,10 +22,12 @@ SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 Scratch = "6c6a2e73-6563-6170-7368-637461726353"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Tachikoma = "468859d6-42d8-48b7-8ad9-1d312e0e3b0a"
+XZ_jll = "ffd25f8a-64ca-5728-b0f7-c24cf3aae800"
 Zlib_jll = "83775a58-1f1d-513f-b197-d71354ab007a"
 
 [compat]
 CodecZlib = "0.7"
+Dates = "1"
 DelimitedFiles = "1"
 Downloads = "1"
 FileIO = "1"
@@ -38,6 +41,7 @@ SHA = "0.7"
 Scratch = "1"
 TOML = "1"
 Tachikoma = "2"
+XZ_jll = "5"
 Zlib_jll = "1"
 julia = "1.10"
 

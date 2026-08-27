@@ -34,6 +34,8 @@ _ismrmrd_path(::CMRxRecon300, e::DatasetEntry) = _cmrxrecon_ismrmrd_path(e; deri
 # M4Raw members are fastMRI-layout `.h5` (kspace/reconstruction_rss/ismrmrd_header), not
 # complete ISMRMRD files; convert the fully-sampled Cartesian k-space on first use.
 _ismrmrd_path(::M4Raw, e::DatasetEntry) = _m4raw_ismrmrd_path(e)
+# fastMRI members share the same format as M4Raw; same conversion, different field strength.
+_ismrmrd_path(::FastMRI, e::DatasetEntry) = _fastmri_ismrmrd_path(e)
 
 """
     load_raw(path; slice=nothing, repetition=nothing, contrast=nothing) -> RawAcquisitionData

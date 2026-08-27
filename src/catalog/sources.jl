@@ -100,6 +100,31 @@ const USC_SPEECH = USCSpeech()
 const M4RAW = M4Raw()
 
 """
+    FastMRI <: AbstractSource
+
+The fastMRI dataset (NYU / Facebook AI Research): knee, brain, prostate, and breast
+MRI k-space acquired on clinical Siemens/GE scanners and stored in the fastMRI HDF5
+layout (`kspace`, `reconstruction_rss`, `ismrmrd_header`). Knee and brain are hosted as
+`.tar.xz` archives on AWS S3; prostate and breast as `.tar.gz`.
+
+**Access is gated**: fill the request form at [https://fastmri.med.nyu.edu](https://fastmri.med.nyu.edu);
+the confirmation email contains time-limited (90-day) AWS pre-signed download URLs. Provide
+them to this package via [`set_fastmri_urls!`](@ref).
+
+The catalog is a static offset map committed under `data/fastmri_map.csv`, built by the
+maintainer scripts `scripts/index_fastmri.jl` (`.tar.xz`) and `scripts/index_fastmri_gz.jl`
+(`.tar.gz`). Individual `.h5` members are range-extracted from the `.tar.xz` archives via
+xz-block-level HTTP range requests (one block per member), and from the `.tar.gz` archives
+via zran checkpoints (`data/fastmri_zran/`) seeded into a raw-inflate decoder. Like
+[`M4Raw`](@ref), the extracted files are in fastMRI layout and are converted to cached
+Cartesian ISMRMRD on first load. The shared instance is [`FASTMRI`](@ref).
+"""
+struct FastMRI <: AbstractSource end
+
+"""Shared [`FastMRI`](@ref) source instance."""
+const FASTMRI = FastMRI()
+
+"""
     source_name(source) -> String
 
 Short, filesystem-safe name used for the on-disk cache subdirectory.
@@ -110,13 +135,14 @@ source_name(::CMRxRecon2024) = "cmrxrecon2024"
 source_name(::CMRxRecon300) = "cmrxrecon300"
 source_name(::USCSpeech) = "usc_speech"
 source_name(::M4Raw) = "m4raw"
+source_name(::FastMRI) = "fastmri"
 
 """
     list_sources() -> Vector{AbstractSource}
 
 Return all dataset sources supported in this version.
 """
-list_sources() = AbstractSource[MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH, M4RAW]
+list_sources() = AbstractSource[MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH, M4RAW, FASTMRI]
 
 """
     terms_url(source) -> String
@@ -129,3 +155,4 @@ terms_url(::CMRxRecon2024) = "https://cmrxrecon.github.io/2024/FAQ.html"
 terms_url(::CMRxRecon300) = "https://www.synapse.org/Synapse:syn52965326"
 terms_url(::USCSpeech) = "https://creativecommons.org/licenses/by/4.0/"
 terms_url(::M4Raw) = "https://creativecommons.org/licenses/by/4.0/"
+terms_url(::FastMRI) = "https://fastmri.med.nyu.edu"
