@@ -282,3 +282,190 @@ No authentication is needed (public CC-BY). Zenodo serves the file directly from
 ZIP name is written into every row, so the runtime fetches each member from the right Zenodo
 archive (`https://zenodo.org/api/records/8056074/files/<archive>/content`). Indexing the full
 training set (~1k members) therefore takes several minutes.
+
+---
+
+# fastMRI Maintainer Scripts
+
+fastMRI ([fastmri.med.nyu.edu](https://fastmri.med.nyu.edu), NYU/Facebook AI Research) provides
+knee, brain, prostate, and breast MRI k-space datasets. Access requires completing an online
+form; the response email contains time-limited AWS S3 pre-signed URLs (90-day expiry).
+
+Two archive formats are used:
+
+| Format | Anatomies | Extraction strategy |
+| --- | --- | --- |
+| `.tar.xz` | knee, brain | xz block-level HTTP range requests |
+| `.tar.gz` | prostate, breast | zran checkpoint + HTTP range requests |
+
+The per-member offset maps and (for `.tar.gz`) zran checkpoint indices are stored in
+`data/fastmri_map.csv` and `data/fastmri_zran/` and must be regenerated whenever new
+archives are added. Both maps are static (no upstream index to scrape); the runtime reads
+them from the committed files.
+
+## Credential setup
+
+Register credentials **once** by pasting the full fastMRI response email (or just its
+curl-command block) into Julia:
+
+```julia
+using MRITestData
+MRITestData.set_fastmri_urls!("<content of the email>")
+MRITestData.fastmri_url_expires()   # check expiry date
+```
+
+This writes all signed URLs into the gitignored `LocalPreferences.toml`. The 114 URLs in
+the response email cover all four anatomies across all splits. Credentials expire after 90
+days; re-run `set_fastmri_urls!` with a fresh email to refresh them.
+
+---
+
+## 1. `index_fastmri.jl` — knee and brain (`.tar.xz`)
+
+Parses each archive's xz stream index (two tiny range requests), walks all xz blocks, and
+for each `.h5` tar member records the block byte range and intra-block data offset. Appends
+rows to `data/fastmri_map.csv`.
+
+```sh
+# Index all knee and brain archives (credentials must be stored first)
+julia --project=. scripts/index_fastmri.jl \
+    knee_singlecoil_train.tar.xz \
+    knee_singlecoil_val.tar.xz \
+    knee_singlecoil_test_v2.tar.xz \
+    knee_singlecoil_test_full.tar.xz \
+    knee_multicoil_train.tar.xz \
+    knee_multicoil_val.tar.xz \
+    knee_multicoil_test.tar.xz \
+    knee_multicoil_test_full.tar.xz \
+    brain_multicoil_train.tar.xz \
+    brain_multicoil_val.tar.xz \
+    brain_multicoil_test.tar.xz \
+    brain_multicoil_test_full_batch_1.tar.xz \
+    brain_multicoil_test_full_batch_2.tar.xz
+
+# Or index a single archive
+julia --project=. scripts/index_fastmri.jl knee_singlecoil_val.tar.xz
+```
+
+Options:
+- `--fresh` — overwrite `data/fastmri_map.csv` (header only) before starting; default
+  is to append
+- `--download-dir DIR` — directory for downloaded archives (default:
+  `/scratch/c_mrrecon/fastmri_dl`); each archive is deleted after indexing
+
+Each archive is downloaded, fully parsed, and deleted before moving to the next.
+Re-running is safe: the script skips re-downloading archives already present on disk
+(curl `-C -` resumes partial downloads).
+
+---
+
+## 2. `index_fastmri_gz.jl` — prostate and breast (`.tar.gz`)
+
+Unlike the xz archives, `.tar.gz` is a single continuous DEFLATE stream with no
+block-level index. This script does a **one-time streaming pass** over each archive to
+simultaneously:
+
+1. Parse the tar stream to find every `.h5` member's uncompressed payload offset and size.
+2. Capture one **zran checkpoint** (32 KiB dictionary + DEFLATE bit offset) at the block
+   boundary just before each member's payload. This lets the runtime seek mid-stream and
+   re-inflate only the bytes it needs.
+
+Per-archive checkpoint indices are written to `data/fastmri_zran/<archive_stem>.bin.gz`;
+member metadata is appended to `data/fastmri_map.csv` (same schema as the xz entries, with
+`coils` holding the sequence type for prostate archives: `DIFF` or `T2`).
+
+```sh
+# Index prostate T2 archives (16 archives, ~34 GB each)
+julia --project=. scripts/index_fastmri_gz.jl \
+    --download-dir /scratch/fastmri_dl/t2 \
+    --output /tmp/prostate_t2.csv \
+    fastMRI_prostate_T2_IDS_001_020.tar.gz \
+    fastMRI_prostate_T2_IDS_021_040.tar.gz
+    # ... remaining archives
+
+# Index prostate DIFF archives (30 archives, ~10 GB each)
+julia --project=. scripts/index_fastmri_gz.jl \
+    --download-dir /scratch/fastmri_dl/diff \
+    --output /tmp/prostate_diff.csv \
+    fastMRI_prostate_DIFF_IDS_001_011.tar.gz \
+    # ...
+
+# Index breast archives (30 archives, ~20 GB each)
+julia --project=. scripts/index_fastmri_gz.jl \
+    --download-dir /scratch/fastmri_dl/breast \
+    --output /tmp/breast.csv \
+    fastMRI_breast_IDS_001_011.tar.gz \
+    # ...
+```
+
+Options:
+- `--fresh` — write a fresh CSV header before starting (default: append)
+- `--download-dir DIR` — where to store downloaded archives (each is deleted after
+  indexing; default: `/scratch/c_mrrecon/fastmri_dl`)
+- `--output PATH` — output CSV path (default: `data/fastmri_map.csv`); use separate
+  output paths when running multiple jobs in parallel to avoid concurrent-append
+  corruption
+
+**Parallel execution** (recommended — each job group is independent):
+
+```sh
+julia --project=. scripts/index_fastmri_gz.jl \
+    --download-dir /scratch/fastmri_dl/t2 --output /tmp/t2.csv \
+    fastMRI_prostate_T2_IDS_*.tar.gz &
+
+julia --project=. scripts/index_fastmri_gz.jl \
+    --download-dir /scratch/fastmri_dl/diff --output /tmp/diff.csv \
+    fastMRI_prostate_DIFF_IDS_*.tar.gz &
+
+julia --project=. scripts/index_fastmri_gz.jl \
+    --download-dir /scratch/fastmri_dl/breast --output /tmp/breast.csv \
+    fastMRI_breast_IDS_*.tar.gz &
+
+wait
+
+# Merge output CSVs (skip headers from the per-job files)
+{ head -1 /tmp/t2.csv; tail -n +2 /tmp/t2.csv /tmp/diff.csv /tmp/breast.csv; } \
+    >> data/fastmri_map.csv
+```
+
+The per-archive zran indices (`data/fastmri_zran/*.bin.gz`) are written directly by each
+job and require no merging — one file per archive, each independent.
+
+---
+
+## Full regeneration from scratch
+
+```sh
+# 1. Store credentials (once per 90-day cycle)
+julia --project=. -e '
+    using MRITestData
+    MRITestData.set_fastmri_urls!("<content of the email>")
+'
+
+# 2. Clear the existing map and re-index xz archives (knee + brain)
+julia --project=. scripts/index_fastmri.jl --fresh \
+    knee_singlecoil_{train,val,test_v2,test_full}.tar.xz \
+    knee_multicoil_{train,val,test,test_full}.tar.xz \
+    brain_multicoil_{train,val,test,test_full_batch_1,test_full_batch_2}.tar.xz
+
+# 3. Index gz archives in parallel (prostate + breast)
+julia --project=. scripts/index_fastmri_gz.jl \
+    --download-dir /scratch/fastmri_dl/t2 --output /tmp/t2.csv \
+    fastMRI_prostate_T2_IDS_*.tar.gz &
+
+julia --project=. scripts/index_fastmri_gz.jl \
+    --download-dir /scratch/fastmri_dl/diff --output /tmp/diff.csv \
+    fastMRI_prostate_DIFF_IDS_*.tar.gz &
+
+julia --project=. scripts/index_fastmri_gz.jl \
+    --download-dir /scratch/fastmri_dl/breast --output /tmp/breast.csv \
+    fastMRI_breast_IDS_*.tar.gz &
+
+wait
+{ tail -n +2 /tmp/t2.csv /tmp/diff.csv /tmp/breast.csv; } >> data/fastmri_map.csv
+```
+
+After regenerating, reload the catalog in a running Julia session:
+```julia
+MRITestData.refresh_index(FASTMRI)
+```
