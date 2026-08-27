@@ -243,6 +243,33 @@ let m4 = list_datasets(M4RAW; offline = true)
     end
 end
 
+# fastMRI
+let fm = list_datasets(FASTMRI; offline = true)
+    for (anat, lbl, extra_filter) in (
+            (:knee, "fastMRI Knee singlecoil", e -> contains(get(e.extra, "archive", ""), "singlecoil")),
+            (:knee, "fastMRI Knee multicoil", e -> contains(get(e.extra, "archive", ""), "multicoil")),
+            (:brain, "fastMRI Brain multicoil", e -> true),
+            (:prostate, "fastMRI Prostate DIFF", e -> get(e.extra, "sequence", "") == "DIFF"),
+            (:prostate, "fastMRI Prostate T2", e -> get(e.extra, "sequence", "") == "T2"),
+            (:breast, "fastMRI Breast", e -> true),
+        )
+        # Prefer fully sampled; fall back to any entry if none available.
+        for split_filter in (
+                e -> get(e.extra, "split", "") == "val",
+                e -> get(e.extra, "split", "") == "train",
+                e -> contains(get(e.extra, "archive", ""), "_test_full_"),
+                e -> true,
+            )
+            # Find matching entries
+            matched = filter(e -> get(e.extra, "anatomy", "") == string(anat) && extra_filter(e) && split_filter(e), fm)
+            if !isempty(matched)
+                add!(lbl, smallest(matched))
+                break
+            end
+        end
+    end
+end
+
 println("=== MRIReco reconstruction across data types ===")
 FILTER === nothing || println("filter: $(repr(ARGS[1]))")
 println("results → $(RESULTS_DIR)")
