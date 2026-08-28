@@ -57,18 +57,15 @@ end
     using Tachikoma: KeyEvent
 
     @testset "sampling column renders the same concept the same way" begin
-        fully = DatasetEntry(;
-            source = OCMR_SOURCE, id = "x", name = "x", fully_sampled = true,
-            url = "", extra = Dict{String, Any}("sampling" => "fully sampled"),
-        )
+        fully = DatasetEntry(; source = OCMR_SOURCE, id = "x", name = "x", fully_sampled = true, url = "")
         under = DatasetEntry(;
             source = OCMR_SOURCE, id = "y", name = "y", fully_sampled = false,
-            url = "", extra = Dict{String, Any}("sampling" => "pseudo-random undersampled"),
+            undersampling_pattern = :pseudo_random, url = "",
         )
         ubool = DatasetEntry(; source = MRIDATA, id = "z", name = "z", fully_sampled = false, url = "")
         unkwn = DatasetEntry(; source = MRIDATA, id = "w", name = "w", url = "")
         @test _fmt_sampling(_sampling_value(fully)) == "fully sampled"   # explicit, no glyphs
-        @test _fmt_sampling(_sampling_value(under)) == "pseudo-random"
+        @test _fmt_sampling(_sampling_value(under)) == "pseudo_random"
         @test _fmt_sampling(_sampling_value(ubool)) == "undersampled"
         @test _fmt_sampling(_sampling_value(unkwn)) == "?"
     end
@@ -109,7 +106,7 @@ end
     entries = [
         DatasetEntry(;
                 source = OCMR_SOURCE, id = "e$(lpad(i, 2, '0'))", name = "Entry $i",
-                anatomy = :cardiac, url = "",
+                anatomy = :heart, url = "",
             ) for i in 1:55
     ]
     m = BrowserModel(entries)

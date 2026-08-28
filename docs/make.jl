@@ -15,6 +15,7 @@ makedocs(
         "Home" => "index.md",
         "Usage" => "usage.md",
         "Dataset contents" => "datasets.md",
+        "Taxonomy" => "taxonomy.md",
         "Licensing & legal" => "legal.md",
         "API Reference" => "api.md",
     ],

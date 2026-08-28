@@ -57,7 +57,7 @@ end
         try
             # The live-scraped index carries no size/dimensionality metadata.
             # Curated entries (bundled TOML, merged in by list_datasets) carry
-            # approx_size_bytes and is3D. Prefer non-3D curated entries sorted by
+            # approx_size_bytes and acquisition_dim. Prefer non-3D curated entries sorted by
             # size; 3D data triggers a BoundsError in MRIReco's direct reco mode.
             # Retry downloads on timeout (mridata.org is sometimes unstable) and
             # skip on any recon failure.
@@ -65,11 +65,11 @@ end
             @test !isempty(entries)
 
             curated_2d = filter(
-                e -> e.approx_size_bytes !== nothing && e.is3D === false,
+                e -> e.approx_size_bytes !== nothing && e.acquisition_dim == 2,
                 entries,
             )
             curated_3d = filter(
-                e -> e.approx_size_bytes !== nothing && e.is3D !== false,
+                e -> e.approx_size_bytes !== nothing && e.acquisition_dim == 3,
                 entries,
             )
             # Try 2D first, then 3D, both sorted smallest-first.

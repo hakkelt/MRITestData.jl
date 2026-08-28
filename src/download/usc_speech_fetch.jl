@@ -36,7 +36,7 @@ end
 _usc_is_expiry(err) = err isa Downloads.RequestError && err.response.status == 403
 
 function _fetch_dataset(::USCSpeech, e::DatasetEntry, dest::AbstractString; progress::Bool, verify::Bool)
-    file_id = String(e.extra["file_id"]::AbstractString)
+    file_id = String(e.locator["file_id"]::AbstractString)
     return _fetch_zip_member(
         e, dest, () -> _usc_resolve_presigned(file_id), _usc_is_expiry; progress = progress,
     )

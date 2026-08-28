@@ -5,8 +5,8 @@
 # continuous DEFLATE stream and cannot be range-extracted per member directly; instead a
 # pre-built zran checkpoint index (scripts/index_cmrxrecon300.jl) lets us resume
 # inflation mid-stream. To pull one `.mat` we:
-#   1. read its uncompressed payload offset + size from the catalog (extra["data_offset"],
-#      extra["size"]) and the archive tag (extra["set"]),
+#   1. read its uncompressed payload offset + size from the catalog (locator["data_offset"],
+#      locator["size"]) and the archive tag (locator["set"]),
 #   2. pick the nearest preceding checkpoint (largest unc_off ≤ data_offset),
 #   3. map the checkpoint's compressed offset to a fragment + in-fragment offset and
 #      issue HTTP Range requests, streaming compressed bytes forward across fragments,
@@ -90,7 +90,7 @@ function _cmrx300_entity_id(ordered::Vector{String}, frag::Integer)
 end
 
 function _fetch_dataset(::CMRxRecon300, e::DatasetEntry, dest::AbstractString; progress::Bool, verify::Bool)
-    set = lowercase(get(e.extra, "set", "training"))
+    set = lowercase(get(e.locator, "set", "training"))
     set = set == "trainingset" ? "training" :
         set == "validationset" ? "validation" :
         set == "testset" ? "test" :
@@ -104,10 +104,10 @@ function _fetch_dataset(::CMRxRecon300, e::DatasetEntry, dest::AbstractString; p
             "CMRxRecon-300 (CC-BY; no challenge registration needed).",
     )
 
-    haskey(e.extra, "data_offset") && haskey(e.extra, "size") ||
+    haskey(e.locator, "data_offset") && haskey(e.locator, "size") ||
         error("CMRxRecon-300 entry $(e.id) lacks data_offset/size; regenerate the map")
-    data_offset = Int(e.extra["data_offset"]::Integer)
-    size = Int(e.extra["size"]::Integer)
+    data_offset = Int(e.locator["data_offset"]::Integer)
+    size = Int(e.locator["size"]::Integer)
 
     ordered, chunk = _load_parts300!(set)
     _, cps = _load_index300!(set)

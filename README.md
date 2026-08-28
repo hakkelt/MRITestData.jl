@@ -62,7 +62,7 @@ list_datasets(OCMR_SOURCE; fully_sampled = true)
 list_datasets(MRIDATA; anatomy = :knee, field_strength = 3.0)
 
 # Filters: scalar (==), vector/tuple (membership), or a predicate function
-list_datasets(MRIDATA; coils = c -> c !== nothing && c >= 8)
+list_datasets(MRIDATA; receiver_channels = c -> c !== nothing && c >= 8)
 ```
 
 ## Working with the raw data

@@ -11,7 +11,7 @@ import Tachikoma: view, update!, should_quit, task_queue, pre_render!
 # ── Column definitions ────────────────────────────────────────────────────────
 #
 # The cell *values* and their formatters are cross-source concerns and live in
-# `catalog/display.jl` (`_sampling_value`, `_coils_value`, `_fmt_*`), which has no TTY
+# `catalog/display.jl` (`_sampling_value`, `_fmt_*`), which has no TTY
 # dependency; this file only wires them into the table.
 
 # Column 1 holds the entry's index into the `entries` vector so the selected
@@ -21,10 +21,15 @@ const _COLUMNS = PagedColumn[
     PagedColumn("Source"; col_type = :text),
     PagedColumn("ID"; col_type = :text),
     PagedColumn("Anatomy"; format = _fmt_sym, col_type = :text),
-    PagedColumn("B₀"; align = col_right, format = _fmt_b0, col_type = :numeric),
+    PagedColumn("Contrast"; format = _fmt_sym, col_type = :text),
+    PagedColumn("B₀ [T]"; align = col_right, format = _fmt_b0, col_type = :numeric),
     PagedColumn("Trajectory"; format = _fmt_sym, col_type = :text),
-    PagedColumn("Coils"; align = col_right, format = _fmt_coils, col_type = :text),
+    PagedColumn("Channels"; align = col_right, format = _fmt_channels, col_type = :text),
     PagedColumn("Sampling"; format = _fmt_sampling, col_type = :text),
+    PagedColumn("R"; align = col_right, format = _fmt_accel, col_type = :text),
+    PagedColumn("Frames"; align = col_right, col_type = :numeric),
+    PagedColumn("Split"; format = _fmt_sym, col_type = :text),
+    PagedColumn("Cached"; col_type = :text),
     PagedColumn("Size"; align = col_right, format = _fmt_size, col_type = :numeric),
 ]
 
@@ -33,16 +38,26 @@ const _COLUMNS = PagedColumn[
 const _INDEX_COL = findfirst(c -> c.name == "#", _COLUMNS)::Int
 const _SIZE_COL = findfirst(c -> c.name == "Size", _COLUMNS)::Int
 
+# ✓ when the file is already in the Scratch cache — a local check, no network, and the
+# single highest-value column for day-to-day use. Guarded because the precompile workload
+# builds a BrowserModel before `__init__` has set `CACHE_DIR`.
+_fmt_cached(e::DatasetEntry) = isempty(CACHE_DIR[]) ? "" : (is_cached(e) ? "✓" : "")
+
 function _entry_row(i::Int, e::DatasetEntry)
     return Any[
         i,
         source_name(e.source),
         e.id,
         e.anatomy,
+        e.contrast,
         e.field_strength,
         e.trajectory,
-        _coils_value(e),
+        e.receiver_channels,
         _sampling_value(e),
+        e.acceleration,
+        e.num_frames,
+        e.split,
+        _fmt_cached(e),
         e.approx_size_bytes,
     ]
 end

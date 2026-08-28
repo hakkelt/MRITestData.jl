@@ -4,42 +4,200 @@
 Metadata describing a single downloadable MRI dataset. Returned by
 [`list_datasets`](@ref) and used to drive downloading and loading.
 
+Field names, vocabularies and units are anchored in the DICOM standard — see
+[`dicom_tag`](@ref) and `docs/src/taxonomy.md` for the full mapping. A handful of fields
+have no DICOM equivalent (`receiver_channels`, `split`, `cohort`, `undersampling_pattern`,
+`quantitative`, `trajectory`, `acceleration`); these are documented in
+[`TAXONOMY_EXTENSIONS`](@ref) with their justification.
+
 # Fields
+## Identity
 - `source::AbstractSource`: which repository hosts the file.
-- `id::String`: source-specific identifier (mridata UUID, OCMR file stem).
-- `name::String`: human-readable label.
-- `anatomy::Symbol`: e.g. `:knee`, `:brain`, `:cardiac`, `:phantom`, `:unknown`.
-- `vendor::Union{Symbol,Nothing}`: e.g. `:siemens`, `:ge`, `:philips`.
-- `field_strength::Union{Float64,Nothing}`: in tesla, e.g. `1.5`, `3.0`.
-- `trajectory::Symbol`: `:cartesian`, `:radial`, `:spiral`, `:custom`, `:unknown`.
-- `coils::Union{Int,Nothing}`: number of receive channels, if known.
-- `fully_sampled::Union{Bool,Nothing}`: whether k-space is fully sampled.
-- `is3D::Union{Bool,Nothing}`: 3D acquisition flag, if known.
+- `id::String`: source-specific identifier (mridata UUID, OCMR file stem, ...).
+- `name::String`: human-readable label — Series Description (0008,103E).
+
+## Subject
+- `subject_id::Union{String,Nothing}`: Clinical Trial Subject ID (0012,0040).
+- `cohort::Union{Symbol,Nothing}`: `:volunteer`/`:patient`/`:phantom`. EXTENSION.
+- `split::Union{Symbol,Nothing}`: `:train`/`:val`/`:test`/`:demo`. EXTENSION.
+- `repetition::Union{Int,Nothing}`: Acquisition Number (0020,0012).
+
+## System
+- `vendor::Union{Symbol,Nothing}`: e.g. `:siemens`, `:ge` — Manufacturer (0008,0070).
+- `scanner_model::Union{String,Nothing}`: Manufacturer Model Name (0008,1090).
+- `institution::Union{String,Nothing}`: Institution Name (0008,0080).
+- `field_strength::Union{Float64,Nothing}`: tesla — Magnetic Field Strength (0018,0087).
+- `receiver_channels::Union{Int,Nothing}`: count of used receive channels. EXTENSION.
+- `coil_data::Symbol`: `:original`/`:derived` — Image Type value 1 (0008,0008).
+
+## What was imaged
+- `anatomy::Symbol`: e.g. `:knee`, `:brain`, `:heart` — Body Part Examined (0018,0015).
+- `contrast::Symbol`: T1/T2/T2*/proton-density/... — Acquisition Contrast (0008,9209).
+- `orientation::Union{Symbol,Nothing}`: e.g. `:short_axis` — View Code Sequence (0054,0220).
+- `sequence::Union{String,Nothing}`: spelled-out pulse sequence name, never abbreviated —
+  Pulse Sequence Name (0018,9005).
+- `echo_type::Union{Symbol,Nothing}`: `:spin`/`:gradient`/`:both` — Echo Pulse Sequence
+  (0018,9008).
+- `quantitative::Bool`: parametric-mapping acquisition (T1map/T2map/...). EXTENSION.
+
+## Acquisition geometry
+- `acquisition_dim::Int`: `1`/`2`/`3` — MR Acquisition Type (0018,0023).
+- `num_slices::Union{Int,Nothing}`: Number of Frames (0028,0008).
+- `num_frames::Union{Int,Nothing}`: cardiac/temporal frames — Cardiac Number of Images
+  (0018,1090).
+- `num_averages::Union{Int,Nothing}`: Number of Averages (0018,0083).
+
+## Sampling
+- `trajectory::Symbol`: ISMRMRD `trajectoryType` — `:cartesian`, `:epi`, `:radial`,
+  `:goldenangle`, `:spiral`, `:other`, `:unknown`. EXTENSION (more expressive than DICOM).
+- `fully_sampled::Union{Bool,Nothing}`: Percent Sampling (0018,0093) `== 100`.
+- `acceleration::Union{Float64,Nothing}`: net R at the source's native frame binning.
+  EXTENSION.
+- `undersampling_pattern::Union{Symbol,Nothing}`: e.g. `:vista`, `:kt_gaussian`. EXTENSION.
+- `partial_fourier::Union{Bool,Nothing}`: Partial Fourier (0018,9081).
+- `has_acs::Bool`: Parallel Acquisition (0018,9077).
+
+## Cardiac / contrast-agent flags
+- `cardiac_sync::Symbol`: `:none`/`:realtime`/`:prospective`/`:retrospective`/`:paced` —
+  Cardiac Synchronization Technique (0018,9037).
+- `phase_contrast::Bool`: Phase Contrast (0018,9014).
+- `blood_signal_nulling::Bool`: Blood Signal Nulling (0018,9022).
+- `fat_suppression::Union{Symbol,Nothing}`: Spectrally Selected Suppression (0018,9025).
+- `contrast_agent::Union{Bool,Nothing}`: Contrast/Bolus Agent present (0018,0010).
+
+## Transport (non-DICOM)
+- `file_format::Symbol`: `:ismrmrd`/`:fastmri_h5`/`:matlab_v73`.
 - `approx_size_bytes::Union{Int,Nothing}`: rough download size.
 - `sha256::Union{String,Nothing}`: pinned checksum, if known.
 - `url::String`: resolved download URL.
-- `extra::Dict{String,Any}`: source-specific extra metadata.
+- `extra::Dict{String,Any}`: source-specific metadata, keyed by DICOM keyword where one
+  exists (see [`dicom_tag`](@ref) and `extra_schema`).
+- `locator::Dict{String,Any}`: transport coordinates (byte offsets, archive names) needed
+  to fetch the file. Not DICOM-anchored; never text-searched or displayed.
 """
-Base.@kwdef struct DatasetEntry
+struct DatasetEntry
+    # ── identity ────────────────────────────────────────────────────────────
     source::AbstractSource
     id::String
     name::String
-    anatomy::Symbol = :unknown
-    vendor::Union{Symbol, Nothing} = nothing
-    field_strength::Union{Float64, Nothing} = nothing
-    trajectory::Symbol = :unknown
-    coils::Union{Int, Nothing} = nothing
-    fully_sampled::Union{Bool, Nothing} = nothing
-    is3D::Union{Bool, Nothing} = nothing
-    approx_size_bytes::Union{Int, Nothing} = nothing
-    sha256::Union{String, Nothing} = nothing
+
+    # ── subject ─────────────────────────────────────────────────────────────
+    subject_id::Union{String, Nothing}
+    cohort::Union{Symbol, Nothing}
+    split::Union{Symbol, Nothing}
+    repetition::Union{Int, Nothing}
+
+    # ── system ──────────────────────────────────────────────────────────────
+    vendor::Union{Symbol, Nothing}
+    scanner_model::Union{String, Nothing}
+    institution::Union{String, Nothing}
+    field_strength::Union{Float64, Nothing}
+    receiver_channels::Union{Int, Nothing}
+    coil_data::Symbol
+
+    # ── what was imaged ─────────────────────────────────────────────────────
+    anatomy::Symbol
+    contrast::Symbol
+    orientation::Union{Symbol, Nothing}
+    sequence::Union{String, Nothing}
+    echo_type::Union{Symbol, Nothing}
+    quantitative::Bool
+
+    # ── acquisition geometry ────────────────────────────────────────────────
+    acquisition_dim::Int
+    num_slices::Union{Int, Nothing}
+    num_frames::Union{Int, Nothing}
+    num_averages::Union{Int, Nothing}
+
+    # ── sampling ────────────────────────────────────────────────────────────
+    trajectory::Symbol
+    fully_sampled::Union{Bool, Nothing}
+    acceleration::Union{Float64, Nothing}
+    undersampling_pattern::Union{Symbol, Nothing}
+    partial_fourier::Union{Bool, Nothing}
+    has_acs::Bool
+
+    # ── cardiac / contrast-agent flags ──────────────────────────────────────
+    cardiac_sync::Symbol
+    phase_contrast::Bool
+    blood_signal_nulling::Bool
+    fat_suppression::Union{Symbol, Nothing}
+    contrast_agent::Union{Bool, Nothing}
+
+    # ── transport (non-DICOM) ───────────────────────────────────────────────
+    file_format::Symbol
+    approx_size_bytes::Union{Int, Nothing}
+    sha256::Union{String, Nothing}
     url::String
-    extra::Dict{String, Any} = Dict{String, Any}()
+
+    extra::Dict{String, Any}
+    locator::Dict{String, Any}
+end
+
+# Validate every controlled-vocabulary field so a typo in a committed map fails at parse
+# time instead of silently producing an entry no query can ever match.
+function _check_vocab(field::Symbol, value, vocab::Tuple)
+    value in vocab || error(
+        "DatasetEntry.$field = $(repr(value)) is not one of the controlled vocabulary " *
+            "$(vocab); see src/catalog/taxonomy.jl",
+    )
+    return nothing
+end
+
+function _validate_entry(e::DatasetEntry)
+    _check_vocab(:anatomy, e.anatomy, ANATOMIES)
+    _check_vocab(:contrast, e.contrast, CONTRASTS)
+    _check_vocab(:trajectory, e.trajectory, TRAJECTORIES)
+    _check_vocab(:coil_data, e.coil_data, COIL_DATA)
+    _check_vocab(:cardiac_sync, e.cardiac_sync, CARDIAC_SYNC)
+    e.echo_type === nothing || _check_vocab(:echo_type, e.echo_type, ECHO_TYPES)
+    e.fat_suppression === nothing || _check_vocab(:fat_suppression, e.fat_suppression, FAT_SUPPRESSION)
+    e.cohort === nothing || _check_vocab(:cohort, e.cohort, COHORTS)
+    e.split === nothing || _check_vocab(:split, e.split, SPLITS)
+    e.undersampling_pattern === nothing ||
+        _check_vocab(:undersampling_pattern, e.undersampling_pattern, UNDERSAMPLING_PATTERNS)
+    e.orientation === nothing || _check_vocab(:orientation, e.orientation, ORIENTATIONS)
+    e.acquisition_dim in (1, 2, 3) || error(
+        "DatasetEntry.acquisition_dim = $(e.acquisition_dim) must be 1, 2 or 3",
+    )
+    return nothing
+end
+
+function DatasetEntry(;
+        source, id, name,
+        subject_id = nothing, cohort = nothing, split = nothing, repetition = nothing,
+        vendor = nothing, scanner_model = nothing, institution = nothing,
+        field_strength = nothing, receiver_channels = nothing, coil_data = :original,
+        anatomy = :unknown, contrast = :unknown, orientation = nothing, sequence = nothing,
+        echo_type = nothing, quantitative = false,
+        acquisition_dim = 2, num_slices = nothing, num_frames = nothing, num_averages = nothing,
+        trajectory = :unknown, fully_sampled = nothing, acceleration = nothing,
+        undersampling_pattern = nothing, partial_fourier = nothing, has_acs = false,
+        cardiac_sync = :none, phase_contrast = false, blood_signal_nulling = false,
+        fat_suppression = nothing, contrast_agent = nothing,
+        file_format = :ismrmrd, approx_size_bytes = nothing, sha256 = nothing, url = "",
+        extra = Dict{String, Any}(), locator = Dict{String, Any}(),
+    )
+    # Calls the positional constructor `@kwdef` derives from the struct's field order
+    # (a distinct method from this keyword-only one, so no infinite recursion).
+    e = DatasetEntry(
+        source, id, name,
+        subject_id, cohort, split, repetition,
+        vendor, scanner_model, institution, field_strength, receiver_channels, coil_data,
+        anatomy, contrast, orientation, sequence, echo_type, quantitative,
+        acquisition_dim, num_slices, num_frames, num_averages,
+        trajectory, fully_sampled, acceleration, undersampling_pattern, partial_fourier, has_acs,
+        cardiac_sync, phase_contrast, blood_signal_nulling, fat_suppression, contrast_agent,
+        file_format, approx_size_bytes, sha256, url, extra, locator,
+    )
+    _validate_entry(e)
+    return e
 end
 
 function Base.show(io::IO, e::DatasetEntry)
     print(io, "DatasetEntry(", source_name(e.source), ":", e.id, ", ", repr(e.name))
     e.anatomy === :unknown || print(io, ", ", e.anatomy)
+    e.contrast === :unknown || print(io, ", ", e.contrast)
     e.trajectory === :unknown || print(io, ", ", e.trajectory)
     e.field_strength === nothing || print(io, ", ", e.field_strength, "T")
     return print(io, ")")
@@ -166,27 +324,18 @@ than each source spelling out its own.
 """
 _can_synthesize(::AbstractSource) = false
 
-# Return a copy of `e` with `approx_size_bytes` replaced. `DatasetEntry` is immutable, so
-# size discovery (`fetch_sizes`, `merge_sizes`) has to rebuild the entry; doing it in one
-# place keeps the field list from being transcribed at each call site.
-function _with_size(e::DatasetEntry, sz::Union{Int, Nothing})
-    return DatasetEntry(;
-        source = e.source,
-        id = e.id,
-        name = e.name,
-        anatomy = e.anatomy,
-        vendor = e.vendor,
-        field_strength = e.field_strength,
-        trajectory = e.trajectory,
-        coils = e.coils,
-        fully_sampled = e.fully_sampled,
-        is3D = e.is3D,
-        approx_size_bytes = sz,
-        sha256 = e.sha256,
-        url = e.url,
-        extra = e.extra,
-    )
+# Return a copy of `e` with the named fields replaced. `DatasetEntry` is immutable, so
+# any post-hoc patch (size discovery, calibration-entry derivation) has to rebuild the
+# entry; building over `fieldnames` keeps a new field from being silently dropped by a
+# hand-transcribed call site.
+function _with(e::DatasetEntry; kwargs...)
+    vals = (f in keys(kwargs) ? kwargs[f] : getfield(e, f) for f in fieldnames(DatasetEntry))
+    return DatasetEntry(vals...)
 end
+
+# `fetch_sizes`/`merge_sizes` only ever patch the size, so keep the old name as a thin
+# wrapper — it reads better at those call sites than a bare `_with`.
+_with_size(e::DatasetEntry, sz::Union{Int, Nothing}) = _with(e; approx_size_bytes = sz)
 
 # ── Shared offset-map CSV cell readers ────────────────────────────────────────────
 # The map-backed sources read `readdlm`-parsed rows whose cells arrive as Int, Float64 or
@@ -283,8 +432,9 @@ function _zip_span_from_row(row, col)
     )
 end
 
-# The `extra` keys the fetch engines read back out of a `ZipSpan`.
-function _zip_span_extra(span::ZipSpan)
+# The `locator` keys the fetch engines read back out of a `ZipSpan`. Byte coordinates are
+# transport, not DICOM-describable metadata, so they live in `locator`, not `extra`.
+function _zip_span_locator(span::ZipSpan)
     return Dict{String, Any}(
         "start_off" => span.start_off,
         "end_off" => span.end_off,
@@ -308,6 +458,106 @@ function _cached_index_entries(path::AbstractString, parse)::Vector{DatasetEntry
     entries = parse(path)::Vector{DatasetEntry}
     _INDEX_ENTRY_CACHE[key] = entries
     return entries
+end
+
+# ── Shared per-source derivation helpers (plan §6, Phase 3) ───────────────────────
+
+"""
+    _normalize_split(s) -> Union{Symbol,Nothing}
+
+Map a source's own split/set vocabulary (`"train"`, `"multicoil_train"`, `"TrainingSet"`,
+`"validation"`, `"DemoData"`, `"gre"`, ...) onto [`SPLITS`](@ref). `nothing` when `s` is
+empty or unrecognised (never silently guessed).
+"""
+function _normalize_split(s::AbstractString)
+    t = lowercase(strip(s))
+    isempty(t) && return nothing
+    occursin("train", t) && return :train
+    occursin("val", t) && return :val
+    occursin("test", t) && return :test
+    occursin("demo", t) && return :demo
+    return nothing
+end
+_normalize_split(::Nothing) = nothing
+
+# The per-series decoded fields a CMRxRecon(-300) file stem or `modality` string implies.
+# `nothing` in any slot means "leave the DatasetEntry field at its default" — this table
+# only ever asserts what the challenge protocol actually documents (plan §6).
+const _CARDIAC_SERIES = Dict{String, NamedTuple}(
+    "cine_lax" => (
+        contrast = :mixed, orientation = :long_axis,
+        sequence = "balanced steady-state free precession",
+        quantitative = false, cardiac_sync = :retrospective,
+        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+    ),
+    "cine_sax" => (
+        contrast = :mixed, orientation = :short_axis,
+        sequence = "balanced steady-state free precession",
+        quantitative = false, cardiac_sync = :retrospective,
+        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+    ),
+    "cine_lvot" => (
+        contrast = :mixed, orientation = :lvot,
+        sequence = "balanced steady-state free precession",
+        quantitative = false, cardiac_sync = :retrospective,
+        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+    ),
+    "t1map" => (
+        contrast = :t1, orientation = :short_axis, sequence = "MOLLI inversion recovery",
+        quantitative = true, cardiac_sync = :none,
+        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+    ),
+    "t2map" => (
+        contrast = :t2, orientation = :short_axis, sequence = "T2-prepared balanced SSFP",
+        quantitative = true, cardiac_sync = :none,
+        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+    ),
+    "tagging" => (
+        contrast = :tagging, orientation = :short_axis, sequence = "tagged cine (SPAMM)",
+        quantitative = false, cardiac_sync = :retrospective,
+        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+    ),
+    "flow2d" => (
+        contrast = :flow_encoded, orientation = nothing, sequence = nothing,
+        quantitative = false, cardiac_sync = :none,
+        phase_contrast = true, blood_signal_nulling = false, anatomy = :heart,
+    ),
+    "blackblood" => (
+        # Contrast weighting is unconfirmed against the challenge protocol (plan §13 ¹).
+        contrast = :unknown, orientation = nothing, sequence = "dark-blood turbo spin echo",
+        quantitative = false, cardiac_sync = :none,
+        phase_contrast = false, blood_signal_nulling = true, anatomy = :heart,
+    ),
+    "aorta_sag" => (
+        contrast = :mixed, orientation = :sagittal, sequence = nothing,
+        quantitative = false, cardiac_sync = :none,
+        phase_contrast = false, blood_signal_nulling = false, anatomy = :aorta,
+    ),
+    "aorta_tra" => (
+        contrast = :mixed, orientation = :axial, sequence = nothing,
+        quantitative = false, cardiac_sync = :none,
+        phase_contrast = false, blood_signal_nulling = false, anatomy = :aorta,
+    ),
+)
+
+"""
+    _cardiac_series(stem) -> NamedTuple
+
+Decode a CMRxRecon(-300) file stem or `modality` string (e.g. `"cine_sax"`, `"Cine SAX"`,
+`"T1map"`, `"aorta_tra"`) into `(contrast, orientation, sequence, quantitative,
+cardiac_sync, phase_contrast, blood_signal_nulling, anatomy)`. Unrecognised stems return
+all-`nothing`/default fields rather than guessing.
+"""
+function _cardiac_series(stem::AbstractString)
+    key = lowercase(replace(strip(String(stem)), r"[\s\-]+" => "_"))
+    return get(
+        _CARDIAC_SERIES, key,
+        (
+            contrast = :unknown, orientation = nothing, sequence = nothing,
+            quantitative = false, cardiac_sync = :none,
+            phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+        ),
+    )
 end
 
 # Parse every row of an offset-map CSV with `row_to_entry(row, col)`, dropping rows it

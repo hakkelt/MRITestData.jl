@@ -87,6 +87,8 @@ using .TarIO: TarIO
 include("util/xz.jl")
 using .XzIO: XzIO
 include("catalog/sources.jl")
+include("catalog/taxonomy.jl")
+include("catalog/dicom_map.jl")
 include("catalog/catalog.jl")
 include("catalog/query.jl")
 include("catalog/index_cache.jl")
@@ -139,6 +141,10 @@ export AbstractSource, MridataOrg, OCMR, CMRxRecon2024, CMRxRecon300, USCSpeech,
 export MRIDATA, OCMR_SOURCE, CMRXRECON2024, CMRXRECON300, USC_SPEECH, M4RAW, FASTMRI
 export DatasetEntry, DatasetHandle
 export list_sources, list_datasets, dataset, query
+export dicom_tag, dicom_keyword, DICOM_ATTRIBUTES, TAXONOMY_EXTENSIONS
+export CONTRASTS, TRAJECTORIES, ANATOMIES, CARDIAC_SYNC, FAT_SUPPRESSION, ECHO_TYPES,
+    COIL_DATA, SPLITS, COHORTS, UNDERSAMPLING_PATTERNS, ORIENTATIONS
+export extra_schema
 export download_dataset, copy_dataset, cache_path, is_cached, clear_cache
 export fetch_sizes
 export refresh_index, index_path, index_age_days, sizes_path, read_sizes, write_sizes

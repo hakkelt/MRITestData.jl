@@ -15,7 +15,7 @@
         @test !isempty(es)
         @test es isa Vector{DatasetEntry}
         # All CMRxRecon2024 files are Siemens cardiac Cartesian, sizes known.
-        @test all_of(e -> e.anatomy === :cardiac, es)
+        @test all_of(e -> e.anatomy in (:heart, :aorta), es)
         @test all_of(e -> e.vendor === :siemens, es)
         # Measured field strength from info CSVs (~2.89 T); nominal 3 T for entries
         # without acquisition parameters.
@@ -30,9 +30,9 @@
         @test all_of(e -> e.url == "", es)
         # all entries are fully-sampled FullSample ground truth
         @test all_of(e -> e.fully_sampled === true, es)
-        # fragment coordinates carried in extra
+        # fragment coordinates carried in locator, not extra
         for k in ("start_frag", "start_off", "end_frag", "end_off", "lfh_size", "compressed_size", "compression")
-            @test all_of(e -> haskey(e.extra, k), es)
+            @test all_of(e -> haskey(e.locator, k), es)
         end
     end
 
@@ -40,23 +40,23 @@
         es = list_datasets(CMRXRECON2024; offline = true)
         # Spot-check a known FullSample entry using the simplified id.
         fs = first(filter(e -> e.id == "Cine/TrainingSet/P001/cine_sax", es))
-        @test get(fs.extra, "modality", "") == "Cine"
-        @test get(fs.extra, "dataset_set", "") == "TrainingSet"
-        @test get(fs.extra, "subject", "") == "P001"
+        @test fs.contrast === :mixed
+        @test fs.orientation === :short_axis
+        @test fs.split === :train
+        @test fs.subject_id == "P001"
         @test fs.fully_sampled === true
-        @test get(fs.extra, "mat_file", "") == "cine_sax.mat"
-        @test get(fs.extra, "sampling", "") == "full"
-        @test get(fs.extra, "archive", "") == "training"
+        @test get(fs.locator, "mat_file", "") == "cine_sax.mat"
+        @test get(fs.locator, "archive", "") == "training"
         # Spot-check a ValidationSet entry (from the AfterCompetition archive).
         vs = first(filter(e -> e.id == "Cine/ValidationSet/P001/cine_sax", es))
-        @test get(vs.extra, "dataset_set", "") == "ValidationSet"
-        @test get(vs.extra, "archive", "") == "aftercompetition"
+        @test vs.split === :val
+        @test get(vs.locator, "archive", "") == "aftercompetition"
         @test vs.fully_sampled === true
-        # All three dataset sets are present.
-        sets = Set(get(e.extra, "dataset_set", "") for e in es)
-        @test "TrainingSet" in sets
-        @test "ValidationSet" in sets
-        @test "TestSet" in sets
+        # All three splits are present.
+        splits = Set(e.split for e in es)
+        @test :train in splits
+        @test :val in splits
+        @test :test in splits
     end
 
     @testset "filtering + query" begin
@@ -64,9 +64,9 @@
         @test !isempty(fs)
         @test all_of(e -> e.fully_sampled === true, fs)
 
-        cine = query(; sources = CMRXRECON2024, modality = "Cine", offline = true)
+        cine = query(; sources = CMRXRECON2024, contrast = :mixed, offline = true)
         @test !isempty(cine)
-        @test all_of(e -> get(e.extra, "modality", nothing) == "Cine", cine)
+        @test all_of(e -> e.contrast === :mixed, cine)
 
         @test !isempty(query(; sources = CMRXRECON2024, text = "cine_sax", offline = true))
     end
@@ -101,8 +101,7 @@ end
     es = list_datasets(CMRXRECON2024; offline = true)
 
     @testset "sampling annotation present" begin
-        @test all(e -> haskey(e.extra, "sampling"), es)
-        @test all(e -> get(e.extra, "sampling", "") == "full", es)
+        @test all(e -> e.fully_sampled === true, es)
     end
 
     @testset "ids use simplified (no MultiCoil/, no FullSample/) form" begin
@@ -214,7 +213,7 @@ end
     using MRITestData
 
     es = list_datasets(CMRXRECON2024; offline = true)
-    training = filter(e -> get(e.extra, "dataset_set", "") == "TrainingSet", es)
+    training = filter(e -> e.split === :train, es)
     @test !isempty(training)
     fs = first(sort(training; by = e -> something(e.approx_size_bytes, typemax(Int))))
     raw = load_raw(fs)
@@ -226,7 +225,7 @@ end
     using MRITestData
 
     es = list_datasets(CMRXRECON2024; offline = true)
-    aftercomp = filter(e -> get(e.extra, "archive", "") == "aftercompetition", es)
+    aftercomp = filter(e -> get(e.locator, "archive", "") == "aftercompetition", es)
     @test !isempty(aftercomp)
     # Smallest entry across ValidationSet and TestSet, fetched via Synapse range requests.
     fs = first(sort(aftercomp; by = e -> something(e.approx_size_bytes, typemax(Int))))

@@ -41,6 +41,31 @@ query
 dataset
 ```
 
+## Taxonomy API
+
+Field names, value vocabularies and units are anchored in the DICOM standard where a term
+exists; see [Taxonomy](@ref) for the full mapping, the seven extensions, and the external
+references consulted.
+
+```@docs
+dicom_tag
+dicom_keyword
+DICOM_ATTRIBUTES
+TAXONOMY_EXTENSIONS
+extra_schema
+CONTRASTS
+TRAJECTORIES
+ANATOMIES
+CARDIAC_SYNC
+FAT_SUPPRESSION
+ECHO_TYPES
+COIL_DATA
+SPLITS
+COHORTS
+UNDERSAMPLING_PATTERNS
+ORIENTATIONS
+```
+
 ## Dataset index (self-updating)
 
 ```@docs

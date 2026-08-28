@@ -9,7 +9,9 @@ using TOML: TOML
 
 const _PKG_DIR = dirname(@__DIR__)
 const MAP_PATH = joinpath(_PKG_DIR, "data", "fastmri_map.csv")
-const CSV_HEADER = "path,archive,tar_data_offset,file_size,anatomy,coils,split,patient_id"
+# `series_variant` is the archive filename's middle token: singlecoil/multicoil for
+# knee/brain, T2/DIFF for prostate — not a coil count (see fastmri_catalog.jl).
+const CSV_HEADER = "path,archive,tar_data_offset,file_size,anatomy,series_variant,split,patient_id"
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
 

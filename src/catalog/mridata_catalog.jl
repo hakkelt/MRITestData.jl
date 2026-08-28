@@ -20,7 +20,7 @@ _sym(d, k, default) = haskey(d, k) ? Symbol(d[k]) : default
 const _MRIDATA_NAMED_FIELDS = Set(
     [
         "id", "name", "anatomy", "vendor", "field_strength",
-        "trajectory", "coils", "fully_sampled", "is3D",
+        "trajectory", "receiver_channels", "fully_sampled", "acquisition_dim",
         "approx_size_bytes", "sha256",
     ]
 )
@@ -39,9 +39,9 @@ function _mridata_entry(d::AbstractDict)
         vendor = _sym_or_nothing(d, "vendor"),
         field_strength = haskey(d, "field_strength") ? Float64(d["field_strength"]) : nothing,
         trajectory = _sym(d, "trajectory", :unknown),
-        coils = haskey(d, "coils") ? Int(d["coils"]) : nothing,
+        receiver_channels = haskey(d, "receiver_channels") ? Int(d["receiver_channels"]) : nothing,
         fully_sampled = get(d, "fully_sampled", nothing),
-        is3D = get(d, "is3D", nothing),
+        acquisition_dim = haskey(d, "acquisition_dim") ? Int(d["acquisition_dim"]) : 2,
         approx_size_bytes = haskey(d, "approx_size_bytes") ? Int(d["approx_size_bytes"]) : nothing,
         sha256 = get(d, "sha256", nothing),
         url = mridata_url(uuid),
@@ -54,7 +54,7 @@ _mridata_raw(path) = isfile(path) ? get(TOML.parsefile(path), "dataset", Any[]) 
 # Merge the scraped index at `path` with the curated bundled overlay into catalog entries.
 #
 # The live scrape covers every UUID and carries rich per-card metadata (vendor, field
-# strength, coils, matrix size/is3D, trajectory, plus many extras). The curated TOML adds a
+# strength, receiver_channels, matrix size/acquisition_dim, trajectory, plus many extras). The curated TOML adds a
 # few hand-filled fields the page does not expose — notably `approx_size_bytes`, which the
 # network test uses to pick the smallest dataset. Merging happens at the raw-dict level so
 # curated keys win per *field* while scraped fields fill the gaps; when `path` is itself the
@@ -89,3 +89,13 @@ _can_synthesize(::MridataOrg) = true
 function _synthesize_entry(::MridataOrg, uuid::String)
     return DatasetEntry(; source = MRIDATA, id = uuid, name = uuid, url = mridata_url(uuid))
 end
+
+# The scraped card carries per-dataset prose keys (matrix size, scanner model, protocol,
+# TE/TR, download count, institution, ...) that vary per card, so this is a representative
+# set rather than an exhaustive one — `query` only `@warn`s on an unlisted key.
+extra_schema(::MridataOrg) = Dict(
+    "matrix_size" => "acquisition matrix, as scraped from the mridata.org card",
+    "protocol_name" => "Protocol Name (0018,1030), as scraped or curated",
+    "institution" => "Institution Name (0008,0080), as scraped",
+    "download count" => "provenance: how many times the file has been downloaded from mridata.org",
+)

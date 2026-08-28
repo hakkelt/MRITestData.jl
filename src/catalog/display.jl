@@ -18,55 +18,32 @@ function _human_bytes(n::Integer)
 end
 
 # ── Cross-source entry formatting ─────────────────────────────────────────────────
-# Each source records sampling and coil counts in its own vocabulary. These helpers map
-# those onto one shared representation for display, so the browser (and any other
-# presentation layer) never has to know which source an entry came from. They live here,
-# not in `browse.jl`, because the normalisation is a catalog concern and is testable
-# without a terminal.
+# Each source's DatasetEntry now carries a shared cross-source vocabulary directly (see
+# taxonomy.jl), so these helpers are purely presentational — no more per-source coercion.
 
 _fmt_b0(v) = v === nothing ? "?" : string(v, "T")
-_fmt_coils(v) = v === nothing ? "?" : v isa AbstractString ? v : string(v, "ch")
+_fmt_channels(v) = v === nothing ? "?" : string(v, "ch")
 _fmt_size(v) = v === nothing ? "?" : _human_bytes(v)
 _fmt_sym(v) = (v === nothing || v === :unknown) ? "?" : string(v)
+_fmt_accel(v) = v === nothing ? "" : string("×", round(v; digits = 1))
 
 # Sampling, using explicit words rather than glyphs:
-#   true → "fully sampled", false → "undersampled" (pattern unknown),
-#   a String → a named undersampling pattern (e.g. "pseudo-random"), nothing → "?".
+#   true → "fully sampled",
+#   false + a named `undersampling_pattern` → that pattern's name (e.g. "vista"),
+#   false alone → "undersampled", nothing → "?".
 _fmt_sampling(v::Bool) = v ? "fully sampled" : "undersampled"
 _fmt_sampling(::Nothing) = "?"
-_fmt_sampling(v) = string(v)
-
-# `extra["sampling"]` values that mean "fully sampled" rather than naming an undersampling
-# pattern. Each source keeps its own spelling in `extra` (OCMR decodes its `smp` column to
-# prose, CMRxRecon2024 stores the map's "full" tag); the boolean `fully_sampled` field is
-# the cross-source answer, so these are recognised and discarded here.
-const _FULL_SAMPLING_WORDS = ("full", "fully sampled")
+_fmt_sampling(v::AbstractString) = v   # a named undersampling_pattern, from _sampling_value
 
 """
     _sampling_value(e::DatasetEntry)
 
 Collapse an entry's sampling metadata into the shared representation `_fmt_sampling`
-renders: `true` when fully sampled, a `String` naming the undersampling pattern when the
-source records one, otherwise the raw `fully_sampled` field (`false` or `nothing`).
+renders: `true` when fully sampled, the `undersampling_pattern` name (a `String`) when the
+entry records one, otherwise the raw `fully_sampled` field (`false` or `nothing`).
 """
 function _sampling_value(e::DatasetEntry)
     e.fully_sampled === true && return true
-    pat = get(e.extra, "sampling", "")
-    pat isa AbstractString || return e.fully_sampled
-    (isempty(pat) || pat in _FULL_SAMPLING_WORDS) && return e.fully_sampled
-    # OCMR spells its patterns "<name> undersampled"; the qualifier is already carried by
-    # `fully_sampled`, so the column shows just the name.
-    return replace(pat, " undersampled" => "")
-end
-
-"""
-    _coils_value(e::DatasetEntry)
-
-Coil count for display: the exact number when the catalog records one, else the
-`coil_type` label CMRxRecon2024 carries ("multi"/"single"), else `nothing`.
-"""
-function _coils_value(e::DatasetEntry)
-    e.coils === nothing || return e.coils
-    label = get(e.extra, "coil_type", "")
-    return label isa AbstractString && !isempty(label) ? label : nothing
+    e.undersampling_pattern === nothing && return e.fully_sampled
+    return string(e.undersampling_pattern)
 end

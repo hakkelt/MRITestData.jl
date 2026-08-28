@@ -91,7 +91,7 @@ end
 _cache_basename(::FastMRI, e::DatasetEntry) = string(e.id, ".h5")
 
 function _fetch_dataset(::FastMRI, e::DatasetEntry, dest::AbstractString; progress::Bool, verify::Bool)
-    ex = e.extra
+    ex = e.locator
     archive = String(ex["archive"]::AbstractString)
     tar_data_offset = Int(ex["tar_data_offset"]::Integer)
     file_size = Int(ex["file_size"]::Integer)

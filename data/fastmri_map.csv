@@ -1,4 +1,4 @@
-path,archive,tar_data_offset,file_size,anatomy,coils,split,patient_id
+path,archive,tar_data_offset,file_size,anatomy,series_variant,split,patient_id
 singlecoil_test/file1001483.h5,knee_singlecoil_test_v2.tar.xz,1024,75381488,knee,singlecoil,test,1001483
 singlecoil_test/file1000063.h5,knee_singlecoil_test_v2.tar.xz,75383296,66677492,knee,singlecoil,test,1000063
 singlecoil_test/file1002428.h5,knee_singlecoil_test_v2.tar.xz,142061568,67844848,knee,singlecoil,test,1002428

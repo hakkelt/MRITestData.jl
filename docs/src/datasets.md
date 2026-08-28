@@ -39,10 +39,13 @@ profiles plus the scanner's XML header (encoding/recon matrix, FOV, TE/TR, recei
 channel count, …). The 3-D FSE knee volumes are the workhorse: a single fully-sampled
 Cartesian volume, typically 8–15 coils, tens of phase-encode partitions.
 
-**Metadata.** The live scrape of `mridata.org/list` carries per-card fields (vendor,
-field strength, channel count, matrix size, TE/TR, institution, protocol, download
-count) — all surfaced under `entry.extra`. The committed `data/mridata_index.toml` is a
-small **curated overlay** used to fill fields the site does not expose (notably
+**Metadata.** The live scrape of `mridata.org/list` carries per-card fields — vendor,
+field strength, channel count (→ `entry.receiver_channels`), matrix size
+(→ `entry.acquisition_dim`), plus TE/TR, institution, protocol, download count under
+`entry.extra`. mridata.org's own anatomy labels go well beyond this package's curated
+DICOM Body Part Examined subset (hip, shoulder, spine, phantom scans, …); anything not
+recognised becomes `entry.anatomy == :other`. The committed `data/mridata_index.toml` is
+a small **curated overlay** used to fill fields the site does not expose (notably
 `approx_size_bytes`) and as the offline fallback when the scrape fails entirely.
 
 Any mridata UUID can also be passed to [`dataset`](@ref) directly — a minimal entry is
@@ -54,7 +57,7 @@ synthesised from the UUID.
 
 | | |
 |---|---|
-| Anatomy | **cardiac** (real-time and breath-hold cine) |
+| Anatomy | **heart** (`entry.anatomy == :heart`; real-time and breath-hold cine) |
 | Sampling | **fully sampled** (`fs_*` files) **and** pseudo-random **undersampled** (`us_*` files) |
 | Trajectory | Cartesian |
 | Vendor | Siemens (MAGNETOM Free.Max 0.55 T, Avanto / Sola 1.5 T, Prisma / Vida 3 T) |
@@ -63,22 +66,26 @@ synthesised from the UUID.
 | Access | direct HTTP from OCMR's S3 bucket; **citation of the OCMR paper required** |
 
 **What a file contains.** One multi-coil cardiac cine acquisition. Coil counts are
-**not** in OCMR's metadata — they live only inside the ISMRMRD file — so `entry.coils`
-is `nothing` until the file is loaded.
+**not** in OCMR's metadata — they live only inside the ISMRMRD file — so
+`entry.receiver_channels` is `nothing` until the file is loaded.
 
-**Coded metadata.** OCMR's attributes CSV uses short codes, decoded into `entry.extra`:
+**Coded metadata.** OCMR's attributes CSV uses short codes. The ones with a DICOM
+anchor are decoded onto core fields; the rest stay in `entry.extra` (DICOM-keyword
+named — see [`extra_schema`](@ref)`(OCMR_SOURCE)`):
 
-| `extra` key | Values |
-|---|---|
-| `sampling` | `fully sampled`, `pseudo-random undersampled` |
-| `view` | `sax` (short-axis), `lax` (long-axis), … |
-| `slice_mode` | `individual`, `stack` (unmapped upstream codes such as `mul` = multi-slice pass through verbatim) |
-| `echo` | `symmetric`, `asymmetric` (partial-Fourier readout) |
-| `duration` | `short`, `long` (scan length) |
-| `fov` | `no aliasing`, `with aliasing` |
-| `subject` | `volunteer`, `patient` |
-| `slices` | slice count |
-| `scanner_model` | e.g. `Siemens MAGNETOM Prisma` |
+| Core field / `extra` key | Values | Source column |
+|---|---|---|
+| `entry.fully_sampled` | `true`/`false` | `smp` (`fs`/`pse`), plus the `fs_`/`us_` filename prefix |
+| `entry.orientation` | `:short_axis`, `:long_axis` | `viw` (`sax`/`lax`) |
+| `entry.partial_fourier` | `true`/`false` | `ech` (`asy`=asymmetric/`sym`=symmetric) |
+| `entry.cohort` | `:volunteer`, `:patient` | `sub` |
+| `entry.num_slices` | slice count | `slices` |
+| `entry.scanner_model` | e.g. `Siemens MAGNETOM Prisma` | `scn` |
+| `extra["sampling"]` | `fully sampled`, `pseudo-random undersampled` | `smp` |
+| `extra["slice_mode"]` | `individual`, `multiple`, `stack` | `sli` |
+| `extra["partial_fourier_direction"]` | `symmetric`, `asymmetric` | `ech` |
+| `extra["acquisition_duration_class"]` | `short`, `long` | `dur` |
+| `extra["phase_wrap"]` | `no aliasing`, `with aliasing` | `fov` |
 
 Field strength and fully/under-sampled status are also encoded in the file name
 (`fs_0001_1_5T.h5`, `us_0014_3T.h5`) and used as a fallback.
@@ -93,11 +100,11 @@ in-place on first load.
 
 | | |
 |---|---|
-| Anatomy | **cardiac**, multi-coil, Cartesian |
+| Anatomy | **heart** (`aorta_*` series: **aorta**), multi-coil, Cartesian |
 | Sampling | **fully sampled** ground truth (the challenge's undersampling masks are applied by you, not shipped) |
 | Trajectory | Cartesian (the `Uniform`/`ktGaussian`/`ktRadial` labels are *sampling masks*, not trajectories) |
-| Vendor / field | Siemens, 3 T (measured value per subject in `entry.extra["field_strength"]`) |
-| Coils | **10 virtual channels** (SVD-compressed by the organisers); physical element count 30–38 in `entry.extra["hardware_coils"]` |
+| Vendor / field | Siemens, 3 T (measured per-subject value; nominal 3 T when absent) |
+| Coils | **10 virtual channels** (`entry.receiver_channels`, SVD-compressed by the organisers, `entry.coil_data == :derived`); physical element count 30–38 in `entry.extra["multi_coil_elements"]` |
 | File format | MATLAB **v7.3 `.mat`** k-space → converted to cached Cartesian ISMRMRD on first load |
 | Access | **Synapse token + completed challenge registration**; individual `.mat` files fetched by HTTP range from a ~1.2 TB split ZIP |
 
@@ -106,21 +113,27 @@ frames)` — 4-D `(kx, ky, coils, slices)` when there is no temporal axis (Black
 Variable name: `kspace_full` (FullSample) or `kus` (undersampled tasks). Access the raw
 arrays with `MRITestData.load_mat`.
 
-**Modalities** (`entry.extra["modality"]`; the file name also encodes it):
+**Series.** DICOM has no single "modality" attribute for this — see [Taxonomy](@ref) —
+so each series decomposes onto several core fields. The file name also encodes the
+series (e.g. `cine_sax`, `t1map`, `aorta_tra`):
 
-| Modality | Files | Contents | Temporal axis |
-|---|---|---|---|
-| **Cine** | `cine_sax`, `cine_lax`, `cine_lvot` | balanced-SSFP movie of the beating heart | cardiac phase (time) |
-| **Mapping** | `T1map`, `T2map` | series of differently *weighted* images to fit a per-pixel relaxation map (T1: inversion times / MOLLI; T2: T2-prep echo times) | weighting index (not time) |
-| **Tagging** | `tagging` | cine with a saturation tag grid → regional strain | cardiac phase |
-| **Aorta** | `aorta_sag`, `aorta_tra` | cine of the aorta (sagittal / transverse) | cardiac phase |
-| **Flow2d** | `flow2d` | 2-D phase-contrast through-plane velocity mapping | cardiac phase |
-| **BlackBlood** | `blackblood` | dark-blood-prepared *anatomical* scan (blood nulled), vessel wall / morphology | **none** (4-D → single contrast) |
+| Series | Files | `contrast` | `orientation` | `quantitative` | `cardiac_sync` / other flags |
+|---|---|---|---|---|---|
+| **Cine** | `cine_sax`, `cine_lax`, `cine_lvot` | `:mixed` | `:short_axis`/`:long_axis`/`:lvot` | `false` | `:retrospective` |
+| **Mapping** | `T1map`, `T2map` | `:t1`/`:t2` | `:short_axis` ¹ | `true` | `:none` |
+| **Tagging** | `tagging` | `:tagging` | `:short_axis` | `false` | `:retrospective` |
+| **Aorta** | `aorta_sag`, `aorta_tra` | `:mixed` | `:sagittal`/`:axial` | `false` | `:none` — `anatomy == :aorta` |
+| **Flow2d** | `flow2d` | `:flow_encoded` | — | `false` | `phase_contrast == true` |
+| **BlackBlood** | `blackblood` | `:unknown` ¹ | — | `false` | `blood_signal_nulling == true` |
+
+¹ Mapping orientation and BlackBlood contrast weighting are carried over from the
+pre-refactor labels and are not independently confirmed against the challenge protocol —
+see [Taxonomy](@ref) §Open questions.
 
 **Views.** **SAX** (short-axis) — a stack of parallel slices across the left ventricle
 (base → apex on the slice axis). **LAX** (long-axis) — the slice axis instead holds the
-2-chamber / 3-chamber / 4-chamber views. `cine_lvot` is the left-ventricular
-outflow-tract view.
+2-chamber / 3-chamber / 4-chamber views. LVOT (left ventricular outflow tract,
+`orientation == :lvot`) is the third cine view.
 
 **File counts in the committed map** (`data/cmrxrecon2024_map.csv`, all MultiCoil):
 
@@ -134,7 +147,9 @@ outflow-tract view.
 | BlackBlood | — | 57 | 67 |
 
 (Validation/Test acquisition parameters — FOV, TR/TE, flip angle, matrix — are not
-published upstream, so `entry.extra` carries them only for the Training subjects.)
+published upstream, so `entry.extra["reconstruction_fov_mm"]`, `["acquisition_matrix"]`,
+`["repetition_time_ms"]`, `["echo_time_ms"]` and `["flip_angle_deg"]` are populated only
+for the Training subjects.)
 
 ---
 
@@ -142,11 +157,11 @@ published upstream, so `entry.extra` carries them only for the Training subjects
 
 | | |
 |---|---|
-| Anatomy | **cardiac**, multi-coil, Cartesian, **300 healthy volunteers** |
-| Sampling | **`_ks` k-space is UNDERSAMPLED** — regular k-t pattern, R≈3 — paired with **fully-sampled ACS `_calib`** files |
+| Anatomy | **heart**, multi-coil, Cartesian, **300 healthy volunteers** (`entry.cohort == :volunteer`) |
+| Sampling | **`_ks` k-space is UNDERSAMPLED** — regular k-t pattern, R≈3 (`entry.acceleration == 3.0`, `entry.undersampling_pattern == :uniform`) — paired with **fully-sampled ACS `_calib`** files (`entry.has_acs == true`) |
 | Trajectory | Cartesian |
 | Vendor / field | Siemens, 3 T |
-| Coils | **30 physical channels retained** (no SVD compression); `entry.coils` is `nothing`, the count comes from the data |
+| Coils | **30 physical channels retained** (no SVD compression); `entry.receiver_channels == 30` |
 | File format | MATLAB **v7.3 `.mat`** (variable `Recon_ks` for imaging, `Calib` for ACS) → converted to cached Cartesian ISMRMRD on first load |
 | Access | **free Synapse account** (no challenge registration); split `.tar.gz` archives, one continuous gzip stream, random-access via a committed **zran** checkpoint index |
 
@@ -155,17 +170,17 @@ zero-fill pattern of `Recon_ks`, so the resulting `RawAcquisitionData` is correc
 marked undersampled. A plain inverse FFT **aliases**; an artifact-free image needs
 parallel imaging (ESPIRiT / CG-SENSE) using the paired ACS. The ACS lines are written
 into the same ISMRMRD file, flagged `ACQ_IS_PARALLEL_CALIBRATION` and centred in the
-phase-encode extent; the calib file id is in `entry.extra["calib_id"]` /
-`entry.extra["calib_path"]`.
+phase-encode extent; the calib file's coordinates are in `entry.locator["calib_path"]`
+(a transport detail, not DICOM metadata — kept out of `entry.extra`).
 
-**Modalities** — every subject has all four:
+**Series** — every subject has all four:
 
-| `entry.extra["modality"]` | Files | Contents |
-|---|---|---|
-| Cine SAX | `cine_sax_ks` + `cine_sax_calib` | short-axis balanced-SSFP cine stack |
-| Cine LAX | `cine_lax_ks` + `cine_lax_calib` | long-axis cine (2ch/3ch/4ch on the slice axis) |
-| T1map | `t1map_ks` + `t1map_calib` | inversion-time series → per-pixel T1 |
-| T2map | `t2map_ks` + `t2map_calib` | T2-prep echo-time series → per-pixel T2 |
+| `modality` column | `contrast` | `orientation` | `quantitative` | Contents |
+|---|---|---|---|---|
+| Cine SAX (`cine_sax_ks` + `_calib`) | `:mixed` | `:short_axis` | `false` | short-axis balanced-SSFP cine stack |
+| Cine LAX (`cine_lax_ks` + `_calib`) | `:mixed` | `:long_axis` | `false` | long-axis cine (2ch/3ch/4ch on the slice axis) |
+| T1map (`t1map_ks` + `_calib`) | `:t1` | `:short_axis` | `true` | inversion-time series → per-pixel T1 |
+| T2map (`t2map_ks` + `_calib`) | `:t2` | `:short_axis` | `true` | T2-prep echo-time series → per-pixel T2 |
 
 **Sets** (committed member maps `data/cmrxrecon300_<set>_map.csv`; each catalog entry
 pairs one `_ks` file with its `_calib` file). Counts below are **entries** (i.e.
@@ -189,10 +204,10 @@ member maps, so `refresh_index` has nothing to fetch and simply reports them.
 
 | | |
 |---|---|
-| Anatomy | **vocal tract** (mid-sagittal), real-time speech production |
-| Sampling | non-Cartesian; a single spiral frame is undersampled, the raw file holds the full time series (`entry.fully_sampled` is left unasserted) |
+| Anatomy | **pharynx/larynx** (`entry.anatomy == :pharynx_larynx`, "vocal tract"), sagittal (`entry.orientation == :sagittal`), real-time speech production |
+| Sampling | non-Cartesian; the raw file holds all **13 spiral interleaves**, which together fulfil the Nyquist rate (Lim et al. 2021) — `entry.fully_sampled == true` |
 | Trajectory | **spiral** — 13-interleaf spiral-out spoiled GRE (`entry.trajectory == :spiral`) |
-| Vendor / field | **GE Signa Excite, 1.5 T**, custom **8-channel** upper-airway array |
+| Vendor / field | **GE Signa Excite, 1.5 T**, custom **8-channel** upper-airway array (`entry.receiver_channels == 8`) |
 | File format | **MRD / ISMRMRD `.h5`** already — loads directly, **no conversion**. Stores spiral k-space samples **plus the k-space trajectory and density-compensation tables** |
 | Access | figshare `dataset.zip` (~570 GB, CC-BY, no account); one `.h5` member pulled by ZIP range request |
 
@@ -201,12 +216,12 @@ member maps, so `refresh_index` has nothing to fetch and simply reports them.
 non-Cartesian `AcquisitionData` (with the trajectory + density compensation) — an
 inverse FFT is not applicable.
 
-**What is cataloged.** Only the **`2drt`** (2-D real-time) mid-sagittal vocal-tract raw
-k-space. Each entry is one *subject × stimulus × repetition*; ids look like
-`sub001/2drt/01_vcv1_r1`. Committed map: `data/usc_speech_map.csv`, **75 subjects**,
-2371 files.
+**What is cataloged.** Only the **`2drt`** (2-D real-time) sagittal pharynx/larynx raw
+k-space. Each entry is one *subject × stimulus × repetition* (`entry.subject_id`,
+`entry.repetition`); ids look like `sub001/2drt/01_vcv1_r1`. Committed map:
+`data/usc_speech_map.csv`, **75 subjects**, 2371 files.
 
-**Stimuli** (`entry.extra["stimulus"]`) — 21 per subject:
+**Stimuli** (`entry.extra["protocol_name"]`) — 21 per subject:
 
 | Stimulus | Content |
 |---|---|
@@ -229,7 +244,7 @@ k-space. Each entry is one *subject × stimulus × repetition*; ids look like
 | Anatomy | **brain** |
 | Sampling | **fully-sampled Cartesian** (one repetition per file) → plain inverse FFT reconstructs it, no parallel imaging needed |
 | Trajectory | Cartesian |
-| Vendor / field | unnamed **0.3 T** whole-body scanner, **4-channel** head coil, **183 volunteers** |
+| Vendor / field | **"Oper-0.3" (Ningbo Xingaoyi), 0.3 T** whole-body scanner, **4-channel** head coil, **183 volunteers** |
 | File format | **fastMRI HDF5 layout** (`kspace` / `reconstruction_rss` / `ismrmrd_header`) → converted to cached Cartesian ISMRMRD on first load |
 | Access | Zenodo ZIPs (CC-BY, no account); one `.h5` member pulled by ZIP range request |
 
@@ -239,20 +254,22 @@ reversed and the loader permutes to canonical `(kx, ky, coils, slices, 1)`.
 converter). Multi-repetition data is the point of M4Raw: averaging or learning across
 repetitions to overcome the low SNR of 0.3 T.
 
-**Contrasts** (`entry.extra["contrast"]`, with `repetition` `01`, `02`, …) and file
-counts in the committed map (`data/m4raw_map.csv`, 2030 files):
+**Contrasts** (`entry.contrast`/`entry.sequence`, with `entry.repetition` `1`, `2`, …) and
+file counts in the committed map (`data/m4raw_map.csv`, 2030 files):
 
-| Contrast | Files | Notes |
-|---|--:|---|
-| T1w (TSE) | 624 | `contrast == "T1"` |
-| T2w (TSE) | 624 | `contrast == "T2"` |
-| FLAIR | 416 | `contrast == "FLAIR"` |
-| T1 GRE | 366 | `contrast == "GRE"`; separate archive (`M4RawV1.5_gre_data.zip`) |
+| Contrast | Files | `entry.contrast` | `entry.sequence` |
+|---|--:|---|---|
+| T1w (TSE) | 624 | `:t1` | `"turbo spin echo"` |
+| T2w (TSE) | 624 | `:t2` | `"turbo spin echo"` |
+| FLAIR | 416 | `:fluid_attenuated` | `"turbo spin echo (inversion-recovery prepared)"` |
+| T1 GRE ¹ | 366 | `:t1` | `"spoiled gradient echo"`; separate archive (`M4RawV1.5_gre_data.zip`) |
 
-Up to six repetitions per study × contrast (`entry.extra["repetition"]` `1`–`6`).
+¹ GRE's weighting is carried over from the pre-refactor label and is not independently
+confirmed against the M4Raw paper's sequence table.
 
-**Sets** (`entry.extra["set"]`): `multicoil_train` (1024), `multicoil_val` (240),
-`multicoil_test` (400), `gre` (366). All splits are fully sampled.
+**Sets** (`entry.split`): `:train` (1024), `:val` (240), `:test` (400); the GRE archive
+carries no train/val/test split (`entry.split === nothing`). All splits are fully
+sampled.
 
 ---
 
@@ -278,12 +295,22 @@ non-zero k-space energy.
 
 ### Per-anatomy contents (committed map `data/fastmri_map.csv`)
 
+The map's `series_variant` column is the archive filename's middle token — never a coil
+count: `singlecoil`/`multicoil` for knee/brain (→ `entry.coil_data`), or the sequence
+type `T2`/`DIFF` for prostate (→ `entry.contrast`/`entry.sequence`).
+
 | Anatomy | Coil format | Trajectory | Field | Fully sampled | Notes |
 |---|---|---|---|---|---|
-| **knee** | singlecoil **and** multicoil (~15 coils) | Cartesian | 1.5 T / 3 T (in ISMRMRD header) | train/val yes, test masked | coronal PD and PD-fat-sat, per fastMRI protocol; the singlecoil files are emulated from the multicoil ones — same scans |
-| **brain** | multicoil (~4–20 coils) | Cartesian | header | train/val yes, test masked | axial T1 / T1-pre / T1-post / T2 / FLAIR (contrast in the file name, e.g. `file_brain_AXT1POST_…`) |
-| **prostate** | multicoil | Cartesian | 3 T | **no** (highly accelerated / aliased) | two sequence types in `entry.extra["sequence"]`: **T2** and **DIFF** (diffusion); `entry.fully_sampled == false` |
-| **breast** | multicoil | **radial** (`entry.trajectory == :radial`, golden-angle) | 3 T | — | `entry.is3D == true`; stored `(slices, coils, kx, ky, 2)` real/imag Float64; large (~4.5 GB per file) |
+| **knee** | singlecoil **and** multicoil; `entry.receiver_channels` unset (varies per file), `entry.coil_data == :derived` for the emulated singlecoil files | Cartesian | 3 T nominal (exact value in ISMRMRD header) | train/val yes, **test masked** | `entry.contrast == :proton_density`, `entry.orientation == :coronal`, `entry.sequence == "fast spin echo"`, `entry.vendor == :siemens` |
+| **brain** | multicoil | Cartesian | header | train/val yes, **test masked** | `entry.orientation == :axial`; `entry.contrast` from the file name (`AXT1`/`AXT1PRE` → `:t1` `contrast_agent=false`, `AXT1POST` → `:t1` `contrast_agent=true`, `AXT2` → `:t2`, `AXFLAIR` → `:fluid_attenuated`) |
+| **prostate** | multicoil | Cartesian | 3 T | **no** (highly accelerated / aliased; `entry.fully_sampled == false` regardless of split) | `entry.contrast`/`entry.sequence`: T2 → `:t2`/`"turbo spin echo"`, DIFF → `:diffusion`/`"echo-planar imaging"` |
+| **breast** | multicoil, `entry.receiver_channels == 16` | **golden-angle radial** (`entry.trajectory == :goldenangle`, `entry.acceleration ≈ 2.8`) | 3 T, `entry.scanner_model == "Siemens MAGNETOM TimTrio"` | **no** | `entry.acquisition_dim == 3`; stored `(slices, coils, kx, ky, 2)` real/imag Float64; large (~4.5 GB per file); `entry.sequence == "radial VIBE (stack-of-stars)"`, `entry.partial_fourier == true` |
+
+**Test-split sampling (bug fix).** Knee and brain `test`-split files are prospectively
+undersampled for the challenge (they ship a `mask`); only train/val is genuinely fully
+sampled. `entry.fully_sampled` reflects this per-file (`split !== :test`), not just
+per-anatomy — a change from the pre-refactor catalog, which incorrectly marked every
+knee/brain `test` entry as fully sampled regardless of split.
 
 **File counts:**
 
@@ -307,9 +334,9 @@ fully-sampled archives.)
 | Source | Anatomy | Sampling | Trajectory | Field (T) | Native format | Recon |
 |---|---|---|---|---|---|---|
 | `MRIDATA` | knee / brain (3-D) | full | Cartesian | 1.5 / 3 | ISMRMRD | direct FFT |
-| `OCMR_SOURCE` | cardiac cine | full **+** undersampled | Cartesian | 0.55 / 1.5 / 3 | ISMRMRD | direct (fs) / PI (us) |
-| `CMRXRECON2024` | cardiac (6 modalities) | full | Cartesian | 3 | `.mat` → ISMRMRD | direct FFT |
-| `CMRXRECON300` | cardiac (cine + T1/T2 map) | **undersampled** + ACS | Cartesian | 3 | `.mat` → ISMRMRD | **parallel imaging** |
-| `USC_SPEECH` | vocal tract (rt speech) | non-Cartesian | **spiral** | 1.5 | MRD/ISMRMRD | non-Cartesian |
+| `OCMR_SOURCE` | heart, cine | full **+** undersampled | Cartesian | 0.55 / 1.5 / 3 | ISMRMRD | direct (fs) / PI (us) |
+| `CMRXRECON2024` | heart / aorta (6 series) | full | Cartesian | 3 | `.mat` → ISMRMRD | direct FFT |
+| `CMRXRECON300` | heart (cine + T1/T2 map) | **undersampled** + ACS | Cartesian | 3 | `.mat` → ISMRMRD | **parallel imaging** |
+| `USC_SPEECH` | pharynx/larynx (rt speech) | non-Cartesian, fully sampled | **spiral** | 1.5 | MRD/ISMRMRD | non-Cartesian |
 | `M4RAW` | brain (multi-contrast/rep) | full | Cartesian | **0.3** | fastMRI `.h5` → ISMRMRD | direct FFT |
-| `FASTMRI` | knee / brain / prostate / breast | full (prostate: no) | Cartesian (breast: radial) | 1.5 / 3 | fastMRI `.h5` → ISMRMRD | direct FFT / PI |
+| `FASTMRI` | knee / brain / prostate / breast | full for train/val; test/prostate/breast: no | Cartesian (breast: golden-angle radial) | 1.5 / 3 | fastMRI `.h5` → ISMRMRD | direct FFT / PI |

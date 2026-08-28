@@ -41,9 +41,9 @@ end
         @test e.source === FASTMRI
         @test e.trajectory === :cartesian
         @test !isempty(e.id)
-        @test haskey(e.extra, "tar_data_offset")
-        @test haskey(e.extra, "file_size")
-        @test haskey(e.extra, "archive")
+        @test haskey(e.locator, "tar_data_offset")
+        @test haskey(e.locator, "file_size")
+        @test haskey(e.locator, "archive")
     end
 end
 

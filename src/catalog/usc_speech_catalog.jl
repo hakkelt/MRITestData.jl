@@ -42,31 +42,49 @@ function _usc_speech_entry(row, col)
     (span === nothing || isempty(file_id)) && return nothing
 
     subject = _csv_cell_str(row, col, "subject")
+    stimulus = _csv_cell_str(row, col, "stimulus")
+    repetition = _csv_cell_int(row, col, "repetition")
 
     id = _usc_path_to_id(path)
     label = string("USC Speech ", isempty(subject) ? first(split(id, '/')) : subject, " — ", last(split(id, '/')))
 
-    extra = _zip_span_extra(span)
-    extra["path"] = path    # full archive path, for reference
-    extra["file_id"] = file_id
-    _put_columns!(extra, row, col, _csv_cell_str, ("subject", "modality", "stimulus", "repetition"))
+    locator = _zip_span_locator(span)
+    locator["path"] = path    # full archive path, for reference
+    locator["file_id"] = file_id
+
+    extra = Dict{String, Any}()
+    _put_optional!(extra, "protocol_name", stimulus)
+    extra["repetition_time_ms"] = 6.004
+    extra["echo_time_ms"] = 0.8
+    extra["flip_angle_deg"] = 15.0
+    extra["reconstruction_fov_mm"] = (200.0, 200.0)
+    extra["acquisition_matrix"] = (84, 84)
+    extra["slice_thickness_mm"] = 6.0
 
     return DatasetEntry(;
         source = USC_SPEECH,
         id = id,
         name = label,
-        anatomy = :vocal_tract,
+        subject_id = isempty(subject) ? nothing : subject,
+        cohort = :volunteer,
+        repetition = repetition,
+        anatomy = :pharynx_larynx,
+        orientation = :sagittal,
+        sequence = "spoiled gradient echo (13-interleaf spiral-out)",
+        echo_type = :gradient,
         vendor = :ge,
+        scanner_model = "GE Signa Excite",
         field_strength = 1.5,
+        receiver_channels = 8,
         trajectory = :spiral,
-        coils = 8,
-        # A single 13-interleaf spiral frame is undersampled; the raw file holds the
-        # full acquisition. Leave the per-frame sampling status unasserted.
-        fully_sampled = nothing,
-        is3D = false,
+        # The 13 spiral interleaves, collected together, fulfil the Nyquist sampling rate
+        # (Lim et al., Scientific Data 2021 — plan §12); the raw file holds all 13.
+        fully_sampled = true,
+        acquisition_dim = 2,
         approx_size_bytes = span.uncompressed_size,
         url = "",
         extra = extra,
+        locator = locator,
     )
 end
 
@@ -78,3 +96,13 @@ _usc_speech_entries(path::AbstractString) = _parse_offset_map(path, _usc_speech_
 function _catalog_entries(s::USCSpeech; offline::Bool = false)
     return _cached_index_entries(ensure_index(s; offline = offline), _usc_speech_entries)
 end
+
+extra_schema(::USCSpeech) = Dict(
+    "protocol_name" => "the speech stimulus/task name, from the archive path — Protocol Name (0018,1030)",
+    "repetition_time_ms" => "Repetition Time (0018,0080), ms — protocol constant",
+    "echo_time_ms" => "Echo Time (0018,0081), ms — protocol constant",
+    "flip_angle_deg" => "Flip Angle (0018,1314), degrees — protocol constant",
+    "reconstruction_fov_mm" => "(fov_x, fov_y) — Reconstruction FOV (0018,9317), mm — protocol constant",
+    "acquisition_matrix" => "(nx, ny) — Acquisition Matrix (0018,1310) — protocol constant",
+    "slice_thickness_mm" => "protocol constant",
+)

@@ -9,16 +9,16 @@
 # mridata.org page and fill in what you know.
 #
 # NOTE: curated entries are always surfaced even when a live index is available
-# (the live scrape has no size metadata). Keep the is3D flag accurate — the test
-# suite prefers 2D entries for reconstruction.
+# (the live scrape has no size metadata). Keep `acquisition_dim` accurate — the
+# test suite prefers 2D (acquisition_dim = 2) entries for reconstruction.
 
 [[dataset]]
 id = "9270505a-8d77-4e43-ac43-0d9910b81510"
 name = "Fully-sampled 2D Cartesian brain/body (15 coils, 41 slices)"
 trajectory = "cartesian"
-coils = 15
+receiver_channels = 15
 fully_sampled = true
-is3D = false
+acquisition_dim = 2
 approx_size_bytes = 1372000000
 
 [[dataset]]
@@ -28,9 +28,9 @@ anatomy = "knee"
 vendor = "ge"
 field_strength = 3.0
 trajectory = "cartesian"
-coils = 8
+receiver_channels = 8
 fully_sampled = true
-is3D = true
+acquisition_dim = 3
 approx_size_bytes = 1500000000
 
 [[dataset]]
@@ -40,7 +40,7 @@ anatomy = "knee"
 vendor = "ge"
 field_strength = 3.0
 trajectory = "cartesian"
-coils = 8
+receiver_channels = 8
 fully_sampled = true
-is3D = true
+acquisition_dim = 3
 approx_size_bytes = 1500000000

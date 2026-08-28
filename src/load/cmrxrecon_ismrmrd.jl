@@ -169,7 +169,7 @@ function _cmrxrecon_ismrmrd_path(e::DatasetEntry; derive_mask::Bool = false)
 
     d = load_mat(download_dataset(e))
 
-    if haskey(e.extra, "calib_data_offset") && !haskey(d, "Calib")
+    if haskey(e.locator, "calib_data_offset") && !haskey(d, "Calib")
         calib_e = DatasetEntry(;
             source = e.source,
             id = string(e.id, "_calib"),
@@ -178,18 +178,19 @@ function _cmrxrecon_ismrmrd_path(e::DatasetEntry; derive_mask::Bool = false)
             vendor = e.vendor,
             field_strength = e.field_strength,
             trajectory = e.trajectory,
-            coils = e.coils,
+            receiver_channels = e.receiver_channels,
+            coil_data = e.coil_data,
             fully_sampled = true,
-            is3D = e.is3D,
-            approx_size_bytes = e.extra["calib_size"],
+            acquisition_dim = e.acquisition_dim,
+            approx_size_bytes = e.locator["calib_size"],
             url = e.url,
-            extra = Dict{String, Any}(
-                "path" => e.extra["calib_path"],
-                "set" => e.extra["set"],
-                "data_offset" => e.extra["calib_data_offset"],
-                "size" => e.extra["calib_size"],
-                "mat_file" => replace(e.extra["mat_file"], r"_ks\.mat$" => "_calib.mat")
-            )
+            locator = Dict{String, Any}(
+                "path" => e.locator["calib_path"],
+                "set" => get(e.locator, "set", nothing),
+                "data_offset" => e.locator["calib_data_offset"],
+                "size" => e.locator["calib_size"],
+                "mat_file" => replace(e.locator["mat_file"], r"_ks\.mat$" => "_calib.mat"),
+            ),
         )
         calib_d = load_mat(download_dataset(calib_e))
         if haskey(calib_d, "Calib")
@@ -199,8 +200,8 @@ function _cmrxrecon_ismrmrd_path(e::DatasetEntry; derive_mask::Bool = false)
 
     k, calib_data = _cmrxrecon_kspace(d)
     mask = derive_mask ? _cmrxrecon_sampling_mask(k) : trues(size(k, 1), size(k, 2))
-    fov_x = get(e.extra, "fov_x", nothing)
-    fov_y = get(e.extra, "fov_y", nothing)
+    fov_x = get(e.extra, "reconstruction_fov_mm", (nothing, nothing))[1]
+    fov_y = get(e.extra, "reconstruction_fov_mm", (nothing, nothing))[2]
     fs = something(e.field_strength, 3.0)
     return _cmrxrecon_to_ismrmrd(k, mask, dest; fov_x = fov_x, fov_y = fov_y, field_strength_T = fs, calib_data = calib_data)
 end

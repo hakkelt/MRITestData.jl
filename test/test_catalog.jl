@@ -30,7 +30,7 @@
     @testset "ocmr catalog + filtering" begin
         all = list_datasets(OCMR_SOURCE; offline = true)
         @test !isempty(all)
-        @test all_of(e -> e.anatomy === :cardiac, all)
+        @test all_of(e -> e.anatomy === :heart, all)
         @test all_of(e -> startswith(e.url, "https://ocmr.s3.amazonaws.com/data/"), all)
 
         fs = list_datasets(OCMR_SOURCE; offline = true, fully_sampled = true)
@@ -160,8 +160,8 @@ end
     @test collect(keys(extra)) == ["c"]                # only "" and nothing are dropped
 end
 
-@testitem "catalog: ZipSpan round-trips through extra" begin
-    using MRITestData: ZipSpan, _zip_span_from_row, _zip_span_extra, _zip_span, DatasetEntry
+@testitem "catalog: ZipSpan round-trips through locator" begin
+    using MRITestData: ZipSpan, _zip_span_from_row, _zip_span_locator, _zip_span, DatasetEntry
 
     col = Dict(
         "start_off" => 1, "end_off" => 2, "lfh_size" => 3,
@@ -174,7 +174,7 @@ end
     @test _zip_span_from_row([100, 199, 30, 70, 512, ""], col) === nothing
     @test _zip_span_from_row([100, 199, 30, 70, "", 8], col) == ZipSpan(100, 199, 30, 70, nothing, 8)
 
-    e = DatasetEntry(; source = M4RAW, id = "x", name = "x", url = "", extra = _zip_span_extra(span))
+    e = DatasetEntry(; source = M4RAW, id = "x", name = "x", url = "", locator = _zip_span_locator(span))
     got = _zip_span(e)
     @test (got.start_off, got.end_off, got.lfh_size, got.compressed_size, got.compression) ==
         (100, 199, 30, 70, 8)
@@ -197,18 +197,18 @@ end
     e = first(list_datasets(OCMR_SOURCE; offline = true))
     # The dictionary form must agree with the keyword form — `query` uses the former to
     # avoid rebuilding the keyword tuple per entry.
-    for filters in (Dict(:anatomy => :cardiac), Dict(:anatomy => :knee), Dict(:vendor => missing))
+    for filters in (Dict(:anatomy => :heart), Dict(:anatomy => :knee), Dict(:vendor => missing))
         @test _matches(e, filters) == _matches(e; filters...)
     end
 
     # Whole-catalog behaviour: unknown-value selection is expressible, and the two
     # sentinels partition the catalog.
     every = list_datasets(FASTMRI; offline = true)
-    unset = list_datasets(FASTMRI; offline = true, coils = nothing)
-    known = list_datasets(FASTMRI; offline = true, coils = !isnothing)
-    @test length(list_datasets(FASTMRI; offline = true, coils = missing)) == length(every)
+    unset = list_datasets(FASTMRI; offline = true, receiver_channels = nothing)
+    known = list_datasets(FASTMRI; offline = true, receiver_channels = !isnothing)
+    @test length(list_datasets(FASTMRI; offline = true, receiver_channels = missing)) == length(every)
     @test length(unset) + length(known) == length(every)
-    @test all(e -> e.coils === nothing, unset)
+    @test all(e -> e.receiver_channels === nothing, unset)
 end
 
 @testitem "query: extra filters and text share the same sentinels" begin
@@ -219,7 +219,7 @@ end
 
     # `missing` (the default) and an explicit `missing` text filter are both no-ops.
     @test length(query(; sources = OCMR_SOURCE, offline = true, text = missing)) == length(base)
-    @test length(query(; sources = OCMR_SOURCE, offline = true, subject = missing)) == length(base)
+    @test length(query(; sources = OCMR_SOURCE, offline = true, cohort = missing)) == length(base)
 
     # An `extra` key the entry does not carry reads as `nothing`, so it is selectable.
     without = query(; sources = OCMR_SOURCE, offline = true, __no_such_key__ = nothing)

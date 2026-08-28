@@ -14,8 +14,10 @@
 # Map CSV schema:
 #   path, start_off, end_off, lfh_size, compressed_size, uncompressed_size, compression,
 #   archive, study, contrast, repetition, set
+#
+# Scanner: 0.3 T "Oper-0.3" (Ningbo Xingaoyi), four-channel head coil, 18 axial slices
+# (Lyu et al., Scientific Data 2023 — see docs/dev/taxonomy-refactor-plan.md §12).
 
-# Committed offset map shipped with the package.
 const _M4RAW_MAP_PATH = normpath(joinpath(@__DIR__, "..", "..", "data", "m4raw_map.csv"))
 _bundled_index_path(::M4Raw) = _M4RAW_MAP_PATH
 _is_static_index(::M4Raw) = true
@@ -30,6 +32,20 @@ function _m4raw_path_to_id(path::AbstractString, set::AbstractString)
     return string(folder, stem)
 end
 
+# T1/T2 are turbo spin echo; FLAIR adds an inversion-recovery prep; GRE is a spoiled
+# gradient echo. GRE's weighting is not explicitly stated in the M4Raw paper's sequence
+# table and is carried over from the pre-refactor label — unconfirmed (plan §13 ¹).
+function _m4raw_series(contrast_str::AbstractString)
+    contrast_str == "T1" && return (contrast = :t1, sequence = "turbo spin echo", echo_type = :spin)
+    contrast_str == "T2" && return (contrast = :t2, sequence = "turbo spin echo", echo_type = :spin)
+    contrast_str == "FLAIR" && return (
+        contrast = :fluid_attenuated, sequence = "turbo spin echo (inversion-recovery prepared)",
+        echo_type = :spin,
+    )
+    contrast_str == "GRE" && return (contrast = :t1, sequence = "spoiled gradient echo", echo_type = :gradient)
+    return (contrast = :unknown, sequence = nothing, echo_type = nothing)
+end
+
 function _m4raw_entry(row, col)
     path = _csv_cell_str(row, col, "path")
     isempty(path) && return nothing
@@ -39,34 +55,45 @@ function _m4raw_entry(row, col)
     archive = _csv_cell_str(row, col, "archive")
     (span === nothing || isempty(archive)) && return nothing
 
-    contrast = _csv_cell_str(row, col, "contrast")
+    contrast_str = _csv_cell_str(row, col, "contrast")
     set = _csv_cell_str(row, col, "set")
+    study = _csv_cell_str(row, col, "study")
+    repetition = _csv_cell_int(row, col, "repetition")
+    series = _m4raw_series(contrast_str)
 
     id = _m4raw_path_to_id(path, set)
-    label = string("M4Raw ", isempty(contrast) ? last(split(id, '/')) : contrast, " — ", last(split(id, '/')))
+    label = string("M4Raw ", isempty(contrast_str) ? last(split(id, '/')) : contrast_str, " — ", last(split(id, '/')))
 
-    extra = _zip_span_extra(span)
-    extra["path"] = path    # full archive path, for reference
-    extra["archive"] = archive
-    _put_columns!(extra, row, col, _csv_cell_str, ("study", "contrast", "repetition", "set"))
+    locator = _zip_span_locator(span)
+    locator["path"] = path    # full archive path, for reference
+    locator["archive"] = archive
 
     return DatasetEntry(;
         source = M4RAW,
         id = id,
         name = label,
-        anatomy = :brain,
-        # M4Raw was acquired on a 0.3 T whole-body system; the descriptor does not name a
-        # major vendor, so leave it unset rather than guess.
-        vendor = nothing,
+        subject_id = isempty(study) ? nothing : study,
+        cohort = :volunteer,
+        split = _normalize_split(set),
+        repetition = repetition,
+        vendor = :ningbo_xingaoyi,
+        scanner_model = "Oper-0.3",
         field_strength = 0.3,
+        receiver_channels = 4,
+        anatomy = :brain,
+        contrast = series.contrast,
+        orientation = :axial,
+        sequence = series.sequence,
+        echo_type = series.echo_type,
+        num_slices = 18,
         trajectory = :cartesian,
-        coils = 4,
         # Each member holds one fully-sampled multi-slice Cartesian acquisition.
         fully_sampled = true,
-        is3D = false,
+        file_format = :fastmri_h5,
         approx_size_bytes = span.uncompressed_size,
         url = "",
-        extra = extra,
+        extra = Dict{String, Any}(),
+        locator = locator,
     )
 end
 

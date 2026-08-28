@@ -39,7 +39,7 @@ end
 _m4raw_is_expiry(err) = err isa Downloads.RequestError && (err.response.status == 403 || err.response.status == 410)
 
 function _fetch_dataset(::M4Raw, e::DatasetEntry, dest::AbstractString; progress::Bool, verify::Bool)
-    archive = String(e.extra["archive"]::AbstractString)
+    archive = String(e.locator["archive"]::AbstractString)
     return _fetch_zip_member(
         e, dest, () -> _m4raw_resolve_url(archive), _m4raw_is_expiry; progress = progress,
     )

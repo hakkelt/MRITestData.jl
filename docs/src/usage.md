@@ -29,9 +29,14 @@ Filters match a [`DatasetEntry`](@ref) field by a scalar (`==`), a vector/tuple
 (membership), or a predicate function:
 
 ```julia
-list_datasets(MRIDATA; coils = c -> c !== nothing && c >= 8)
+list_datasets(MRIDATA; receiver_channels = c -> c !== nothing && c >= 8)
 list_datasets(OCMR_SOURCE; field_strength = (1.5, 3.0))
 ```
+
+Field names, value vocabularies and units follow the DICOM standard wherever DICOM has an
+attribute for the concept (e.g. `anatomy` is Body Part Examined, `contrast` is Acquisition
+Contrast); a handful of fields with no DICOM equivalent are documented extensions. See
+[Taxonomy](@ref) for the full mapping and the external references behind it.
 
 Many fields are optional, and `nothing` is their honest value when a source does not record
 one. `nothing` is therefore treated as a **value to match**, not a wildcard — use it to find
@@ -39,9 +44,9 @@ the entries where something is unknown. To not filter on a field at all, omit th
 pass `missing`:
 
 ```julia
-list_datasets(FASTMRI; coils = nothing)           # coil count not recorded
+list_datasets(FASTMRI; receiver_channels = nothing)   # channel count not recorded
 list_datasets(OCMR_SOURCE; fully_sampled = nothing)   # sampling status unknown
-list_datasets(MRIDATA; vendor = missing)          # no filter — same as omitting it
+list_datasets(MRIDATA; vendor = missing)              # no filter — same as omitting it
 ```
 
 ### Searching across sources
@@ -55,8 +60,8 @@ name, id, and string-valued `extra` fields:
 query(; anatomy = :knee, fully_sampled = true)        # every source
 query(; sources = OCMR_SOURCE, field_strength = (1.5, 3.0))
 query(; text = "prisma")                              # free-text
-query(; subject = "patient")                          # an OCMR `extra` field
-query(; subject = nothing)                            # entries carrying no `subject`
+query(; cohort = :patient)                            # patients, not volunteers
+query(; sources = OCMR_SOURCE, scanner_model = "Siemens MAGNETOM Sola")   # an OCMR `extra` field
 ```
 
 The `missing`/`nothing` distinction above applies to `extra` keys too: a key the entry does
@@ -189,8 +194,9 @@ raw   = load_raw(entry)              # downloads the .mat, converts, loads
 
 - All CMRxRecon k-space is Cartesian; each acquisition is stored as one ISMRMRD profile
   per phase-encode line, with temporal frames mapped to ISMRMRD contrasts.
-- Coils are SVD-compressed to 10 virtual channels (the physical element count is kept
-  in `entry.extra["hardware_coils"]`).
+- Coils are SVD-compressed to 10 virtual channels (`entry.receiver_channels`, with
+  `entry.coil_data == :derived`); the physical element count is kept in
+  `entry.extra["multi_coil_elements"]`.
 - CMRxRecon does not ship a field of view; a placeholder (matrix size in mm) is written,
   while the encoding/recon matrix size reflects the true dimensions.
 
@@ -229,7 +235,8 @@ archives is a maintainer task — see `scripts/index_cmrxrecon300.jl` and `scrip
 The USC SPAN 75-speaker dataset is the package's first **non-Cartesian** source: real-time
 speech production MRI acquired on a GE Signa Excite **1.5 T** scanner with an 8-channel
 upper-airway array using a **13-interleaf spiral-out** spoiled GRE. Only the **2drt**
-mid-sagittal vocal-tract raw k-space is cataloged. Unlike the CMRxRecon sources, the raw
+sagittal pharynx/larynx (vocal-tract) raw k-space is cataloged
+(`anatomy = :pharynx_larynx`, `orientation = :sagittal`). Unlike the CMRxRecon sources, the raw
 data already ships as vendor-agnostic **MRD/ISMRMRD `.h5`** — it stores the spiral k-space
 samples together with their trajectory (k-space coordinate) and density-compensation tables
 — so there is no `.mat`→ISMRMRD conversion: it flows straight through the default
@@ -334,8 +341,9 @@ without downloading them whole, using one of two strategies depending on the arc
   `scripts/index_fastmri_gz.jl` streams each archive once to capture a **zran checkpoint**
   (32 KiB dictionary + DEFLATE bit offset) at the block boundary just before each member.
   Checkpoints are written to `data/fastmri_zran/<archive_stem>.bin.gz`; member metadata is
-  appended to the same `data/fastmri_map.csv` (the `coils` column holds the sequence type —
-  `DIFF` or `T2` — for prostate). The runtime seeds a raw-inflate decoder from the nearest
+  appended to the same `data/fastmri_map.csv` (the `series_variant` column holds the
+  archive-name token — `singlecoil`/`multicoil`, or the sequence type `DIFF`/`T2` for
+  prostate — never a coil count). The runtime seeds a raw-inflate decoder from the nearest
   checkpoint and streams only the member's bytes via HTTP range requests.
 
 Both maps are static and committed; there is no upstream index to scrape. They must be
@@ -355,9 +363,11 @@ committing a populated map, the standard download + load workflow works with no 
 ### CMRxRecon data types
 
 Both CMRxRecon sources are cardiac, multi-coil, Cartesian k-space from Siemens 3 T
-scanners, but they span several acquisition *modalities* and *views*. The file name encodes
-them (e.g. `cine_sax_ks`, `t1map_ks`, `blackblood`); the modality is also surfaced in
-`entry.extra["modality"]`. Each acquisition is 5‑D `(kx, ky, coils, slices, frames)` — 4‑D
+scanners, but they span several acquisition *series* and *views*. The file name encodes
+them (e.g. `cine_sax_ks`, `t1map_ks`, `blackblood`); the series is decomposed onto
+`entry.contrast`, `entry.orientation`, `entry.sequence`, `entry.quantitative`,
+`entry.cardiac_sync`, `entry.phase_contrast` and `entry.blood_signal_nulling` — DICOM does
+not have one "modality" field for this (see [Taxonomy](@ref)). Each acquisition is 5‑D `(kx, ky, coils, slices, frames)` — 4‑D
 when there is no temporal/parametric axis (e.g. BlackBlood) — and loads as Cartesian
 ISMRMRD with the last axis mapped to ISMRMRD *contrasts*.
 
@@ -391,12 +401,14 @@ ISMRMRD with the last axis mapped to ISMRMRD *contrasts*.
   so it loads as a single-contrast Cartesian acquisition.
 
 CMRxRecon‑300 provides **Cine (SAX + LAX) and T1/T2 mapping** for all 300 subjects.
-CMRxRecon2024 adds **Tagging, Aorta, Flow2d and BlackBlood**. Filter by modality with, e.g.
+CMRxRecon2024 adds **Tagging, Aorta, Flow2d and BlackBlood**. Filter by contrast/orientation
+with, e.g.
 
 ```julia
-list_datasets(CMRXRECON2024; offline = true)                 # all modalities
-query(; sources = CMRXRECON2024, modality = "BlackBlood", offline = true)
-query(; sources = CMRXRECON300,  modality = "Cine SAX",   offline = true)
+list_datasets(CMRXRECON2024; offline = true)                                    # every series
+query(; sources = CMRXRECON2024, blood_signal_nulling = true, offline = true)   # BlackBlood
+query(; sources = CMRXRECON300, contrast = :mixed, orientation = :short_axis, offline = true)  # Cine SAX
+query(; sources = CMRXRECON2024, quantitative = true, contrast = :t1, offline = true)          # T1 mapping
 ```
 
 ### Copying a dataset to a custom location
@@ -479,7 +491,7 @@ In contrast, **CMRxRecon-300 is k-t undersampled** (here R≈3), so the *same* d
 shows the expected aliasing — the heart replicated and overlapped along the phase-encode
 direction. `load_raw` records the true sampling pattern, so this is faithfully represented;
 an artifact-free image requires parallel imaging (ESPIRiT/CG-SENSE) using the paired
-fully-sampled ACS `_calib` data (`entry.extra["calib_id"]`):
+fully-sampled ACS `_calib` data (`entry.locator["calib_path"]`):
 
 ![CMRxRecon-300 Cine (R≈3 undersampled, direct recon aliases)](assets/recon/cmrxrecon300_cine_sax.png)
 

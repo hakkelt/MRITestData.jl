@@ -144,7 +144,7 @@ function _fastmri_ismrmrd_path(e::DatasetEntry)
     end
 
     # Build ISMRMRD profiles with correct kspace_encode_step_1 values.
-    is_radial = e.trajectory === :radial
+    is_radial = e.trajectory in (:radial, :goldenangle)
     center = div(nx, 2)
     profiles = Profile[]
     counter = UInt32(0)
@@ -167,7 +167,7 @@ function _fastmri_ismrmrd_path(e::DatasetEntry)
     recon_nx = something(hdr.recon_nx, enc_nx)
     recon_ny = something(hdr.recon_ny, enc_ny)
 
-    if e.trajectory === :radial
+    if e.trajectory in (:radial, :goldenangle)
         # Radial datasets span a circle, so the encoded and recon spaces must be square
         # to prevent squishing the image (e.g. Breast has nx=640 samples, ny=288 spokes,
         # but the FOV should be 640x640).

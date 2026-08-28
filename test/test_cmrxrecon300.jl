@@ -12,43 +12,46 @@
         es = list_datasets(CMRXRECON300; offline = true)
         @test !isempty(es)
         @test es isa Vector{DatasetEntry}
-        @test all(e -> e.anatomy === :cardiac, es)
+        @test all(e -> e.anatomy === :heart, es)
         @test all(e -> e.vendor === :siemens, es)
         @test all(e -> e.trajectory === :cartesian, es)
         # Since _calib entries are merged into the main entry, they no longer appear separately.
         # IDs drop the _ks or _calib extension.
         @test all(e -> e.fully_sampled === false, es)
-        @test all(e -> haskey(e.extra, "calib_path"), es)
+        @test all(e -> e.acceleration == 3.0, es)
+        @test all(e -> e.cohort === :volunteer, es)
+        @test all(e -> haskey(e.locator, "calib_path"), es)
         @test all(e -> !endswith(e.id, ".mat"), es)   # ids drop the .mat extension
         @test all(e -> !endswith(e.id, "_ks"), es)
         @test all(e -> !endswith(e.id, "_calib"), es)
         @test all(e -> e.url == "", es)
         # every entry carries the coordinates the zran engine needs
-        @test all(e -> haskey(e.extra, "set"), es)
-        @test all(e -> haskey(e.extra, "data_offset"), es)
-        @test all(e -> haskey(e.extra, "size"), es)
-        @test all(e -> e.approx_size_bytes == e.extra["size"], es)
+        @test all(e -> haskey(e.locator, "set"), es)
+        @test all(e -> haskey(e.locator, "data_offset"), es)
+        @test all(e -> haskey(e.locator, "size"), es)
+        @test all(e -> e.approx_size_bytes == e.locator["size"], es)
     end
 
     @testset "DemoData members + metadata" begin
         es = list_datasets(CMRXRECON300; offline = true)
         ks = first(filter(e -> endswith(e.id, "t2map"), es))
-        @test get(ks.extra, "set", "") == "DemoData"
-        @test get(ks.extra, "subject", "") == "P001"
-        @test get(ks.extra, "modality", "") == "T2map"
-        @test ks.extra["data_offset"] isa Int && ks.extra["size"] isa Int
-        @test get(ks.extra, "mat_file", "") == "t2map_ks.mat"   # original filename retained
+        @test get(ks.locator, "set", "") == "DemoData"
+        @test ks.subject_id == "P001"
+        @test ks.contrast === :t2
+        @test ks.quantitative === true
+        @test ks.locator["data_offset"] isa Int && ks.locator["size"] isa Int
+        @test get(ks.locator, "mat_file", "") == "t2map_ks.mat"   # original filename retained
         # calibration members are merged
-        @test haskey(ks.extra, "calib_path")
-        @test haskey(ks.extra, "calib_data_offset")
-        @test haskey(ks.extra, "calib_size")
+        @test haskey(ks.locator, "calib_path")
+        @test haskey(ks.locator, "calib_data_offset")
+        @test haskey(ks.locator, "calib_size")
     end
 
     @testset "filtering + query" begin
-        t2 = query(; sources = CMRXRECON300, modality = "T2map", offline = true)
+        t2 = query(; sources = CMRXRECON300, contrast = :t2, offline = true)
         @test !isempty(t2)
-        @test all(e -> get(e.extra, "modality", nothing) == "T2map", t2)
-        @test !isempty(query(; sources = CMRXRECON300, text = "cine_sax", offline = true))
+        @test all(e -> e.contrast === :t2, t2)
+        @test !isempty(query(; sources = CMRXRECON300, text = "cine", offline = true))
     end
 
     @testset "cache file restores the .mat extension on the id" begin

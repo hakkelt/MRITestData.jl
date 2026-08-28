@@ -75,10 +75,10 @@
             source = OCMR_SOURCE,
             id = "pc_entry_1",
             name = "Precompile Entry 1",
-            anatomy = :cardiac,
+            anatomy = :heart,
             field_strength = 3.0,
             trajectory = :cartesian,
-            coils = 18,
+            receiver_channels = 18,
             fully_sampled = true,
             url = "https://example.com/pc1.h5",
         ),
@@ -89,7 +89,7 @@
             anatomy = :knee,
             field_strength = 1.5,
             trajectory = :radial,
-            coils = 8,
+            receiver_channels = 8,
             fully_sampled = false,
             approx_size_bytes = 1024,
             url = "https://example.com/pc2.h5",
@@ -179,13 +179,14 @@
     # Helper formatting used in _entry_row / _COLUMNS format callbacks.
     _ = _fmt_b0(3.0)
     _ = _fmt_b0(nothing)
-    _ = _fmt_coils(18)
-    _ = _fmt_coils(nothing)
-    _ = _fmt_coils("multi")
+    _ = _fmt_channels(18)
+    _ = _fmt_channels(nothing)
+    _ = _fmt_accel(2.8)
+    _ = _fmt_accel(nothing)
     _ = _fmt_sampling(true)
     _ = _fmt_sampling(false)
     _ = _fmt_sampling(nothing)
-    _ = _fmt_sampling("pseudo-random")
+    _ = _fmt_sampling("vista")
     _ = _fmt_size(1024)
     _ = _fmt_size(nothing)
     _ = _fmt_sym(:cartesian)

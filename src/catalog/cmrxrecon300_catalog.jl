@@ -18,14 +18,6 @@ _cmrx300_map_path(set::AbstractString) = joinpath(_CMRX300_MAP_DIR, "cmrxrecon30
 _is_static_index(::CMRxRecon300) = true
 _bundled_index_path(::CMRxRecon300) = _cmrx300_map_path("demo")
 
-# cine_lax_ks.mat / t1map_calib.mat → "k-space" vs "calibration" hint for the label.
-function _cmrx300_kind(matfile::AbstractString)
-    base = lowercase(matfile)
-    endswith(base, "_ks.mat") && return "k-space"
-    endswith(base, "_calib.mat") && return "calibration"
-    return ""
-end
-
 # The member file recorded by one map row: `matfile` falls back to the path's basename.
 _cmrx300_matfile(row, col, path) =
     something(_nonempty(_csv_cell_str(row, col, "matfile")), String(last(split(path, '/'))))
@@ -41,41 +33,59 @@ function _cmrx300_entry(row, col; base_id::String)
 
     subject = _csv_cell_str(row, col, "subject")
     modality = _csv_cell_str(row, col, "modality")
+    set = _csv_cell_str(row, col, "set")
+    matfile = _cmrx300_matfile(row, col, path)
 
     label = "CMRxRecon-300"
     isempty(modality) || (label = string(label, " ", modality))
     isempty(subject) || (label = string(label, " ", subject))
 
-    extra = Dict{String, Any}(
+    series = _cardiac_series(replace(modality, r"\.mat$"i => ""))
+
+    locator = Dict{String, Any}(
         "path" => path,
-        "set" => _csv_cell_str(row, col, "set"),
         "data_offset" => data_offset,
         "size" => size,
-        "mat_file" => _cmrx300_matfile(row, col, path),
+        "mat_file" => matfile,
     )
-    _put_columns!(extra, row, col, _csv_cell_str, ("subject", "modality"))
+    _put_optional!(locator, "set", set)
 
     return DatasetEntry(;
         source = CMRXRECON300,
         id = base_id,
         name = label,
-        anatomy = :cardiac,
+        subject_id = isempty(subject) ? nothing : subject,
+        split = _normalize_split(set),
+        cohort = :volunteer,
         vendor = :siemens,
         field_strength = 3.0,
+        receiver_channels = 30,
+        coil_data = :original,
+        anatomy = series.anatomy,
+        contrast = series.contrast,
+        orientation = series.orientation,
+        sequence = series.sequence,
+        quantitative = series.quantitative,
+        cardiac_sync = series.cardiac_sync,
+        phase_contrast = series.phase_contrast,
+        blood_signal_nulling = series.blood_signal_nulling,
         trajectory = :cartesian,
-        coils = nothing,
         fully_sampled = false,
-        is3D = false,
+        acceleration = 3.0,
+        undersampling_pattern = :uniform,
+        has_acs = true,
+        file_format = :matlab_v73,
         approx_size_bytes = size,
         url = "",
-        extra = extra,
+        extra = Dict{String, Any}(),
+        locator = locator,
     )
 end
 
 # Each acquisition is one or two rows — the undersampled `_ks` member and its fully-sampled
 # `_calib` ACS companion — which share a base id and become a single entry carrying the
-# calibration member's coordinates in `extra`. Entries are sorted by base id so the catalog
-# order does not depend on Dict iteration order.
+# calibration member's coordinates in `locator`. Entries are sorted by base id so the
+# catalog order does not depend on Dict iteration order.
 function _cmrx300_entries(path::AbstractString)
     parsed = _read_offset_map(path)
     parsed === nothing && return DatasetEntry[]
@@ -99,9 +109,9 @@ function _cmrx300_entries(path::AbstractString)
         e === nothing && continue
         if haskey(rows, "calib") && haskey(rows, "ks")
             calib_row = rows["calib"]
-            e.extra["calib_path"] = _csv_cell_str(calib_row, col, "path")
-            e.extra["calib_data_offset"] = _csv_cell_int(calib_row, col, "data_offset")
-            e.extra["calib_size"] = _csv_cell_int(calib_row, col, "size")
+            e.locator["calib_path"] = _csv_cell_str(calib_row, col, "path")
+            e.locator["calib_data_offset"] = _csv_cell_int(calib_row, col, "data_offset")
+            e.locator["calib_size"] = _csv_cell_int(calib_row, col, "size")
         end
         push!(entries, e)
     end

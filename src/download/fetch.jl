@@ -197,9 +197,9 @@ function _download_range_resolving(
     end
 end
 
-# Recover the member's ZIP coordinates from a catalog entry's `extra`.
+# Recover the member's ZIP coordinates from a catalog entry's `locator`.
 function _zip_span(e::DatasetEntry)
-    ex = e.extra
+    ex = e.locator
     return ZipSpan(
         Int(ex["start_off"]::Integer),
         Int(ex["end_off"]::Integer),

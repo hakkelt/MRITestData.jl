@@ -18,23 +18,23 @@
         @test all_of(e -> e.anatomy === :brain, es)
         @test all_of(e -> e.field_strength == 0.3, es)
         @test all_of(e -> e.trajectory === :cartesian, es)
-        @test all_of(e -> e.coils == 4, es)
+        @test all_of(e -> e.receiver_channels == 4, es)
         @test all_of(e -> e.fully_sampled === true, es)
-        @test all_of(e -> e.is3D === false, es)
+        @test all_of(e -> e.acquisition_dim == 2, es)
         @test all_of(e -> e.approx_size_bytes !== nothing, es)
         # ids are <set>/<study>_<contrast><rep> with no .h5 extension.
         @test all_of(e -> !endswith(e.id, ".h5"), es)
         @test all_of(e -> occursin('/', e.id), es)
         @test all_of(e -> e.url == "", es)
-        # ZIP range-extraction coordinates carried in extra.
+        # ZIP range-extraction coordinates carried in locator.
         for k in ("archive", "start_off", "end_off", "lfh_size", "compressed_size", "compression")
-            @test all_of(e -> haskey(e.extra, k), es)
+            @test all_of(e -> haskey(e.locator, k), es)
         end
         # byte spans are well-formed (end after start, header smaller than the span).
-        @test all_of(e -> e.extra["end_off"] > e.extra["start_off"], es)
-        @test all_of(e -> e.extra["lfh_size"] < (e.extra["end_off"] - e.extra["start_off"]), es)
+        @test all_of(e -> e.locator["end_off"] > e.locator["start_off"], es)
+        @test all_of(e -> e.locator["lfh_size"] < (e.locator["end_off"] - e.locator["start_off"]), es)
         # every archive name points at the Zenodo record's ZIPs.
-        @test all_of(e -> endswith(e.extra["archive"], ".zip"), es)
+        @test all_of(e -> endswith(e.locator["archive"], ".zip"), es)
     end
 
     @testset "id derivation drops the .h5 suffix and prefixes the set" begin
@@ -76,7 +76,7 @@ end
     @test !isempty(es)
     # Smallest member, pulled via Zenodo ZIP range-extraction + DEFLATE inflate, then
     # converted from fastMRI layout to a cached Cartesian ISMRMRD on first load.
-    sm = first(sort(es; by = e -> something(e.extra["compressed_size"], typemax(Int))))
+    sm = first(sort(es; by = e -> something(e.locator["compressed_size"], typemax(Int))))
     raw = load_raw(sm)
     @test !isempty(raw.profiles)
     # M4Raw is fully-sampled Cartesian with a 4-channel head coil.

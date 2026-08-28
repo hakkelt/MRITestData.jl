@@ -3,7 +3,17 @@
 # Backs the interactive browser in `browse.jl`.
 
 """
-    query(; sources = list_sources(), text = missing, offline = false, filters...)
+    extra_schema(source) -> Dict{String,String}
+
+The `extra` keys `source` may populate, each mapped to a one-line description. Declared
+beside each source's parser; feeds [`query`](@ref)'s keyword validation, the browser's
+details pane, and the generated docs table. Defaults to an empty `Dict` for a source that
+puts everything it knows into core fields.
+"""
+extra_schema(::AbstractSource) = Dict{String, String}()
+
+"""
+    query(; sources = list_sources(), text = missing, offline = false, strict = false, filters...)
         -> Vector{DatasetEntry}
 
 Search across one or several dataset sources and return the matching entries.
@@ -11,47 +21,57 @@ Search across one or several dataset sources and return the matching entries.
 This is the cross-source counterpart of [`list_datasets`](@ref): it queries every
 source in `sources` and concatenates the results, applying the same keyword
 `filters`. Unknown keywords (those that are not [`DatasetEntry`](@ref) fields) are
-matched against the per-source `extra` metadata, so you can filter on source-specific
-attributes such as `subject = "patient"` or `scanner_model = "Siemens MAGNETOM Sola"`.
+matched against the per-source `extra` metadata (see [`extra_schema`](@ref)), so you
+can filter on source-specific attributes such as `repetition_time_ms = t -> t < 10`
+or `scanner_model = "Siemens MAGNETOM Sola"`.
 
 # Keywords
 - `sources`: a single source or a collection of sources to search
   (default: all of [`list_sources`](@ref)).
 - `text`: a case-insensitive substring (or a predicate, or a `Regex`) matched against
-  the entry's `name`, `id`, and the string values in `extra`. `missing` (the default)
-  disables it.
+  the entry's `name`, `id`, and the string values in `extra` (never `locator`).
+  `missing` (the default) disables it.
 - `offline`: pass `true` to use only the committed fallback index (no network).
+- `strict`: pass `true` to `error` on a filter keyword that is neither a
+  [`DatasetEntry`](@ref) field nor in any queried source's `extra_schema` (a likely typo).
+  The default just `@warn`s and treats it as an always-empty `extra` filter.
 - `filters...`: per-field filters as in [`list_datasets`](@ref) / `_matches`. A
   filter value may be a scalar (`==`), a collection (`in`), a predicate, or `missing` for
   no filter. Keys that are not `DatasetEntry` fields are looked up in `extra`, where a key
   the entry does not carry reads as `nothing`.
 
 `nothing` is a value rather than a wildcard, so `fully_sampled = nothing` selects entries
-with unknown sampling and `subject = nothing` selects entries carrying no `subject` key.
+with unknown sampling and `cohort = nothing` selects entries carrying no cohort.
 
 # Examples
 ```julia
 query(; anatomy = :knee, fully_sampled = true)                 # every source
 query(; sources = OCMR_SOURCE, field_strength = (1.5, 3.0))
 query(; text = "prisma")                                       # free-text over name/id/extra
-query(; subject = "patient")                                   # an OCMR `extra` field
+query(; cohort = :patient)                                     # patients, not volunteers
 query(; field_strength = f -> f !== nothing && f >= 3.0)
-query(; coils = nothing)                                       # coil count not recorded
+query(; receiver_channels = nothing)                            # channel count not recorded
 ```
 """
 function query(;
         sources = list_sources(),
         text::Union{Missing, Nothing, AbstractString, Regex, Function} = missing,
         offline::Bool = false,
+        strict::Bool = false,
         kwargs...,
     )
     srcs = sources isa AbstractSource ? (sources,) : sources
     field_filters = Dict{Symbol, Any}()
     extra_filters = Dict{String, Any}()
+    known_extra_keys = Set{String}()
+    for s in srcs
+        union!(known_extra_keys, keys(extra_schema(s)))
+    end
     for (k, v) in kwargs
         if k in _DATASET_ENTRY_FIELDS
             field_filters[k] = v
         else
+            String(k) in known_extra_keys || _unknown_filter_keyword(k, strict)
             extra_filters[String(k)] = v
         end
     end
@@ -71,6 +91,13 @@ function query(;
         end
     end
     return out
+end
+
+function _unknown_filter_keyword(k::Symbol, strict::Bool)
+    msg = "query: $(repr(k)) is neither a DatasetEntry field nor a known extra key of the " *
+        "queried sources — probably a typo; it will match no entry"
+    strict ? error(msg) : @warn(msg)
+    return nothing
 end
 
 const _DATASET_ENTRY_FIELDS = Set(fieldnames(DatasetEntry))

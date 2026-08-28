@@ -300,9 +300,23 @@ function _normalize_vendor(s::AbstractString)
     return v
 end
 
-# Map mridata's anatomy label to our anatomy vocabulary (lowercased; multi-word
-# labels like "Fruits/Vegetables" are kept verbatim, lowercased).
-_normalize_anatomy(s::AbstractString) = lowercase(s)
+# Map mridata's anatomy label onto ANATOMIES. mridata.org's site lists dozens of anatomy
+# labels beyond this package's curated DICOM Body Part Examined subset (hip, shoulder,
+# spine, phantom, "Fruits/Vegetables" test scans, ...); anything not recognised becomes
+# "other" (a real, queryable value — see taxonomy.jl) rather than failing validation.
+function _normalize_anatomy(s::AbstractString)
+    v = lowercase(s)
+    occursin("knee", v) && return "knee"
+    occursin("brain", v) && return "brain"
+    (occursin("cardiac", v) || occursin("heart", v)) && return "heart"
+    occursin("breast", v) && return "breast"
+    occursin("prostate", v) && return "prostate"
+    occursin("aorta", v) && return "aorta"
+    (occursin("neck", v) || occursin("larynx", v) || occursin("pharynx", v)) && return "pharynx_larynx"
+    occursin("chest", v) && return "chest"
+    occursin("abdomen", v) && return "abdomen"
+    return "other"
+end
 
 # "Yes"/"No" -> Bool; anything else (e.g. "Unknown") -> nothing.
 function _yesno(s::AbstractString)
@@ -325,9 +339,11 @@ end
 function _normalize_trajectory(s::AbstractString)
     v = lowercase(s)
     occursin("cartesian", v) && return "cartesian"
+    occursin("epi", v) && return "epi"
+    occursin("golden", v) && return "goldenangle"
     occursin("radial", v) && return "radial"
     occursin("spiral", v) && return "spiral"
-    return v
+    return "other"
 end
 
 # Parse a full card block into a metadata dict in the bundled-TOML shape. Returns
@@ -359,21 +375,21 @@ function _scrape_mridata_card(card::AbstractString)
     ch = _card_field(card, "Number of Channels")
     if ch !== nothing
         cm = match(r"\d+", ch)
-        cm === nothing || (d["coils"] = parse(Int, cm.match))
+        cm === nothing || (d["receiver_channels"] = parse(Int, cm.match))
     end
 
     traj = _card_field(card, "Trajectory")
     traj === nothing || (d["trajectory"] = _normalize_trajectory(traj))
 
-    # Matrix size drives is3D and provides a useful size hint. Some cards carry a
-    # placeholder "2 x 2 x 1" (metadata not populated upstream) — treat a degenerate
+    # Matrix size drives acquisition_dim and provides a useful size hint. Some cards carry
+    # a placeholder "2 x 2 x 1" (metadata not populated upstream) — treat a degenerate
     # matrix as "unknown" rather than asserting 2D.
     msz = _card_field(card, "Matrix Size")
     if msz !== nothing
         dims = _parse_matrix_size(msz)
         if length(dims) >= 3 && maximum(dims) > 2
             d["matrix_size"] = join(dims, "x")
-            d["is3D"] = dims[3] > 1
+            d["acquisition_dim"] = dims[3] > 1 ? 3 : 2
         end
     end
 
@@ -405,8 +421,8 @@ function _scrape_mridata_card(card::AbstractString)
 end
 
 # Keys written as native TOML types (not quoted strings).
-const _MRIDATA_NUMERIC_KEYS = ("approx_size_bytes", "coils", "field_strength")
-const _MRIDATA_BOOL_KEYS = ("fully_sampled", "is3D")
+const _MRIDATA_NUMERIC_KEYS = ("approx_size_bytes", "receiver_channels", "field_strength", "acquisition_dim")
+const _MRIDATA_BOOL_KEYS = ("fully_sampled",)
 # String-valued keys written first, in this order, so the file has a stable field layout.
 const _MRIDATA_STRING_KEYS = ("name", "anatomy", "vendor", "trajectory", "matrix_size")
 # Everything above; the remaining keys are emitted afterwards, sorted.

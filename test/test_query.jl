@@ -39,15 +39,23 @@
     end
 
     @testset "extra-field filters" begin
-        # OCMR decodes a `subject` extra field (volunteer/patient).
-        withsub = filter(e -> haskey(e.extra, "subject"), list_datasets(OCMR_SOURCE; offline = true))
-        if !isempty(withsub)
-            want = withsub[1].extra["subject"]
-            res = query(; sources = OCMR_SOURCE, subject = want, offline = true)
+        # OCMR decodes cohort (volunteer/patient) as a core field, not `extra`.
+        withcohort = filter(e -> e.cohort !== nothing, list_datasets(OCMR_SOURCE; offline = true))
+        if !isempty(withcohort)
+            want = withcohort[1].cohort
+            res = query(; sources = OCMR_SOURCE, cohort = want, offline = true)
             @test !isempty(res)
-            @test all_of(e -> get(e.extra, "subject", nothing) == want, res)
+            @test all_of(e -> e.cohort == want, res)
         end
-        # a non-existent extra key matches nothing
+        # OCMR's `extra["scanner_model"]` is a genuine extra key.
+        withmodel = filter(e -> haskey(e.extra, "scanner_model"), list_datasets(OCMR_SOURCE; offline = true))
+        if !isempty(withmodel)
+            want = withmodel[1].extra["scanner_model"]
+            res = query(; sources = OCMR_SOURCE, scanner_model = want, offline = true)
+            @test !isempty(res)
+            @test all_of(e -> get(e.extra, "scanner_model", nothing) == want, res)
+        end
+        # a non-existent extra key matches nothing (and warns — see the strict test below)
         @test isempty(query(; nonexistent_key_xyz = "zzz", offline = true))
     end
 
@@ -71,4 +79,16 @@
         @test _human_bytes(1_372_000_000) == "1.3GiB"
         @test _human_bytes(1024) == "1.0KiB"
     end
+end
+
+@testitem "query: unknown filter keyword validation" begin
+    using MRITestData
+
+    # The default just warns and treats the keyword as an always-empty extra filter.
+    @test isempty(query(; sources = OCMR_SOURCE, definitely_not_a_field = "x", offline = true))
+    # `strict = true` raises instead — catches a typo before it silently returns [].
+    @test_throws ErrorException query(; sources = OCMR_SOURCE, definitely_not_a_field = "x", offline = true, strict = true)
+    # A key in the source's extra_schema is never flagged, strict or not.
+    @test extra_schema(OCMR_SOURCE) isa Dict{String, String}
+    @test haskey(extra_schema(OCMR_SOURCE), "scanner_model")
 end

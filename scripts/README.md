@@ -379,7 +379,9 @@ simultaneously:
 
 Per-archive checkpoint indices are written to `data/fastmri_zran/<archive_stem>.bin.gz`;
 member metadata is appended to `data/fastmri_map.csv` (same schema as the xz entries, with
-`coils` holding the sequence type for prostate archives: `DIFF` or `T2`).
+`series_variant` holding the archive filename's middle token — `singlecoil`/`multicoil`
+for knee/brain, or the sequence type `DIFF`/`T2` for prostate archives — never a coil
+count).
 
 ```sh
 # Index prostate T2 archives (16 archives, ~34 GB each)
