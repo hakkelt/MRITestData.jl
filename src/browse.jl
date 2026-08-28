@@ -43,8 +43,39 @@ const _SIZE_COL = findfirst(c -> c.name == "Size", _COLUMNS)::Int
 # builds a BrowserModel before `__init__` has set `CACHE_DIR`.
 _fmt_cached(e::DatasetEntry) = isempty(CACHE_DIR[]) ? "" : (is_cached(e) ? "✓" : "")
 
-function _entry_row(i::Int, e::DatasetEntry)
-    return Any[
+# Any `extra` value stringified for display; `nothing`/absent reads as "?" like every
+# other cross-source cell.
+_fmt_extra_value(v) = v === nothing ? "?" : string(v)
+
+# ── Source-adaptive extra columns ──────────────────────────────────────────────
+#
+# When a browse session covers exactly one source, a couple of that source's most useful
+# `extra` keys (see `extra_schema`) are appended as real columns — sortable/filterable
+# like any other — instead of being reachable only through the details pane (`d`).
+# Sources whose useful metadata is already all in core fields (CMRxRecon300, M4Raw,
+# FastMRI) have nothing to add here and keep the base column set.
+_browse_highlights(::AbstractSource) = String[]
+_browse_highlights(::OCMR) = ["scanner_model"]
+_browse_highlights(::CMRxRecon2024) = ["repetition_time_ms", "echo_time_ms"]
+_browse_highlights(::USCSpeech) = ["protocol_name"]
+_browse_highlights(::MridataOrg) = ["protocol_name"]
+
+# The columns and highlight `extra` keys for a set of entries: the base set, plus that
+# source's highlights when every entry comes from the same source (only the keys its
+# `extra_schema` actually documents, so a stale hard-coded key can't slip through).
+function _source_columns(entries::Vector{DatasetEntry})
+    isempty(entries) && return _COLUMNS, String[]
+    src = entries[1].source
+    all(e -> e.source === src, entries) || return _COLUMNS, String[]
+    schema = extra_schema(src)
+    keys = filter(k -> haskey(schema, k), _browse_highlights(src))
+    isempty(keys) && return _COLUMNS, String[]
+    extra_cols = [PagedColumn(k; col_type = :text) for k in keys]
+    return vcat(_COLUMNS, extra_cols), keys
+end
+
+function _entry_row(i::Int, e::DatasetEntry, highlight_keys::Vector{String} = String[])
+    row = Any[
         i,
         source_name(e.source),
         e.id,
@@ -60,18 +91,23 @@ function _entry_row(i::Int, e::DatasetEntry)
         _fmt_cached(e),
         e.approx_size_bytes,
     ]
+    for k in highlight_keys
+        push!(row, _fmt_extra_value(get(e.extra, k, nothing)))
+    end
+    return row
 end
 
 function _build_provider(entries::Vector{DatasetEntry})
-    ncols = length(_COLUMNS)
+    columns, highlight_keys = _source_columns(entries)
+    ncols = length(columns)
     data = [Vector{Any}(undef, length(entries)) for _ in 1:ncols]
     for (i, e) in enumerate(entries)
-        row = _entry_row(i, e)
+        row = _entry_row(i, e, highlight_keys)
         for c in 1:ncols
             data[c][i] = row[c]
         end
     end
-    return InMemoryPagedProvider(_COLUMNS, data)
+    return InMemoryPagedProvider(columns, data), columns
 end
 
 # A page request for an arbitrary page of `pdt`, carrying its current sort, filters and
@@ -102,6 +138,8 @@ end
 #   :confirm  — download confirmation overlay (y/n)
 #   :token    — Synapse PAT input overlay (shown for CMRxRecon2024 when no token is set)
 #   :path     — destination path input overlay
+#   :details  — every `extra` key of the selected entry, with its extra_schema
+#               description and query keyword
 """
     DownloadRequest(entry, dest)
 
@@ -117,6 +155,8 @@ end
 mutable struct BrowserModel <: Model
     entries::Vector{DatasetEntry}
     pdt::PagedDataTable
+    columns::Vector{PagedColumn}  # base columns, plus this session's source-adaptive ones
+    size_col::Int                 # position of "Size" in `columns`; found once, not hard-coded
     stage::Symbol
     selected::Union{Nothing, DatasetEntry}
     path_input::TextInput
@@ -131,12 +171,15 @@ mutable struct BrowserModel <: Model
 end
 
 function BrowserModel(entries::Vector{DatasetEntry})
-    provider = _build_provider(entries)
+    provider, columns = _build_provider(entries)
     pdt = PagedDataTable(provider; page_size = 20, page_sizes = Int[20, 30, 50, 100])
     tq = TaskQueue()
+    size_col = findfirst(c -> c.name == "Size", columns)::Int
     return BrowserModel(
         entries,
         pdt,
+        columns,
+        size_col,
         :browse,
         nothing,
         TextInput(; label = "Path: ", focused = true),
@@ -242,6 +285,7 @@ function update!(m::BrowserModel, evt::KeyEvent)
     m.stage === :confirm && return _update_confirm!(m, evt)
     m.stage === :token && return _update_token!(m, evt)
     m.stage === :path && return _update_path!(m, evt)
+    m.stage === :details && return _update_details!(m, evt)
     return nothing
 end
 
@@ -261,7 +305,7 @@ function update!(m::BrowserModel, evt::TaskEvent{Tuple{Int, Vector{Int}, Dict{St
     # column is patched in place. Replacing the provider would re-box every cell of every
     # column and reset page/sort/filter/search, which would then have to be saved and
     # restored around it.
-    size_column = m.pdt.provider.data[_SIZE_COL]
+    size_column = m.pdt.provider.data[m.size_col]
     changed = false
     for i in fetch_indices
         (i < 1 || i > length(m.entries)) && continue
@@ -299,11 +343,30 @@ function _update_browse!(m::BrowserModel, evt::KeyEvent)
         return nothing
     end
 
+    if evt.key == :char && evt.char == 'd'
+        e = _selected_entry(m)
+        if e !== nothing
+            m.selected = e
+            m.stage = :details
+        end
+        return nothing
+    end
+
     if (evt.key == :char && evt.char == 'q') || evt.key == :escape
         return _quit!(m)
     end
 
     handle_key!(pdt, evt)
+    return nothing
+end
+
+function _update_details!(m::BrowserModel, evt::KeyEvent)
+    if evt.key == :escape || (evt.key == :char && evt.char == 'd')
+        m.selected = nothing
+        m.stage = :browse
+    elseif evt.key == :char && (evt.char == 'q' || evt.char == 'Q')
+        return _quit!(m)
+    end
     return nothing
 end
 
@@ -376,6 +439,8 @@ const _HELP_BAR = StatusBar(
         Span("sort  ", tstyle(:text_dim)),
         Span("Enter ", tstyle(:accent)),
         Span("download  ", tstyle(:text_dim)),
+        Span("d ", tstyle(:accent)),
+        Span("details  ", tstyle(:text_dim)),
         Span("q ", tstyle(:accent)),
         Span("quit", tstyle(:text_dim)),
     ],
@@ -399,6 +464,7 @@ function view(m::BrowserModel, f::Frame)
     m.stage === :confirm && _render_confirm!(m, area, buf)
     m.stage === :token && _render_token!(m, area, buf)
     m.stage === :path && _render_path!(m, area, buf)
+    m.stage === :details && _render_details!(m, area, buf)
     return nothing
 end
 
@@ -429,6 +495,34 @@ function _render_path!(m::BrowserModel, area::Rect, buf)
         width = 64,
         lines = [("Enter to confirm, Esc to go back:", tstyle(:text_dim))],
     )
+    return nothing
+end
+
+# Every `extra` key of the selected entry, with its `extra_schema` description and its
+# query keyword (`extra` keys and query keywords are the same string — see `query`) — the
+# details pane that makes `extra` filtering stop being guess-and-check.
+function _render_details!(m::BrowserModel, area::Rect, buf)
+    e = m.selected
+    e === nothing && return
+    schema = extra_schema(e.source)
+    lines = String[
+        "Name:   $(e.name)",
+        "Source: $(source_name(e.source))",
+        "ID:     $(e.id)",
+        "",
+    ]
+    if isempty(schema)
+        push!(lines, "(this source has no extra metadata beyond the core fields)")
+    else
+        push!(lines, "extra / query keyword              value")
+        for k in sort!(collect(keys(schema)))
+            push!(lines, "$(rpad(k, 32))$(_fmt_extra_value(get(e.extra, k, nothing)))")
+            push!(lines, "  $(schema[k])")
+        end
+    end
+    push!(lines, "")
+    push!(lines, "[Esc / d] back   [q] quit")
+    _render_modal!(area, buf, " Details ", lines)
     return nothing
 end
 
@@ -506,8 +600,14 @@ terminal, including from within the Julia REPL.
 - `/` global search across all columns
 - `f` open the per-column filter modal
 - `1`-`9` sort by that column (toggles ascending/descending)
+- `d` open the details pane for the highlighted dataset — every `extra` key it carries,
+  with its description and its `query`/`list_datasets` keyword (`Esc`/`d` closes it)
 - `Enter` select the highlighted dataset and start the download flow
 - `q` / `Esc` quit without downloading
+
+When `sources` narrows the session to a single source, a couple of that source's most
+useful `extra` fields (e.g. OCMR's `scanner_model`) are added as real columns —
+sortable/filterable like any other — on top of the base column set.
 
 After selecting a dataset you are asked to confirm (`y`/`n`) and to choose a
 destination path. The default is `<current directory>/<id>.h5`; press Enter to

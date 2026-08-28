@@ -165,6 +165,17 @@
     view(_pc_model, _pc_frame)
     update!(_pc_model, KeyEvent(:escape))
 
+    # :details stage — the extra-key pane, both the 'd' entry point from :browse and the
+    # render/escape/quit paths.
+    _pc_model.stage = :browse
+    update!(_pc_model, KeyEvent('d'))
+    view(_pc_model, _pc_frame)
+    update!(_pc_model, KeyEvent(:escape))
+    _pc_model.stage = :details
+    _pc_model.selected = _pc_entries[1]
+    update!(_pc_model, KeyEvent('q'))
+    _pc_model.quit = false
+
     # TaskEvent fallback handler (no-op path).
     _pc_model.quit = false
     _pc_model.stage = :browse

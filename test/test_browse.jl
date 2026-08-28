@@ -8,7 +8,7 @@
     @test !isempty(entries)
     n = length(entries)
 
-    provider = _build_provider(entries)
+    provider, columns = _build_provider(entries)
 
     @testset "column definitions" begin
         cols = column_defs(provider)
@@ -48,6 +48,66 @@
             @test occursin("mridata", lowercase(r[2]))
         end
     end
+end
+
+@testitem "Browse: source-adaptive extra columns (offline)" begin
+    using MRITestData
+    using MRITestData: _build_provider, _source_columns, _browse_highlights, BrowserModel
+    using Tachikoma.Paged: column_defs
+
+    # A single-source session gains that source's highlight columns.
+    ocmr_only = list_datasets(OCMR_SOURCE; offline = true)
+    cols, keys = _source_columns(ocmr_only)
+    @test keys == _browse_highlights(OCMR_SOURCE)
+    @test all(k -> any(c -> c.name == k, cols), keys)
+    @test length(cols) == 14 + length(keys)
+
+    provider, pcols = _build_provider(ocmr_only)
+    @test pcols == cols
+    @test column_defs(provider) == cols
+
+    m = BrowserModel(ocmr_only)
+    @test m.columns == cols
+    @test m.size_col == findfirst(c -> c.name == "Size", cols)
+
+    # A multi-source session (or one with no highlights, e.g. CMRxRecon-300) keeps the
+    # base 14 columns — no highlight leaks in from a source not actually present.
+    base_cols, base_keys = _source_columns(query(; offline = true))
+    @test isempty(base_keys)
+    @test length(base_cols) == 14
+    cmrx300_cols, cmrx300_keys = _source_columns(list_datasets(CMRXRECON300; offline = true))
+    @test isempty(cmrx300_keys)
+end
+
+@testitem "Browse: details pane (offline)" begin
+    using MRITestData
+    using MRITestData: BrowserModel, _update_browse!, _update_details!, DatasetEntry
+    using Tachikoma: KeyEvent
+
+    ocmr_only = list_datasets(OCMR_SOURCE; offline = true)
+    m = BrowserModel(ocmr_only)
+    m.pdt.selected = 1   # a valid row so `d` finds an entry to show
+
+    # 'd' from :browse opens the pane on the selected entry.
+    _update_browse!(m, KeyEvent('d'))
+    @test m.stage === :details
+    @test m.selected !== nothing
+
+    # Esc closes it without quitting; 'd' also closes it (toggle).
+    _update_details!(m, KeyEvent(:escape))
+    @test m.stage === :browse
+    @test m.selected === nothing
+
+    m.stage = :details
+    m.selected = ocmr_only[1]
+    _update_details!(m, KeyEvent('d'))
+    @test m.stage === :browse
+
+    # 'q' from :details quits like everywhere else.
+    m.stage = :details
+    m.selected = ocmr_only[1]
+    _update_details!(m, KeyEvent('q'))
+    @test m.quit
 end
 
 @testitem "Browse: sampling/header/token modal (offline)" begin

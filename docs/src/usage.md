@@ -85,8 +85,14 @@ Inside the browser:
 - **`/`** — global text search across all columns.
 - **`f`** — open the filter modal (per-column typed filters).
 - **`1`-`9`** — sort by that column (toggles ascending/descending).
+- **`d`** — open the details pane: every `extra` key the highlighted dataset carries,
+  with its description and its `query`/`list_datasets` keyword (`Esc`/`d` closes it).
 - **Enter** — select the highlighted dataset and start the download flow.
 - **`q` / Esc** — quit without downloading.
+
+Narrowing `run_browser(; sources = ...)` to a single source adds a couple of that
+source's most useful `extra` fields as real, sortable/filterable columns (e.g. OCMR gets
+a `scanner_model` column) — see [`run_browser`](@ref) for the full list.
 
 After selecting a dataset you are asked to confirm the download (`y`/`n`) and to
 choose a destination path. The default is `<current directory>/<id>.h5`; press
