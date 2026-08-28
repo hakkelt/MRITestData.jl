@@ -55,17 +55,21 @@ const _OCMR_SLICEMODE = Dict("ind" => "individual", "stk" => "stack")
 const _OCMR_FOV = Dict("ali" => "with aliasing", "noa" => "no aliasing")
 const _OCMR_SUBJECT = Dict("vol" => "volunteer", "pat" => "patient")
 
-_ocmr_cell(row, col, key) = _isempty_cell(row, get(col, key, 0)) ? nothing : strip(String(row[col[key]]))
+# A coded column, or `nothing` when the column is absent or the cell is blank.
+function _ocmr_cell(row, col, key)
+    s = _csv_cell_str(row, col, key)
+    return isempty(s) ? nothing : s
+end
 
 # Decode `code` via `table`, returning the verbatim code if unmapped.
 _ocmr_decode(table, code) = code === nothing ? nothing : get(table, code, code)
 
 function _ocmr_entry(row, col)
-    fname = strip(String(row[col["file name"]]))
+    fname = _csv_cell_str(row, col, "file name")
     isempty(fname) && return nothing
     stem = replace(fname, r"\.h5$" => "")
 
-    slices = _cell_int(row, get(col, "slices", 0))
+    slices = _csv_cell_int(row, col, "slices")
     scn = _ocmr_cell(row, col, "scn")
     scanner = scn === nothing ? nothing : get(_OCMR_SCANNER, scn, nothing)
 
@@ -80,15 +84,19 @@ function _ocmr_entry(row, col)
     fully === nothing && smp !== nothing && (fully = smp == "fs" ? true : smp == "pse" ? false : nothing)
 
     extra = Dict{String, Any}("file_name" => fname)
-    slices === nothing || (extra["slices"] = slices)
-    scanner === nothing || (extra["scanner_model"] = scanner.model)
-    _ocmr_put!(extra, "view", _ocmr_cell(row, col, "viw"))
-    _ocmr_put!(extra, "sampling", _ocmr_decode(_OCMR_SAMPLING, smp))
-    _ocmr_put!(extra, "echo", _ocmr_decode(_OCMR_ECHO, _ocmr_cell(row, col, "ech")))
-    _ocmr_put!(extra, "duration", _ocmr_decode(_OCMR_DURATION, _ocmr_cell(row, col, "dur")))
-    _ocmr_put!(extra, "slice_mode", _ocmr_decode(_OCMR_SLICEMODE, _ocmr_cell(row, col, "sli")))
-    _ocmr_put!(extra, "fov", _ocmr_decode(_OCMR_FOV, _ocmr_cell(row, col, "fov")))
-    _ocmr_put!(extra, "subject", _ocmr_decode(_OCMR_SUBJECT, _ocmr_cell(row, col, "sub")))
+    _put_optional!(extra, "slices", slices)
+    _put_optional!(extra, "scanner_model", scanner === nothing ? nothing : scanner.model)
+    _put_optional!(extra, "view", _ocmr_cell(row, col, "viw"))
+    _put_optional!(extra, "sampling", _ocmr_decode(_OCMR_SAMPLING, smp))
+    for (key, column, table) in (
+            ("echo", "ech", _OCMR_ECHO),
+            ("duration", "dur", _OCMR_DURATION),
+            ("slice_mode", "sli", _OCMR_SLICEMODE),
+            ("fov", "fov", _OCMR_FOV),
+            ("subject", "sub", _OCMR_SUBJECT),
+        )
+        _put_optional!(extra, key, _ocmr_decode(table, _ocmr_cell(row, col, column)))
+    end
 
     return DatasetEntry(;
         source = OCMR_SOURCE,
@@ -105,37 +113,17 @@ function _ocmr_entry(row, col)
     )
 end
 
-# Store a decoded value under `key` only when present (keeps `extra` keys meaningful).
-_ocmr_put!(extra, key, val) = val === nothing ? nothing : (extra[key] = val)
-
-# `readdlm` yields already-typed cells (Bool/Float64/String/SubString); these
-# helpers read a column defensively regardless of how a given cell was parsed.
-# A column index of 0 means "column absent".
-_isempty_cell(row, idx) = idx == 0 || (row[idx] isa AbstractString && isempty(strip(row[idx])))
-
-function _cell_int(row, idx)
-    _isempty_cell(row, idx) && return nothing
-    v = row[idx]
-    v isa Integer && return Int(v)
-    v isa Real && return round(Int, v)
-    return tryparse(Int, strip(String(v)))
-end
+_ocmr_entries(path::AbstractString) =
+    _parse_offset_map(path, _ocmr_entry; key_column = "file name")
 
 function _catalog_entries(s::OCMR; offline::Bool = false)
-    path = ensure_index(s; offline = offline)
-    isfile(path) || return DatasetEntry[]
-    data, header = readdlm(path, ','; header = true)
-    col = Dict(strip(String(h)) => i for (i, h) in enumerate(vec(header)))
-    haskey(col, "file name") || return DatasetEntry[]
-    entries = DatasetEntry[]
-    for r in axes(data, 1)
-        e = _ocmr_entry(data[r, :], col)
-        e === nothing || push!(entries, e)
-    end
+    entries = _cached_index_entries(ensure_index(s; offline = offline), _ocmr_entries)
     return merge_sizes(entries, s)
 end
 
 # OCMR ids are file stems; an unknown id is assumed to be a valid bucket file.
+_can_synthesize(::OCMR) = true
+
 function _synthesize_entry(::OCMR, id::String)
     fname = endswith(id, ".h5") ? id : id * ".h5"
     stem = replace(fname, r"\.h5$" => "")

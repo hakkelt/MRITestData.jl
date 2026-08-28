@@ -81,24 +81,6 @@ CC-BY — no account or token is required. The shared instance is [`M4RAW`](@ref
 """
 struct M4Raw <: AbstractSource end
 
-"""Shared [`MridataOrg`](@ref) source instance."""
-const MRIDATA = MridataOrg()
-
-"""Shared [`OCMR`](@ref) source instance."""
-const OCMR_SOURCE = OCMR()
-
-"""Shared [`CMRxRecon2024`](@ref) source instance."""
-const CMRXRECON2024 = CMRxRecon2024()
-
-"""Shared [`CMRxRecon300`](@ref) source instance."""
-const CMRXRECON300 = CMRxRecon300()
-
-"""Shared [`USCSpeech`](@ref) source instance."""
-const USC_SPEECH = USCSpeech()
-
-"""Shared [`M4Raw`](@ref) source instance."""
-const M4RAW = M4Raw()
-
 """
     FastMRI <: AbstractSource
 
@@ -120,6 +102,28 @@ via zran checkpoints (`data/fastmri_zran/`) seeded into a raw-inflate decoder. L
 Cartesian ISMRMRD on first load. The shared instance is [`FASTMRI`](@ref).
 """
 struct FastMRI <: AbstractSource end
+
+# ── Shared source instances ───────────────────────────────────────────────────────
+# One singleton per source type above; keep new sources appended to both this block and
+# `list_sources` below.
+
+"""Shared [`MridataOrg`](@ref) source instance."""
+const MRIDATA = MridataOrg()
+
+"""Shared [`OCMR`](@ref) source instance."""
+const OCMR_SOURCE = OCMR()
+
+"""Shared [`CMRxRecon2024`](@ref) source instance."""
+const CMRXRECON2024 = CMRxRecon2024()
+
+"""Shared [`CMRxRecon300`](@ref) source instance."""
+const CMRXRECON300 = CMRxRecon300()
+
+"""Shared [`USCSpeech`](@ref) source instance."""
+const USC_SPEECH = USCSpeech()
+
+"""Shared [`M4Raw`](@ref) source instance."""
+const M4RAW = M4Raw()
 
 """Shared [`FastMRI`](@ref) source instance."""
 const FASTMRI = FastMRI()
@@ -156,3 +160,15 @@ terms_url(::CMRxRecon300) = "https://www.synapse.org/Synapse:syn52965326"
 terms_url(::USCSpeech) = "https://creativecommons.org/licenses/by/4.0/"
 terms_url(::M4Raw) = "https://creativecommons.org/licenses/by/4.0/"
 terms_url(::FastMRI) = "https://fastmri.med.nyu.edu"
+
+"""
+    terms_notice() -> String
+
+The data-source terms-of-use notice, one `source_name` → [`terms_url`](@ref) line per
+entry of [`list_sources`](@ref). Generated rather than written out, so a new source cannot
+be added to the package while staying invisible in the startup warning.
+"""
+function terms_notice()
+    width = maximum(length ∘ source_name, list_sources())
+    return join(("  • $(rpad(source_name(s), width))  →  $(terms_url(s))" for s in list_sources()), "\n")
+end

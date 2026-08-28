@@ -25,6 +25,8 @@
 
 import CodecZlib
 
+include(joinpath(@__DIR__, "zipdir_common.jl"))
+
 # ── Fragment-backed random access over the split archive ────────────────────────
 
 struct FragmentReader
@@ -70,119 +72,6 @@ function read_global(fr::FragmentReader, off::Integer, n::Integer)
         g += take
     end
     return out
-end
-
-_u16(b, i) = Int(b[i]) | (Int(b[i + 1]) << 8)
-_u32(b, i) = Int(b[i]) | (Int(b[i + 1]) << 8) | (Int(b[i + 2]) << 16) | (Int(b[i + 3]) << 24)
-_u64(b, i) = _u32(b, i) | (_u32(b, i + 4) << 32)
-
-# ── Locate the central directory (Zip64-aware) ──────────────────────────────────
-
-const EOCD_SIG = 0x06054b50
-const Z64_EOCD_LOCATOR_SIG = 0x07064b50
-const Z64_EOCD_SIG = 0x06064b50
-const CDH_SIG = 0x02014b50
-
-function find_central_directory(fr::FragmentReader)
-    # Scan the tail for the End Of Central Directory record.
-    tail_len = min(fr.total, (1 << 16) + 256)
-    tail = read_global(fr, fr.total - tail_len, tail_len)
-    eocd = nothing
-    for i in (length(tail) - 21):-1:1
-        if _u32(tail, i) == EOCD_SIG
-            eocd = i
-            break
-        end
-    end
-    eocd === nothing && error("EOCD record not found")
-
-    cd_size = _u32(tail, eocd + 12)
-    cd_off = _u32(tail, eocd + 16)
-    n_entries = _u16(tail, eocd + 10)
-
-    # Zip64: when fields are saturated, read the Zip64 EOCD via its locator.
-    if cd_off == 0xFFFFFFFF || cd_size == 0xFFFFFFFF || n_entries == 0xFFFF
-        loc = nothing
-        for i in (eocd - 20):-1:1
-            if _u32(tail, i) == Z64_EOCD_LOCATOR_SIG
-                loc = i
-                break
-            end
-        end
-        loc === nothing && error("Zip64 EOCD locator not found")
-        z64_off = _u64(tail, loc + 8)
-        z64 = read_global(fr, z64_off, 56)
-        _u32(z64, 1) == Z64_EOCD_SIG || error("bad Zip64 EOCD signature")
-        n_entries = _u64(z64, 33)
-        cd_size = _u64(z64, 41)
-        cd_off = _u64(z64, 49)
-    end
-    return cd_off, cd_size, n_entries
-end
-
-# ── Parse central directory entries ─────────────────────────────────────────────
-
-struct CDEntry
-    path::String
-    lfh_offset::Int        # global offset of the local file header
-    compressed_size::Int
-    uncompressed_size::Int
-    compression::Int
-end
-
-function parse_central_directory(fr::FragmentReader)
-    cd_off, cd_size, n_entries = find_central_directory(fr)
-    cd = read_global(fr, cd_off, cd_size)
-    entries = CDEntry[]
-    p = 1
-    for _ in 1:n_entries
-        _u32(cd, p) == CDH_SIG || error("bad central directory header at $p")
-        compression = _u16(cd, p + 10)
-        comp_size = _u32(cd, p + 20)
-        uncomp_size = _u32(cd, p + 24)
-        fn_len = _u16(cd, p + 28)
-        extra_len = _u16(cd, p + 30)
-        comment_len = _u16(cd, p + 32)
-        lfh_off = _u32(cd, p + 42)
-        name = String(cd[(p + 46):(p + 46 + fn_len - 1)])
-
-        # Zip64 extended information extra field (0x0001) replaces saturated values.
-        ep = p + 46 + fn_len
-        eend = ep + extra_len
-        while ep < eend
-            hid = _u16(cd, ep)
-            hsz = _u16(cd, ep + 2)
-            dp = ep + 4
-            if hid == 0x0001
-                if uncomp_size == 0xFFFFFFFF
-                    uncomp_size = _u64(cd, dp); dp += 8
-                end
-                if comp_size == 0xFFFFFFFF
-                    comp_size = _u64(cd, dp); dp += 8
-                end
-                if lfh_off == 0xFFFFFFFF
-                    lfh_off = _u64(cd, dp); dp += 8
-                end
-            end
-            ep += 4 + hsz
-        end
-
-        # Skip directory entries (names ending in '/').
-        if !endswith(name, "/")
-            push!(entries, CDEntry(name, lfh_off, comp_size, uncomp_size, compression))
-        end
-        p += 46 + fn_len + extra_len + comment_len
-    end
-    return entries
-end
-
-# Read the actual local file header length (30 + fn_len + extra_len) at `lfh_offset`.
-function local_header_size(fr::FragmentReader, lfh_offset::Int)
-    h = read_global(fr, lfh_offset, 30)
-    _u32(h, 1) == 0x04034b50 || error("bad local file header signature at $lfh_offset")
-    fn_len = _u16(h, 27)
-    extra_len = _u16(h, 29)
-    return 30 + fn_len + extra_len
 end
 
 # ── Blacklist of withdrawn / abnormal files ─────────────────────────────────────
@@ -306,12 +195,13 @@ function main(args; archive::String = "training", prefix::String = TRAINING_PREF
             occursin("Mask_Task", path) && continue
             is_blacklisted(path, abnormal) && continue
 
-            lfh = local_header_size(fr, e.lfh_offset)
-            data_end = e.lfh_offset + lfh + e.compressed_size      # exclusive
-            start_frag = div(e.lfh_offset, fr.chunk_size)
-            start_off = e.lfh_offset % fr.chunk_size
-            end_frag = div(data_end - 1, fr.chunk_size)
-            end_off = (data_end - 1) % fr.chunk_size
+            # Unlike the single-file archives, the map records fragment-relative
+            # coordinates: the runtime range-requests each 4 GiB fragment separately.
+            global_start, global_end, lfh = member_span(fr, e)
+            start_frag = div(global_start, fr.chunk_size)
+            start_off = global_start % fr.chunk_size
+            end_frag = div(global_end, fr.chunk_size)
+            end_off = global_end % fr.chunk_size
 
             println(
                 io, join(

@@ -65,7 +65,6 @@ end
 # is acquired if the mask selects any sample in it. Real slice/contrast indices (MRIBase
 # handles multi-slice Cartesian); repetition stays 0.
 function _cmrxrecon_cartesian_profiles(k, mb, nx, ny, nc, nz, nt, nmt; ky_offset::Int = 0, flags::UInt64 = UInt64(0), start_counter::UInt32 = UInt32(0))
-    center = UInt16(div(nx, 2))
     profiles = Profile[]
     counter = start_counter
     for t in 1:nt
@@ -74,25 +73,9 @@ function _cmrxrecon_cartesian_profiles(k, mb, nx, ny, nc, nz, nt, nmt; ky_offset
         for z in 1:nz, ky in kys
             counter += UInt32(1)
             data = ComplexF32.(@view k[:, ky, :, z, t])     # (nx, nc)
-
-            head = AcquisitionHeader(;
-                number_of_samples = UInt16(nx),
-                available_channels = UInt16(nc),
-                active_channels = UInt16(nc),
-                center_sample = center,
-                trajectory_dimensions = UInt16(0),
-                read_dir = (1.0f0, 0.0f0, 0.0f0),
-                phase_dir = (0.0f0, 1.0f0, 0.0f0),
-                slice_dir = (0.0f0, 0.0f0, 1.0f0),
-                scan_counter = counter,
-                idx = EncodingCounters(;
-                    kspace_encode_step_1 = UInt16(ky + ky_offset - 1),
-                    kspace_encode_step_2 = UInt16(0),
-                    slice = UInt16(z - 1),
-                    contrast = UInt16(t - 1),
-                    repetition = UInt16(0),
-                ),
-                flags = flags
+            head = _acquisition_header(;
+                nx = nx, nc = nc, step = ky + ky_offset - 1,
+                slice = z - 1, contrast = t - 1, counter = counter, flags = flags,
             )
             push!(profiles, Profile(head, Matrix{Float32}(undef, 0, 0), data))
         end
@@ -147,29 +130,16 @@ function _cmrxrecon_to_ismrmrd(
         append!(profiles, c_profiles)
     end
 
-    enc_fov_x = fov_x !== nothing ? fov_x : Float64(nx)
-    enc_fov_y = fov_y !== nothing ? fov_y : Float64(ny)
-    params = Dict{String, Any}(
-        "trajectory" => "cartesian",
-        "encodedSize" => [nx, ny, nz],
-        "reconSize" => [nx, ny, nz],
-        "encodedFOV" => [enc_fov_x, enc_fov_y, Float64(nz)],
-        "reconFOV" => [enc_fov_x, enc_fov_y, Float64(nz)],
-        "receiverChannels" => nc,
-        "systemVendor" => "Siemens",
-        "systemFieldStrength_T" => Float32(field_strength_T),
-        "H1resonanceFrequency_Hz" => 123_200_000,
-        "enc_lim_kspace_encoding_step_1" => MRIFiles.Limit(0, ny - 1, div(ny, 2)),
-        "enc_lim_kspace_encoding_step_2" => MRIFiles.Limit(0, 0, 0),
-        "enc_lim_slice" => MRIFiles.Limit(0, nz - 1, div(nz, 2)),
-        "enc_lim_contrast" => MRIFiles.Limit(0, nt - 1, div(nt, 2))
+    fov = [
+        fov_x !== nothing ? fov_x : Float64(nx),
+        fov_y !== nothing ? fov_y : Float64(ny),
+        Float64(nz),
+    ]
+    params = _ismrmrd_params(;
+        nx = nx, ny = ny, nz = nz, nt = nt, nc = nc,
+        enc_fov = fov, field_strength_T = field_strength_T,
     )
-
-    mkpath(dirname(dest))
-    tmp = dest * ".part"
-    save(ISMRMRDFile(tmp), RawAcquisitionData(params, profiles))
-    mv(tmp, dest; force = true)
-    return dest
+    return _write_ismrmrd(dest, params, profiles)
 end
 
 # Per-frame acquired-line mask derived from the data itself: a phase-encode line is

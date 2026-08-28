@@ -18,36 +18,7 @@
 # Committed offset map shipped with the package.
 const _M4RAW_MAP_PATH = normpath(joinpath(@__DIR__, "..", "..", "data", "m4raw_map.csv"))
 _bundled_index_path(::M4Raw) = _M4RAW_MAP_PATH
-
-# The map is static and bundled — there is no upstream to scrape. ensure_index still
-# routes through _fetch_index, so "fetching" simply copies the bundled map into the cache
-# (no network). The sentinel URL is only used for the meta sidecar / logging.
-_index_source_url(::M4Raw) = "bundled://m4raw_map.csv"
-
-function _fetch_index(::M4Raw, dest::AbstractString; progress::Bool = false, fetch_sizes::Bool = false)
-    mkpath(dirname(dest))
-    cp(_M4RAW_MAP_PATH, dest; force = true)
-    return dest
-end
-
-# Read a (possibly Int- or Float-parsed) numeric cell as Int. A missing column index
-# (0) means "absent".
-function _m4raw_int(row, col, key)
-    idx = get(col, key, 0)
-    idx == 0 && return nothing
-    v = row[idx]
-    v isa Integer && return Int(v)
-    v isa Real && return round(Int, v)
-    return tryparse(Int, strip(String(v)))
-end
-
-# Read a string cell; returns "" for absent or empty columns.
-function _m4raw_str(row, col, key)
-    idx = get(col, key, 0)
-    idx == 0 && return ""
-    v = row[idx]
-    return strip(v isa AbstractString ? String(v) : string(v))
-end
+_is_static_index(::M4Raw) = true
 
 # Convert an in-archive member path to a user-facing entry id. The member is
 # `<set>/<study>_<contrast><rep>.h5` (the ZIP top-level folder names the set); the id
@@ -60,42 +31,24 @@ function _m4raw_path_to_id(path::AbstractString, set::AbstractString)
 end
 
 function _m4raw_entry(row, col)
-    path = strip(String(row[col["path"]]))
+    path = _csv_cell_str(row, col, "path")
     isempty(path) && return nothing
 
-    start_off = _m4raw_int(row, col, "start_off")
-    end_off = _m4raw_int(row, col, "end_off")
-    lfh_size = _m4raw_int(row, col, "lfh_size")
-    compressed_size = _m4raw_int(row, col, "compressed_size")
-    uncompressed_size = _m4raw_int(row, col, "uncompressed_size")
-    compression = _m4raw_int(row, col, "compression")
-    archive = _m4raw_str(row, col, "archive")
-
     # A usable entry must carry the full coordinate tuple needed to fetch it.
-    any(x -> x === nothing, (start_off, end_off, lfh_size, compressed_size, compression)) && return nothing
-    isempty(archive) && return nothing
+    span = _zip_span_from_row(row, col)
+    archive = _csv_cell_str(row, col, "archive")
+    (span === nothing || isempty(archive)) && return nothing
 
-    study = _m4raw_str(row, col, "study")
-    contrast = _m4raw_str(row, col, "contrast")
-    repetition = _m4raw_str(row, col, "repetition")
-    set = _m4raw_str(row, col, "set")
+    contrast = _csv_cell_str(row, col, "contrast")
+    set = _csv_cell_str(row, col, "set")
 
     id = _m4raw_path_to_id(path, set)
     label = string("M4Raw ", isempty(contrast) ? last(split(id, '/')) : contrast, " — ", last(split(id, '/')))
 
-    extra = Dict{String, Any}(
-        "path" => path,    # full archive path, for reference
-        "archive" => archive,
-        "start_off" => start_off,
-        "end_off" => end_off,
-        "lfh_size" => lfh_size,
-        "compressed_size" => compressed_size,
-        "compression" => compression,
-    )
-    isempty(study) || (extra["study"] = study)
-    isempty(contrast) || (extra["contrast"] = contrast)
-    isempty(repetition) || (extra["repetition"] = repetition)
-    isempty(set) || (extra["set"] = set)
+    extra = _zip_span_extra(span)
+    extra["path"] = path    # full archive path, for reference
+    extra["archive"] = archive
+    _put_columns!(extra, row, col, _csv_cell_str, ("study", "contrast", "repetition", "set"))
 
     return DatasetEntry(;
         source = M4RAW,
@@ -111,7 +64,7 @@ function _m4raw_entry(row, col)
         # Each member holds one fully-sampled multi-slice Cartesian acquisition.
         fully_sampled = true,
         is3D = false,
-        approx_size_bytes = uncompressed_size,
+        approx_size_bytes = span.uncompressed_size,
         url = "",
         extra = extra,
     )
@@ -120,30 +73,8 @@ end
 # Parse the offset-map CSV at `path` into entries. Separated from _catalog_entries so the
 # precompile workload can call it directly on the bundled map without an initialised cache
 # directory.
-function _m4raw_entries(path::AbstractString)
-    isfile(path) || return DatasetEntry[]
-    data, header = readdlm(path, ','; header = true)
-    col = Dict(strip(String(h)) => i for (i, h) in enumerate(vec(header)))
-    haskey(col, "path") || return DatasetEntry[]
-    entries = DatasetEntry[]
-    for r in axes(data, 1)
-        e = _m4raw_entry(data[r, :], col)
-        e === nothing || push!(entries, e)
-    end
-    return entries
-end
+_m4raw_entries(path::AbstractString) = _parse_offset_map(path, _m4raw_entry)
 
 function _catalog_entries(s::M4Raw; offline::Bool = false)
-    path = ensure_index(s; offline = offline)
-    return _m4raw_entries(path)
-end
-
-# An M4Raw file can only be fetched if its byte coordinates are in the map, so an id absent
-# from the catalog cannot be synthesised into a usable entry.
-function _synthesize_entry(::M4Raw, id::String)
-    error(
-        "unknown M4Raw file $(repr(id)); ids have the form " *
-            "\"<set>/<study>_<contrast><rep>\" and must be present in the bundled " *
-            "offset map (data/m4raw_map.csv).",
-    )
+    return _cached_index_entries(ensure_index(s; offline = offline), _m4raw_entries)
 end

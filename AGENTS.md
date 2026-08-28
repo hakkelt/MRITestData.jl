@@ -51,7 +51,17 @@ the `[workspace] projects = ["test"]` layout, never editing `Manifest.toml`,
   offset) to resume decompression mid-stream and pull one member with HTTP range
   requests. Both index artifacts are built offline by maintainer scripts (`scripts/`)
   and committed to `data/`; CMRxRecon-300's maps are read directly (it has no upstream to
-  refresh — its `index_cache.jl` hooks are static no-ops).
+  refresh — see the static-index trait below).
+- **Static vs live indexes** (`index_cache.jl`): `_is_static_index(source)` marks the
+  sources whose catalog ships with the package (CMRxRecon2024, CMRxRecon-300, USC Speech,
+  M4Raw, fastMRI). For those `ensure_index` returns `_bundled_index_path(source)` directly
+  — nothing is fetched, cached, or aged out, and `refresh_index` is a no-op that still
+  reports the path. Only OCMR and mridata.org define `_index_source_url`/`_fetch_index`.
+  A new map-backed source therefore needs only `_bundled_index_path`, `_is_static_index`,
+  its row→entry parser, and a `_catalog_entries` that calls `_cached_index_entries` (which
+  memoises parsed entries per `(path, mtime, size)`). Sources that cannot serve an id
+  absent from their map leave `_can_synthesize` at its `false` default; `dataset` then
+  raises one shared error instead of a per-source one.
 - **Load** (`src/load/`): `load_raw` returns an `MRIBase.RawAcquisitionData` for any
   source (ISMRMRD path or entry/handle). `load_mat` exposes the raw CMRxRecon `.mat`
   arrays. Both CMRxRecon sources are converted to cached Cartesian ISMRMRD by

@@ -139,6 +139,134 @@ function _download_parallel(
     return tmp
 end
 
+# Compressed bytes pulled per HTTP Range request while streaming toward a member inside a
+# gzip archive (CMRxRecon-300, fastMRI `.tar.gz`).
+const _RANGE_BLOCK_BYTES = 4 * 1024 * 1024
+
+# Run `f(update)` against a ProgressMeter bar covering `total` units, finishing the bar
+# afterwards. `update(n)` reports absolute progress and clamps to `total`; when `progress`
+# is false it is a no-op, so the range-extraction fetchers never branch on a nullable bar.
+function _with_progress(f, total::Integer, desc::AbstractString; progress::Bool)
+    progress || return f(_ -> nothing)
+    cap = Int(total)
+    bar = ProgressMeter.Progress(cap; desc = String(desc), dt = 0.2)
+    try
+        return f(n -> ProgressMeter.update!(bar, min(Int(n), cap)))
+    finally
+        ProgressMeter.finish!(bar)
+    end
+end
+
+# Progress description shared by every source-specific fetcher.
+_download_desc(e::DatasetEntry) = "Downloading $(e.name) "
+
+# Move an already-written `<dest>.part` into place and record the sidecar meta.
+function _finalize_part(e::DatasetEntry, dest::AbstractString, tmp::AbstractString)
+    mv(tmp, dest; force = true)
+    _write_meta(e, dest, _sha256_hex(dest))
+    return dest
+end
+
+# Write an in-memory member to `dest` atomically (via `<dest>.part`) and record the sidecar
+# meta. Shared by the range-extraction fetchers, which assemble the member in memory.
+function _finalize_download(e::DatasetEntry, dest::AbstractString, bytes::AbstractVector{UInt8})
+    mkpath(dirname(dest))
+    tmp = dest * ".part"
+    try
+        write(tmp, bytes)
+    catch err
+        isfile(tmp) && rm(tmp; force = true)
+        rethrow(err)
+    end
+    return _finalize_part(e, dest, tmp)
+end
+
+# Fetch the byte range [so, eo] from a URL that must be resolved just in time and may
+# expire mid-flight (figshare / Zenodo redirect to a short-lived pre-signed URL).
+# `resolve()` returns a fresh URL; `is_expiry(err)` recognises the expiry response.
+function _download_range_resolving(
+        resolve, is_expiry, so::Int, eo::Int;
+        on_progress::Union{Nothing, Function} = nothing,
+    )::Vector{UInt8}
+    url = resolve()
+    return try
+        _download_range(url, so, eo; on_progress = on_progress)
+    catch err
+        is_expiry(err) || rethrow(err)
+        _download_range(resolve(), so, eo; on_progress = on_progress)
+    end
+end
+
+# Recover the member's ZIP coordinates from a catalog entry's `extra`.
+function _zip_span(e::DatasetEntry)
+    ex = e.extra
+    return ZipSpan(
+        Int(ex["start_off"]::Integer),
+        Int(ex["end_off"]::Integer),
+        Int(ex["lfh_size"]::Integer),
+        Int(ex["compressed_size"]::Integer),
+        nothing,
+        Int(ex["compression"]::Integer),
+    )
+end
+
+# Strip the ZIP local file header from a range-fetched member and inflate it when the entry
+# is Deflated. `id` only names the entry in error messages.
+function _zip_member_payload(
+        bytes::Vector{UInt8}, lfh_size::Int, compression::Int, id::AbstractString,
+    )::Vector{UInt8}
+    length(bytes) > lfh_size ||
+        error("fetched $(length(bytes)) bytes for $(id), fewer than the $(lfh_size)-byte local header")
+    payload = bytes[(lfh_size + 1):end]
+    compression == 0 && return payload
+    compression == 8 && return CodecZlib.transcode(CodecZlib.DeflateDecompressor, payload)
+    return error("unsupported ZIP compression method $(compression) for $(id)")
+end
+
+# Range-fetch one ZIP member, strip its local file header, inflate it if Deflated, and
+# write it to `dest`. Shared by the two public-archive sources (M4Raw on Zenodo, USC Speech
+# on figshare); they differ only in how the download URL is resolved and which HTTP status
+# signals that the resolved URL expired.
+function _fetch_zip_member(
+        e::DatasetEntry, dest::AbstractString, resolve, is_expiry; progress::Bool,
+    )
+    span = _zip_span(e)
+    total = span.end_off - span.start_off + 1
+    bytes = _with_progress(total, _download_desc(e); progress = progress) do update
+        _download_range_resolving(
+            resolve, is_expiry, span.start_off, span.end_off;
+            on_progress = (_total, now) -> update(now),
+        )
+    end
+    payload = _zip_member_payload(bytes, span.lfh_size, span.compression, e.id)
+    return _finalize_download(e, dest, payload)
+end
+
+# Drive a zran extraction to completion and return the member bytes. `read_block(pos)`
+# returns the next slice of the compressed stream starting at absolute offset `pos`, or an
+# empty vector at end of stream. Errors if the stream ends before `nbytes` are produced.
+function _zran_extract(
+        e::DatasetEntry, ck::Zran.Checkpoint, skip::Int, nbytes::Int, read_block;
+        progress::Bool,
+    )::Vector{UInt8}
+    out = _with_progress(nbytes, _download_desc(e); progress = progress) do update
+        ex = Zran.ExtractState(ck; skip = skip, nbytes = nbytes)
+        pos = ck.comp_off
+        while !Zran.extract_done(ex)
+            bytes = read_block(pos)
+            isempty(bytes) && break
+            Zran.extract_feed!(ex, bytes)
+            pos += length(bytes)
+            update(length(ex.out))
+        end
+        return ex.out
+    end
+
+    length(out) == nbytes ||
+        error("extracted $(length(out)) bytes for $(e.id), expected $nbytes — the index may be stale")
+    return out
+end
+
 """
     _download_with_progress(url, dest; progress=true, desc="Downloading") -> String
 
@@ -273,26 +401,7 @@ function fetch_sizes(
         else
             @async begin
                 _, sz = _probe_url(e.url; timeout = timeout)
-                result[i] = if sz > 0
-                    DatasetEntry(;
-                        source = e.source,
-                        id = e.id,
-                        name = e.name,
-                        anatomy = e.anatomy,
-                        vendor = e.vendor,
-                        field_strength = e.field_strength,
-                        trajectory = e.trajectory,
-                        coils = e.coils,
-                        fully_sampled = e.fully_sampled,
-                        is3D = e.is3D,
-                        approx_size_bytes = sz,
-                        sha256 = e.sha256,
-                        url = e.url,
-                        extra = e.extra,
-                    )
-                else
-                    e
-                end
+                result[i] = sz > 0 ? _with_size(e, sz) : e
             end
         end
     end

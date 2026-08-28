@@ -111,6 +111,28 @@ struct Checkpoint
     window::Vector{UInt8}
 end
 
+"""
+    nearest_checkpoint(checkpoints, target) -> Checkpoint
+
+The last checkpoint with `unc_off ≤ target` — the cheapest resume point for a member
+starting at uncompressed offset `target`. `checkpoints` must be in stream order (`comp_off`
+is monotonic in `unc_off`). Falls back to the first checkpoint when `target` precedes all
+of them.
+"""
+function nearest_checkpoint(checkpoints::Vector{Checkpoint}, target::Integer)
+    lo, hi, ans = 1, length(checkpoints), 1
+    while lo <= hi
+        mid = (lo + hi) ÷ 2
+        if checkpoints[mid].unc_off <= target
+            ans = mid
+            lo = mid + 1
+        else
+            hi = mid - 1
+        end
+    end
+    return checkpoints[ans]
+end
+
 # ── Forward-scan driver (indexer) ────────────────────────────────────────────────
 """
     ScanState(interval; on_output)

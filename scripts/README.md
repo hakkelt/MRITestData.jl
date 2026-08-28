@@ -41,6 +41,13 @@ extract_cmrxrecon2024_filemeta.jl    (optional: record .mat variable shapes)
 `synapse_common.jl` holds the shared Synapse REST helpers (token resolution, fragment
 listing, pre-signed URLs) used by the listing and download scripts.
 
+`zipdir_common.jl` holds the Zip64-aware central-directory reader shared by the three
+offset-map generators (`generate_cmrxrecon2024_map.jl`, `generate_m4raw_map.jl`,
+`generate_usc_speech_map.jl`). Each generator supplies only a *reader* — anything with a
+`total` field and a `read_global(reader, offset, n)` method — and gets
+`parse_central_directory`, `local_header_size` and `member_span` on top of it. Add a new
+ZIP-backed source by writing its reader, not another directory walker.
+
 The two `*_parts.toml` entity-ID maps are required at runtime by
 `download_dataset(CMRXRECON2024, …)`. The training map is committed; regenerate either
 when Synapse entity IDs change.

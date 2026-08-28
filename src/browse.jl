@@ -9,30 +9,10 @@ using Tachikoma.Paged
 import Tachikoma: view, update!, should_quit, task_queue, pre_render!
 
 # ── Column definitions ────────────────────────────────────────────────────────
-
-_fmt_b0(v) = v === nothing ? "?" : string(v, "T")
-_fmt_coils(v) = v === nothing ? "?" : v isa AbstractString ? v : string(v, "ch")
-_fmt_size(v) = v === nothing ? "?" : _human_bytes(v)
-_fmt_sym(v) = (v === nothing || v === :unknown) ? "?" : string(v)
-# Sampling column, normalised across sources so the same concept reads the same way,
-# using explicit words rather than glyphs:
-#   true → "fully sampled", false → "undersampled" (pattern unknown),
-#   a String → a named undersampling pattern (e.g. "pseudo-random"), nothing → "?".
-_fmt_sampling(v::Bool) = v ? "fully sampled" : "undersampled"
-_fmt_sampling(::Nothing) = "?"
-_fmt_sampling(v) = string(v)
-
-# Collapse each source's own sampling encoding into the shared representation above.
-# OCMR stores verbose strings ("fully sampled" / "pseudo-random undersampled"); mridata
-# and CMRxRecon rely on the fully_sampled boolean (CMRxRecon is all FullSample).
-function _sampling_value(e::DatasetEntry)
-    e.fully_sampled === true && return true
-    pat = get(e.extra, "sampling", "")
-    if pat isa AbstractString && !isempty(pat) && pat != "full" && pat != "fully sampled"
-        return replace(pat, " undersampled" => "")
-    end
-    return e.fully_sampled
-end
+#
+# The cell *values* and their formatters are cross-source concerns and live in
+# `catalog/display.jl` (`_sampling_value`, `_coils_value`, `_fmt_*`), which has no TTY
+# dependency; this file only wires them into the table.
 
 # Column 1 holds the entry's index into the `entries` vector so the selected
 # row maps back to a DatasetEntry even after sorting/filtering.
@@ -48,16 +28,12 @@ const _COLUMNS = PagedColumn[
     PagedColumn("Size"; align = col_right, format = _fmt_size, col_type = :numeric),
 ]
 
+# The index column carries the entry index; the size column is refreshed in place as
+# background prefetches land, so both are looked up by name rather than hard-coded.
+const _INDEX_COL = findfirst(c -> c.name == "#", _COLUMNS)::Int
+const _SIZE_COL = findfirst(c -> c.name == "Size", _COLUMNS)::Int
+
 function _entry_row(i::Int, e::DatasetEntry)
-    sampling = _sampling_value(e)
-    # Coil count: exact if known; "multi"/"single" label for CMRxRecon MultiCoil entries.
-    coils_val = if e.coils !== nothing
-        e.coils
-    elseif get(e.extra, "coil_type", "") == "multi"
-        "multi"
-    else
-        nothing
-    end
     return Any[
         i,
         source_name(e.source),
@@ -65,8 +41,8 @@ function _entry_row(i::Int, e::DatasetEntry)
         e.anatomy,
         e.field_strength,
         e.trajectory,
-        coils_val,
-        sampling,
+        _coils_value(e),
+        _sampling_value(e),
         e.approx_size_bytes,
     ]
 end
@@ -83,6 +59,27 @@ function _build_provider(entries::Vector{DatasetEntry})
     return InMemoryPagedProvider(_COLUMNS, data)
 end
 
+# A page request for an arbitrary page of `pdt`, carrying its current sort, filters and
+# search so a fetched page matches what the user would see on scrolling there.
+function _page_request(pdt::PagedDataTable, page::Int)
+    return PageRequest(
+        page, pdt.page_size, pdt.sort_col, pdt.sort_dir,
+        Dict{Int, ColumnFilter}(k => v for (k, v) in pdt.filters if !isempty(v.value)),
+        pdt.search_query,
+    )
+end
+
+_max_page(pdt::PagedDataTable) = max(1, cld(pdt.total_count, pdt.page_size))
+
+# Entry indices carried by the index column of a fetched/displayed page, dropping any row
+# whose index is not a valid position in `entries`.
+function _row_entry_indices(rows, total::Int)
+    return Int[
+        row[_INDEX_COL] for row in rows
+            if row[_INDEX_COL] isa Integer && 1 <= row[_INDEX_COL] <= total
+    ]
+end
+
 # ── Model ─────────────────────────────────────────────────────────────────────
 
 # stage:
@@ -90,6 +87,18 @@ end
 #   :confirm  — download confirmation overlay (y/n)
 #   :token    — Synapse PAT input overlay (shown for CMRxRecon2024 when no token is set)
 #   :path     — destination path input overlay
+"""
+    DownloadRequest(entry, dest)
+
+What the browser was asked to do on the way out. The TUI cannot download while it owns the
+terminal, so confirming a download quits the event loop and leaves this behind for
+[`run_browser`](@ref) to act on; quitting without one leaves `nothing`.
+"""
+struct DownloadRequest
+    entry::DatasetEntry
+    dest::String
+end
+
 mutable struct BrowserModel <: Model
     entries::Vector{DatasetEntry}
     pdt::PagedDataTable
@@ -98,8 +107,8 @@ mutable struct BrowserModel <: Model
     path_input::TextInput
     token_input::TextInput
     quit::Bool
-    # filled in when the user confirms a download; consumed after app() exits
-    download::Union{Nothing, Tuple{DatasetEntry, String}}
+    # Why the loop exited: `nothing` for a plain quit, a request to act on otherwise.
+    request::Union{Nothing, DownloadRequest}
     # background size-fetching
     tq::TaskQueue
     last_prefetch_page::Int      # page number for which we last fired a prefetch
@@ -134,11 +143,20 @@ _needs_synapse_token(::Nothing) = false
 should_quit(m::BrowserModel) = m.quit
 task_queue(m::BrowserModel) = m.tq
 
+# Leave the event loop, optionally with work for `run_browser` to do once the terminal is
+# released. Both exits go through here so "quit" and "quit in order to download" are
+# visibly the same decision with different payloads.
+function _quit!(m::BrowserModel, request::Union{Nothing, DownloadRequest} = nothing)
+    m.request = request
+    m.quit = true
+    return nothing
+end
+
 # Map the currently-selected table row back to its DatasetEntry.
 function _selected_entry(m::BrowserModel)
     pdt = m.pdt
     (pdt.selected < 1 || pdt.selected > length(pdt.rows)) && return nothing
-    idx = pdt.rows[pdt.selected][1]
+    idx = pdt.rows[pdt.selected][_INDEX_COL]
     idx isa Integer || return nothing
     (idx < 1 || idx > length(m.entries)) && return nothing
     return m.entries[idx]
@@ -146,25 +164,27 @@ end
 
 # ── Size prefetch ──────────────────────────────────────────────────────────────
 
-# Indices (into m.entries) for the window of pages to prefetch.
-# Covers the visible page plus one page on each side, clamped to valid range.
+# Entry indices for the window of pages to prefetch: the visible page plus one page on
+# each side. The provider is sorted/filtered, so a raw slice of `m.entries` around the
+# current page would name entries the user will never scroll to; the adjacent pages are
+# fetched through the provider instead, with the table's current sort, filters and search,
+# so they are exactly the rows a page up/down would show.
+#
+# `fetch_page` re-filters and re-sorts the whole catalog, so this runs only on a page
+# change (see `_maybe_prefetch!`), never per frame.
 function _prefetch_indices(m::BrowserModel)
     pdt = m.pdt
     total = length(m.entries)
     total == 0 && return Int[]
-    ps = pdt.page_size
-    # Visible page range in the *sorted/filtered* view maps back to original
-    # indices via pdt.rows[*][1]. We collect entry indices from those rows plus
-    # the provider's adjacent pages (prev + next) via direct slice of m.entries.
-    # Since the provider may be filtered/sorted, we use the raw entries window
-    # for adjacent pages and the actual displayed rows for the current page.
-    current_page_indices = Int[
-        row[1] for row in pdt.rows if row[1] isa Integer && 1 <= row[1] <= total
-    ]
-    prev_start = max(1, (pdt.page - 2) * ps + 1)
-    next_end = min(total, (pdt.page + 1) * ps)
-    adjacent = collect(prev_start:next_end)
-    return unique(vcat(current_page_indices, adjacent))
+
+    indices = _row_entry_indices(pdt.rows, total)
+    last_page = _max_page(pdt)
+    for page in (pdt.page - 1, pdt.page + 1)
+        (page < 1 || page > last_page || page == pdt.page) && continue
+        result = fetch_page(pdt.provider, _page_request(pdt, page))
+        append!(indices, _row_entry_indices(result.rows, total))
+    end
+    return unique!(indices)
 end
 
 # Fire a background fetch_sizes task for the current page window.
@@ -222,6 +242,11 @@ function update!(m::BrowserModel, evt::TaskEvent{Tuple{Int, Vector{Int}, Dict{St
     gen == m.prefetch_generation || return   # stale result from an old page
     isempty(sizes) && return
 
+    # Only the Size column changes, and provider rows are in `m.entries` order, so the
+    # column is patched in place. Replacing the provider would re-box every cell of every
+    # column and reset page/sort/filter/search, which would then have to be saved and
+    # restored around it.
+    size_column = m.pdt.provider.data[_SIZE_COL]
     changed = false
     for i in fetch_indices
         (i < 1 || i > length(m.entries)) && continue
@@ -229,44 +254,12 @@ function update!(m::BrowserModel, evt::TaskEvent{Tuple{Int, Vector{Int}, Dict{St
         e.approx_size_bytes === nothing || continue
         sz = get(sizes, e.id, nothing)
         sz === nothing && continue
-        m.entries[i] = DatasetEntry(;
-            source = e.source,
-            id = e.id,
-            name = e.name,
-            anatomy = e.anatomy,
-            vendor = e.vendor,
-            field_strength = e.field_strength,
-            trajectory = e.trajectory,
-            coils = e.coils,
-            fully_sampled = e.fully_sampled,
-            is3D = e.is3D,
-            approx_size_bytes = sz,
-            sha256 = e.sha256,
-            url = e.url,
-            extra = e.extra,
-        )
+        m.entries[i] = _with_size(e, sz)
+        size_column[i] = sz
         changed = true
     end
 
-    if changed
-        # Rebuild provider so the Size column reflects the new data.
-        # pdt_set_provider! resets page/sort/filter, so we preserve current state.
-        pdt = m.pdt
-        saved_page = pdt.page
-        saved_sort_col = pdt.sort_col
-        saved_sort_dir = pdt.sort_dir
-        saved_filters = copy(pdt.filters)
-        saved_search = pdt.search_query
-        saved_selected = pdt.selected
-        pdt_set_provider!(pdt, _build_provider(m.entries))
-        pdt.page = saved_page
-        pdt.sort_col = saved_sort_col
-        pdt.sort_dir = saved_sort_dir
-        pdt.filters = saved_filters
-        pdt.search_query = saved_search
-        pdt_fetch!(pdt)
-        pdt.selected = clamp(saved_selected, 1, max(1, length(pdt.rows)))
-    end
+    changed && pdt_fetch!(m.pdt)   # re-derive the visible rows from the patched column
     return nothing
 end
 
@@ -292,8 +285,7 @@ function _update_browse!(m::BrowserModel, evt::KeyEvent)
     end
 
     if (evt.key == :char && evt.char == 'q') || evt.key == :escape
-        m.quit = true
-        return nothing
+        return _quit!(m)
     end
 
     handle_key!(pdt, evt)
@@ -308,7 +300,7 @@ function _update_confirm!(m::BrowserModel, evt::KeyEvent)
         m.selected = nothing
         m.stage = :browse
     elseif evt.key == :char && (evt.char == 'q' || evt.char == 'Q')
-        m.quit = true
+        return _quit!(m)
     end
     return nothing
 end
@@ -341,8 +333,8 @@ function _update_path!(m::BrowserModel, evt::KeyEvent)
         if e !== nothing
             dest = strip(text(m.path_input))
             isempty(dest) && (dest = joinpath(pwd(), basename(cache_path(e))))
-            m.download = (e, String(dest))
-            m.quit = true   # leave the TUI; download runs after app() returns
+            # Leave the TUI; the download runs once app() releases the terminal.
+            _quit!(m, DownloadRequest(e, String(dest)))
         end
         return nothing
     end
@@ -416,56 +408,63 @@ function _render_confirm!(m::BrowserModel, area::Rect, buf)
 end
 
 function _render_path!(m::BrowserModel, area::Rect, buf)
-    e = m.selected
-    e === nothing && return
-    w = min(64, area.width - 4)
-    h = 7
-    rect = center(area, w, h)
-    block = Block(
-        title = " Download path ", border_style = tstyle(:accent),
-        title_style = tstyle(:title, bold = true)
+    m.selected === nothing && return
+    _render_input_modal!(
+        area, buf, " Download path ", m.path_input;
+        width = 64,
+        lines = [("Enter to confirm, Esc to go back:", tstyle(:text_dim))],
     )
-    _clear_rect!(buf, rect)
-    render(block, rect, buf)
-    body = inner(rect)
-    set_string!(buf, body.x, body.y, "Enter to confirm, Esc to go back:", tstyle(:text_dim))
-    render(m.path_input, Rect(body.x, body.y + 2, body.width, 1), buf)
     return nothing
 end
 
 function _render_token!(m::BrowserModel, area::Rect, buf)
-    w = min(72, area.width - 4)
-    h = 9
-    rect = center(area, w, h)
-    block = Block(
-        title = " Synapse access token ", border_style = tstyle(:accent),
-        title_style = tstyle(:title, bold = true)
+    _render_input_modal!(
+        area, buf, " Synapse access token ", m.token_input;
+        width = 72,
+        lines = [
+            ("CMRxRecon downloads need a Synapse Personal Access Token.", tstyle(:text)),
+            ("Paste it below (stored in LocalPreferences.toml for reuse).", tstyle(:text_dim)),
+            ("", tstyle(:text_dim)),
+            ("", tstyle(:text_dim)),
+            ("Enter to save & continue, Esc to go back:", tstyle(:text_dim)),
+        ],
     )
-    _clear_rect!(buf, rect)
-    render(block, rect, buf)
+    return nothing
+end
+
+# A centred modal whose body is `lines` (each with its own style) followed by a blank row
+# and one `TextInput`. Shared by the path and token overlays, which differ only in width,
+# title, prompt text and which input they drive.
+function _render_input_modal!(area::Rect, buf, title::String, input; width::Int, lines)
+    rect = _open_modal!(area, buf, title, min(width, area.width - 4), length(lines) + 4)
     body = inner(rect)
-    set_string!(buf, body.x, body.y, "CMRxRecon downloads need a Synapse Personal Access Token.", tstyle(:text))
-    set_string!(buf, body.x, body.y + 1, "Paste it below (stored in LocalPreferences.toml for reuse).", tstyle(:text_dim))
-    set_string!(buf, body.x, body.y + 4, "Enter to save & continue, Esc to go back:", tstyle(:text_dim))
-    render(m.token_input, Rect(body.x, body.y + 6, body.width, 1), buf)
+    for (i, (ln, style)) in enumerate(lines)
+        isempty(ln) || set_string!(buf, body.x, body.y + i - 1, ln, style)
+    end
+    render(input, Rect(body.x, body.y + length(lines) + 1, body.width, 1), buf)
     return nothing
 end
 
 function _render_modal!(area::Rect, buf, title::String, lines::Vector{String})
-    w = min(maximum(length, lines) + 4, area.width - 4)
-    h = length(lines) + 2
-    rect = center(area, w, h)
-    block = Block(
-        title = title, border_style = tstyle(:accent),
-        title_style = tstyle(:title, bold = true)
-    )
-    _clear_rect!(buf, rect)
-    render(block, rect, buf)
+    rect = _open_modal!(area, buf, title, min(maximum(length, lines) + 4, area.width - 4), length(lines) + 2)
     body = inner(rect)
     for (i, ln) in enumerate(lines)
         set_string!(buf, body.x, body.y + i - 1, ln, tstyle(:text))
     end
     return nothing
+end
+
+# Clear a centred `w`×`h` region and draw the modal border; returns the outer rect.
+function _open_modal!(area::Rect, buf, title::String, w::Int, h::Int)
+    rect = center(area, w, h)
+    _clear_rect!(buf, rect)
+    render(
+        Block(
+            title = title, border_style = tstyle(:accent),
+            title_style = tstyle(:title, bold = true),
+        ), rect, buf
+    )
+    return rect
 end
 
 function _clear_rect!(buf, rect::Rect)
@@ -504,6 +503,9 @@ Dataset sizes (the Size column) are fetched in the background via HTTP HEAD
 requests as you browse. Sizes for the current page and the adjacent pages are
 prefetched automatically; previously fetched sizes are reused.
 
+Returns the path of the downloaded file, or `nothing` if you quit without downloading.
+A failed download is reported and then rethrown, so the cause reaches the REPL.
+
 ```julia
 using MRITestData
 run_browser()                             # browse all sources
@@ -512,27 +514,45 @@ run_browser(; offline = true)            # skip the network
 ```
 """
 function run_browser(; sources = list_sources(), offline::Bool = false)
-    entries = query(; sources = sources, offline = offline)
-    model = BrowserModel(entries)
+    model = BrowserModel(query(; sources = sources, offline = offline))
     app(model; fps = 30)
 
-    if model.download !== nothing
-        e, dest = model.download
-        println("\nDownloading to: $dest")
-        try
-            copy_dataset(e; dest = dest, progress = true)
-            println("Done — file at $dest")
-        catch err
-            println("Download failed: $err")
-        end
+    request = model.request
+    request === nothing && return nothing
+
+    println("\nDownloading to: $(request.dest)")
+    try
+        copy_dataset(request.entry; dest = request.dest, progress = true)
+    catch err
+        # A one-line summary for the terminal, then rethrow: an expired credential, a
+        # missing token or a stale offset map all need the actual exception to diagnose.
+        println("Download failed: $(sprint(showerror, err))")
+        rethrow()
     end
-    return nothing
+    println("Done — file at $(request.dest)")
+    return request.dest
+end
+
+# Resolve `--source NAME` (repeatable) against `source_name`; no flag means every source.
+function _browser_sources(args::AbstractVector{<:AbstractString})
+    wanted = [args[i + 1] for i in eachindex(args) if args[i] == "--source" && i < lastindex(args)]
+    isempty(wanted) && return list_sources()
+    selected = filter(s -> source_name(s) in wanted, list_sources())
+    isempty(selected) && error(
+        "unknown source(s) $(join(wanted, ", ")); available: " *
+            join(source_name.(list_sources()), ", "),
+    )
+    return selected
 end
 
 @static if VERSION >= v"1.11"
     function (@main)(ARGS)
-        offline = "--offline" in ARGS
-        run_browser(; offline = offline)
+        try
+            run_browser(; sources = _browser_sources(ARGS), offline = "--offline" in ARGS)
+        catch err
+            println(stderr, sprint(showerror, err))
+            return 1
+        end
         return 0
     end
 end

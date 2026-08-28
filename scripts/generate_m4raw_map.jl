@@ -24,6 +24,8 @@
 
 import Downloads
 
+include(joinpath(@__DIR__, "zipdir_common.jl"))
+
 const ZENODO_BASE = "https://zenodo.org/api/records/8056074/files/"
 
 # Archive ZIP name => set label written into every row of that archive.
@@ -76,13 +78,7 @@ end
 function RangeReader(archive::AbstractString)
     buf = IOBuffer()
     resp = _ranged_request(archive, 0, 1, buf)
-    total = 0
-    for (k, v) in resp.headers
-        if lowercase(k) == "content-range"           # "bytes 0-0/<total>"
-            m = match(r"/(\d+)\s*$", v)
-            m === nothing || (total = parse(Int, m.captures[1]))
-        end
-    end
+    total = content_range_total(resp.headers)
     total > 0 || error("could not determine size of Zenodo archive $archive")
     return RangeReader(String(archive), total)
 end
@@ -92,112 +88,6 @@ function read_global(rr::RangeReader, off::Integer, n::Integer)
     buf = IOBuffer()
     _ranged_request(rr.archive, off, n, buf)
     return take!(buf)
-end
-
-_u16(b, i) = Int(b[i]) | (Int(b[i + 1]) << 8)
-_u32(b, i) = Int(b[i]) | (Int(b[i + 1]) << 8) | (Int(b[i + 2]) << 16) | (Int(b[i + 3]) << 24)
-_u64(b, i) = _u32(b, i) | (_u32(b, i + 4) << 32)
-
-# ── Locate + parse the central directory (Zip64-aware) ──────────────────────────
-
-const EOCD_SIG = 0x06054b50
-const Z64_EOCD_LOCATOR_SIG = 0x07064b50
-const Z64_EOCD_SIG = 0x06064b50
-const CDH_SIG = 0x02014b50
-
-function find_central_directory(rr::RangeReader)
-    tail_len = min(rr.total, (1 << 16) + 256)
-    tail = read_global(rr, rr.total - tail_len, tail_len)
-    eocd = nothing
-    for i in (length(tail) - 21):-1:1
-        if _u32(tail, i) == EOCD_SIG
-            eocd = i
-            break
-        end
-    end
-    eocd === nothing && error("EOCD record not found")
-
-    cd_size = _u32(tail, eocd + 12)
-    cd_off = _u32(tail, eocd + 16)
-    n_entries = _u16(tail, eocd + 10)
-
-    if cd_off == 0xFFFFFFFF || cd_size == 0xFFFFFFFF || n_entries == 0xFFFF
-        loc = nothing
-        for i in (eocd - 20):-1:1
-            if _u32(tail, i) == Z64_EOCD_LOCATOR_SIG
-                loc = i
-                break
-            end
-        end
-        loc === nothing && error("Zip64 EOCD locator not found")
-        z64_off = _u64(tail, loc + 8)
-        z64 = read_global(rr, z64_off, 56)
-        _u32(z64, 1) == Z64_EOCD_SIG || error("bad Zip64 EOCD signature")
-        n_entries = _u64(z64, 33)
-        cd_size = _u64(z64, 41)
-        cd_off = _u64(z64, 49)
-    end
-    return cd_off, cd_size, n_entries
-end
-
-struct CDEntry
-    path::String
-    lfh_offset::Int
-    compressed_size::Int
-    uncompressed_size::Int
-    compression::Int
-end
-
-function parse_central_directory(rr::RangeReader)
-    cd_off, cd_size, n_entries = find_central_directory(rr)
-    cd = read_global(rr, cd_off, cd_size)
-    entries = CDEntry[]
-    p = 1
-    for _ in 1:n_entries
-        _u32(cd, p) == CDH_SIG || error("bad central directory header at $p")
-        compression = _u16(cd, p + 10)
-        comp_size = _u32(cd, p + 20)
-        uncomp_size = _u32(cd, p + 24)
-        fn_len = _u16(cd, p + 28)
-        extra_len = _u16(cd, p + 30)
-        comment_len = _u16(cd, p + 32)
-        lfh_off = _u32(cd, p + 42)
-        name = String(cd[(p + 46):(p + 46 + fn_len - 1)])
-
-        ep = p + 46 + fn_len
-        eend = ep + extra_len
-        while ep < eend
-            hid = _u16(cd, ep)
-            hsz = _u16(cd, ep + 2)
-            dp = ep + 4
-            if hid == 0x0001
-                if uncomp_size == 0xFFFFFFFF
-                    uncomp_size = _u64(cd, dp); dp += 8
-                end
-                if comp_size == 0xFFFFFFFF
-                    comp_size = _u64(cd, dp); dp += 8
-                end
-                if lfh_off == 0xFFFFFFFF
-                    lfh_off = _u64(cd, dp); dp += 8
-                end
-            end
-            ep += 4 + hsz
-        end
-
-        endswith(name, "/") || push!(entries, CDEntry(name, lfh_off, comp_size, uncomp_size, compression))
-        p += 46 + fn_len + extra_len + comment_len
-    end
-    return entries
-end
-
-# Read the actual local file header length (30 + fn_len + extra_len) at `lfh_offset`.
-# The local extra field can differ from the central one, so this must be read directly.
-function local_header_size(rr::RangeReader, lfh_offset::Int)
-    h = read_global(rr, lfh_offset, 30)
-    _u32(h, 1) == 0x04034b50 || error("bad local file header signature at $lfh_offset")
-    fn_len = _u16(h, 27)
-    extra_len = _u16(h, 29)
-    return 30 + fn_len + extra_len
 end
 
 # ── Member selection + metadata ─────────────────────────────────────────────────
@@ -223,9 +113,7 @@ function index_archive(io, archive::AbstractString, set::AbstractString)
     kept = 0
     for e in entries
         endswith(lowercase(e.path), ".h5") || continue
-        lfh = local_header_size(rr, e.lfh_offset)
-        start_off = e.lfh_offset
-        end_off = e.lfh_offset + lfh + e.compressed_size - 1     # inclusive
+        start_off, end_off, lfh = member_span(rr, e)
         study, contrast, rep = parse_meta(basename(e.path))
         println(
             io, join(

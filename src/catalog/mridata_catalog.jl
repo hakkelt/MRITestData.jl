@@ -51,36 +51,41 @@ end
 
 _mridata_raw(path) = isfile(path) ? get(TOML.parsefile(path), "dataset", Any[]) : Any[]
 
-# The live-scraped index (from ensure_index) covers every UUID and now carries
-# rich per-card metadata (vendor, field strength, coils, matrix size/is3D,
-# trajectory, plus many extras). The curated bundled TOML adds a few hand-filled
-# fields the page does not expose — notably `approx_size_bytes`, which the network
-# test uses to pick the smallest dataset. We merge them: curated entries (keyed by
-# UUID) take precedence over scraped entries for the same UUID, so a curated
-# `approx_size_bytes`/`is3D` overrides the scrape. The bundled TOML is used
-# verbatim only when the live scrape fails entirely.
-function _catalog_entries(s::MridataOrg; offline::Bool = false)
-    path = ensure_index(s; offline = offline)
-    # Merge at the raw-dict level so curated keys win per *field* while scraped
-    # fields fill the gaps (e.g. curated `approx_size_bytes` over a scrape that has
-    # vendor/coils/matrix the curated entry omits).
+# Merge the scraped index at `path` with the curated bundled overlay into catalog entries.
+#
+# The live scrape covers every UUID and carries rich per-card metadata (vendor, field
+# strength, coils, matrix size/is3D, trajectory, plus many extras). The curated TOML adds a
+# few hand-filled fields the page does not expose — notably `approx_size_bytes`, which the
+# network test uses to pick the smallest dataset. Merging happens at the raw-dict level so
+# curated keys win per *field* while scraped fields fill the gaps; when `path` is itself the
+# bundled file (the scrape failed entirely) the overlay is a no-op. Entries are sorted by id
+# so the catalog order does not depend on Dict iteration order.
+#
+# The memo in `_cached_index_entries` keys on `path` alone, which is correct here: the
+# overlay is a committed package file that cannot change while the session runs.
+function _mridata_entries(path::AbstractString)
     raw = Dict{String, Dict{String, Any}}()
     for d in _mridata_raw(path)
         raw[String(d["id"])] = Dict{String, Any}(String(k) => v for (k, v) in d)
     end
-    for d in _mridata_raw(_bundled_index_path(s))
+    for d in _mridata_raw(_BUNDLED_MRIDATA_INDEX)
         id = String(d["id"])
-        base = get(raw, id, Dict{String, Any}())
+        base = get!(raw, id, Dict{String, Any}())
         for (k, v) in d
             base[String(k)] = v   # curated field wins
         end
-        raw[id] = base
     end
-    entries = [_mridata_entry(d) for d in values(raw)]
+    return [_mridata_entry(raw[id]) for id in sort!(collect(keys(raw)))]
+end
+
+function _catalog_entries(s::MridataOrg; offline::Bool = false)
+    entries = _cached_index_entries(ensure_index(s; offline = offline), _mridata_entries)
     return merge_sizes(entries, s)
 end
 
 # mridata accepts any UUID directly, even if not in the curated index.
+_can_synthesize(::MridataOrg) = true
+
 function _synthesize_entry(::MridataOrg, uuid::String)
     return DatasetEntry(; source = MRIDATA, id = uuid, name = uuid, url = mridata_url(uuid))
 end

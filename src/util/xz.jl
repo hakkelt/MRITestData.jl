@@ -14,9 +14,11 @@
 # libz (Zlib_jll, already a package dependency).
 #
 # This module is self-contained so the maintainer indexing script can `include` it
-# standalone, and exposes two public entry points:
+# standalone, and exposes these entry points:
 #   `decompress_block(stream_header, block_data, unpadded_size, uncompressed_size)`
 #   `parse_stream_footer(footer_bytes) -> backward_size::Int`
+#   `index_range(archive_size, footer_bytes) -> (first_byte, last_byte)`
+#   `parse_index(index_bytes) -> Vector{BlockRecord}`
 
 module XzIO
 
@@ -100,6 +102,64 @@ function parse_stream_footer(ftr::AbstractVector{UInt8})::Int
     return bs
 end
 
+# ── Stream index ──────────────────────────────────────────────────────────────────
+
+"""
+    BlockRecord
+
+One entry of the xz stream Index, expanded into absolute positions.
+
+- `archive_offset` — byte offset of the block in the `.xz` file.
+- `archive_size` — padded compressed size, i.e. exactly the byte range to fetch.
+- `unpadded_size` — compressed size excluding alignment padding (as recorded in the index).
+- `uncompressed_size` — bytes produced by decompressing this block.
+- `stream_offset` — byte offset in the concatenated decompressed stream where the block
+  starts.
+"""
+struct BlockRecord
+    archive_offset::Int
+    archive_size::Int
+    unpadded_size::Int
+    uncompressed_size::Int
+    stream_offset::Int
+end
+
+"""
+    index_range(archive_size, footer) -> (first_byte, last_byte)
+
+Byte range of the xz stream Index inside an archive of `archive_size` bytes, given its
+12-byte stream `footer`. Both bounds are inclusive and 0-based.
+"""
+function index_range(archive_size::Int, footer::AbstractVector{UInt8})::Tuple{Int, Int}
+    index_size = (parse_stream_footer(footer) + 1) * 4
+    first_byte = archive_size - 12 - index_size
+    return first_byte, first_byte + index_size - 1
+end
+
+"""
+    parse_index(index_bytes) -> Vector{BlockRecord}
+
+Walk the xz stream Index and return one [`BlockRecord`](@ref) per block, in stream order.
+"""
+function parse_index(idx::AbstractVector{UInt8})::Vector{BlockRecord}
+    isempty(idx) && error("xz index: empty")
+    idx[1] == 0x00 ||
+        error("xz index: expected 0x00 indicator, got 0x$(string(idx[1], base = 16))")
+    nrec, pos = _varint_decode(idx, 2)
+    blocks = Vector{BlockRecord}(undef, nrec)
+    archive_offset = 12   # blocks start just after the 12-byte stream header
+    stream_offset = 0
+    for i in 1:nrec
+        unpadded, pos = _varint_decode(idx, pos)
+        uncompressed, pos = _varint_decode(idx, pos)
+        padded = (unpadded + 3) ÷ 4 * 4
+        blocks[i] = BlockRecord(archive_offset, padded, unpadded, uncompressed, stream_offset)
+        archive_offset += padded
+        stream_offset += uncompressed
+    end
+    return blocks
+end
+
 # ── Synthetic xz stream assembly ──────────────────────────────────────────────────
 
 # Build the xz Index for a single block. Returns the index bytes (always a multiple of
@@ -172,13 +232,9 @@ function decompress_block(
     idx = _build_index(unpadded_size, uncompressed_size)
     ftr = _build_footer(length(idx), sf0, sf1)
 
-    # Synthesise: stream_header | block_data | index | footer
-    stream = vcat(
-        Vector{UInt8}(stream_header),
-        Vector{UInt8}(block_data),
-        idx,
-        ftr,
-    )
+    # Synthesise: stream_header | block_data | index | footer. `block_data` is the large
+    # part (tens–hundreds of MB); `vcat` copies it once into `stream`, no pre-conversion.
+    stream = vcat(stream_header, block_data, idx, ftr)
 
     out = Vector{UInt8}(undef, uncompressed_size)
     memlimit = Ref(typemax(UInt64))

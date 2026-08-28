@@ -81,38 +81,36 @@ function _synapse_presigned_url(entity_id::AbstractString, token::AbstractString
     return strip(String(take!(io)))
 end
 
-# Total bytes a file occupies across the fragment span sf..ef.
+# Total bytes a file occupies across the fragment span sf..ef. For a file inside a single
+# fragment (ef == sf) the general expression collapses to `eo - so + 1`.
 function _cmrxrecon_span_bytes(sf::Int, so::Int, ef::Int, eo::Int, chunk_size::Int)
-    sf == ef && return eo - so + 1
     return (chunk_size - so) + (ef - sf - 1) * chunk_size + (eo + 1)
 end
 
 # Fetch raw bytes for a file spanning fragments sf..ef, stitching across boundaries.
-# When `bar` is given (sized to `total`), it is advanced as bytes arrive so CMRxRecon
-# downloads show the same ProgressMeter bar as every other source.
+# `update(n)` advances the caller's progress bar as bytes arrive.
 function _fetch_fragment_bytes(
         spec::_ArchiveSpec, parts::Dict{String, String}, chunk_size::Int, token::AbstractString,
-        sf::Int, so::Int, ef::Int, eo::Int;
-        bar::Union{Nothing, ProgressMeter.Progress} = nothing, total::Int = 0,
+        sf::Int, so::Int, ef::Int, eo::Int, total::Int, update,
     )::Vector{UInt8}
-    done = Ref(0)
-    cb = bar === nothing ? nothing :
-        (_rng_total, now) -> ProgressMeter.update!(bar, min(done[] + Int(now), total))
+    # The common case is a single fragment; returning its buffer directly avoids copying a
+    # multi-hundred-MB member, so only the multi-fragment path stitches.
+    url = _synapse_presigned_url(_cmrxrecon_entity_id(spec, parts, sf), token)
     if sf == ef
-        url = _synapse_presigned_url(_cmrxrecon_entity_id(spec, parts, sf), token)
-        data = _download_range(url, so, eo; on_progress = cb)
-        bar === nothing || ProgressMeter.update!(bar, min(length(data), total))
-        return data
+        return _download_range(url, so, eo; on_progress = (_rng_total, now) -> update(now))
     end
+
     buf = UInt8[]
+    sizehint!(buf, total)
+    done = Ref(0)
     for frag in sf:ef
-        url = _synapse_presigned_url(_cmrxrecon_entity_id(spec, parts, frag), token)
+        frag == sf || (url = _synapse_presigned_url(_cmrxrecon_entity_id(spec, parts, frag), token))
         rstart = frag == sf ? so : 0
         rend = frag == ef ? eo : chunk_size - 1
-        chunk = _download_range(url, rstart, rend; on_progress = cb)
+        chunk = _download_range(url, rstart, rend; on_progress = (_rng_total, now) -> update(done[] + Int(now)))
         append!(buf, chunk)
         done[] += length(chunk)
-        bar === nothing || ProgressMeter.update!(bar, min(done[], total))
+        update(done[])
     end
     return buf
 end
@@ -131,41 +129,18 @@ function _fetch_dataset(::CMRxRecon2024, e::DatasetEntry, dest::AbstractString; 
     )
     parts, chunk_size = _load_cmrxrecon_parts!(archive)
 
-    ex = e.extra
-    sf = Int(ex["start_frag"]::Integer)
-    so = Int(ex["start_off"]::Integer)
-    ef = Int(ex["end_frag"]::Integer)
-    eo = Int(ex["end_off"]::Integer)
-    lfh = Int(ex["lfh_size"]::Integer)
-    comp = Int(ex["compression"]::Integer)
+    span = _zip_span(e)
+    sf = Int(e.extra["start_frag"]::Integer)
+    ef = Int(e.extra["end_frag"]::Integer)
 
-    total = _cmrxrecon_span_bytes(sf, so, ef, eo, chunk_size)
-    bar = progress ? ProgressMeter.Progress(total; desc = "Downloading $(e.name) ", dt = 0.2) : nothing
-    bytes = _fetch_fragment_bytes(spec, parts, chunk_size, token, sf, so, ef, eo; bar = bar, total = total)
-    bar === nothing || ProgressMeter.finish!(bar)
-
-    # Strip the ZIP local file header to isolate the compressed payload.
-    length(bytes) > lfh ||
-        error("fetched $(length(bytes)) bytes for $(e.id), fewer than the $(lfh)-byte local header")
-    payload = bytes[(lfh + 1):end]
-
-    raw = if comp == 8
-        CodecZlib.transcode(CodecZlib.DeflateDecompressor, payload)
-    elseif comp == 0
-        payload
-    else
-        error("unsupported ZIP compression method $(comp) for $(e.id)")
+    total = _cmrxrecon_span_bytes(sf, span.start_off, ef, span.end_off, chunk_size)
+    bytes = _with_progress(total, _download_desc(e); progress = progress) do update
+        _fetch_fragment_bytes(
+            spec, parts, chunk_size, token,
+            sf, span.start_off, ef, span.end_off, total, update,
+        )
     end
 
-    mkpath(dirname(dest))
-    tmp = dest * ".part"
-    try
-        write(tmp, raw)
-    catch err
-        isfile(tmp) && rm(tmp; force = true)
-        rethrow(err)
-    end
-    mv(tmp, dest; force = true)
-    _write_meta(e, dest, _sha256_hex(dest))
-    return dest
+    payload = _zip_member_payload(bytes, span.lfh_size, span.compression, e.id)
+    return _finalize_download(e, dest, payload)
 end

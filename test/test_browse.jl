@@ -97,3 +97,75 @@ end
         @test m.stage == :confirm
     end
 end
+
+@testitem "browse: size prefetch covers the adjacent pages of the current view" begin
+    using MRITestData
+    using MRITestData: BrowserModel, _prefetch_indices, _COLUMNS, DatasetEntry
+    using Tachikoma.Paged: pdt_fetch!, sort_desc
+
+    # 55 entries over pages of 20: page 2 must prefetch pages 1..3, and those indices must
+    # be the ones the provider would actually display — not a raw slice of `entries`,
+    # which diverges as soon as a sort or filter is active.
+    entries = [
+        DatasetEntry(;
+                source = OCMR_SOURCE, id = "e$(lpad(i, 2, '0'))", name = "Entry $i",
+                anatomy = :cardiac, url = "",
+            ) for i in 1:55
+    ]
+    m = BrowserModel(entries)
+    m.pdt.page = 2
+    pdt_fetch!(m.pdt)
+
+    got = sort(_prefetch_indices(m))
+    @test got == collect(1:55)   # pages 1..3 of 20, clamped to the 55 rows
+
+    # Sort descending by ID: the window must follow the sorted view, so page 2's
+    # neighbourhood is now the *last* 55 entries in reverse.
+    m.pdt.sort_col = findfirst(c -> c.name == "ID", _COLUMNS)
+    m.pdt.sort_dir = sort_desc
+    pdt_fetch!(m.pdt)
+    sorted_ids = _prefetch_indices(m)
+    @test length(sorted_ids) == 55        # 3 pages of 20, clamped to the 55 rows
+    @test sort(sorted_ids) == collect(1:55)
+
+    # With a filter narrowing the view to a single page, only those rows are prefetched.
+    m.pdt.sort_col = 0
+    m.pdt.search_query = "e01"
+    m.pdt.page = 1
+    pdt_fetch!(m.pdt)
+    @test _prefetch_indices(m) == [1]
+end
+
+@testitem "browse: quitting records why" begin
+    using MRITestData
+    using MRITestData: BrowserModel, DownloadRequest, _quit!, DatasetEntry
+
+    entries = [DatasetEntry(; source = OCMR_SOURCE, id = "x", name = "X", url = "")]
+
+    m = BrowserModel(entries)
+    @test m.request === nothing
+    _quit!(m)
+    @test m.quit
+    @test m.request === nothing          # a plain quit leaves no work behind
+
+    m2 = BrowserModel(entries)
+    _quit!(m2, DownloadRequest(entries[1], "/tmp/out.h5"))
+    @test m2.quit
+    @test m2.request isa DownloadRequest
+    @test m2.request.dest == "/tmp/out.h5"
+    @test m2.request.entry.id == "x"
+end
+
+@testitem "browse: app source selection" begin
+    using MRITestData
+    using MRITestData: _browser_sources
+
+    @test _browser_sources(String[]) == list_sources()
+    @test _browser_sources(["--offline"]) == list_sources()
+    @test _browser_sources(["--source", "ocmr"]) == [OCMR_SOURCE]
+    @test Set(_browser_sources(["--source", "ocmr", "--source", "m4raw"])) ==
+        Set([OCMR_SOURCE, M4RAW])
+    @test_throws ErrorException _browser_sources(["--source", "nope"])
+    # A trailing --source with no value names nothing, so every source is browsed.
+    @test _browser_sources(["--source"]) == list_sources()
+end

@@ -10,16 +10,28 @@
 #   <cache>/index/<source>.<ext>            the cached index
 #   <cache>/index/<source>.index_meta.toml  sidecar: fetched_at, url, ok
 
-# File extension of a source's index (CSV for OCMR, TOML for mridata).
+"""
+    _is_static_index(source) -> Bool
+
+Whether `source`'s catalog ships with the package as a committed offset map rather than
+being fetched from upstream. There is nothing to scrape, age out, or refresh for such a
+source: [`ensure_index`](@ref) hands back `_bundled_index_path` directly, and
+`refresh_index` is a no-op that still reports the path. True for CMRxRecon2024,
+CMRxRecon-300, USC Speech, M4Raw and fastMRI; false for OCMR and mridata.org, which fetch
+a live index.
+"""
+_is_static_index(::AbstractSource) = false
+
+# Bundled index shipped with the package — the fallback for a live source, and the whole
+# catalog for a static one. Defined per source in the catalog reader files.
+function _bundled_index_path end
+
+# File extension of a source's index. A static source's index *is* its bundled file, so
+# the extension follows from it; the live sources name their own (mridata's scrape is
+# written as TOML, which its bundled overlay also uses).
+index_ext(s::AbstractSource) = String(last(split(basename(_bundled_index_path(s)), '.')))
 index_ext(::OCMR) = "csv"
 index_ext(::MridataOrg) = "toml"
-index_ext(::CMRxRecon2024) = "csv"
-index_ext(::USCSpeech) = "csv"
-index_ext(::M4Raw) = "csv"
-
-# Bundled fallback index shipped with the package (defined per source in the
-# catalog reader files as `_BUNDLED_INDEX_PATH(source)`).
-function _bundled_index_path end
 
 function _index_dir()
     isempty(CACHE_DIR[]) && error("cache directory not initialised; is MRITestData loaded?")
@@ -88,23 +100,7 @@ function merge_sizes(entries::AbstractVector{DatasetEntry}, s::AbstractSource)
     return map(entries) do e
         e.approx_size_bytes !== nothing && return e
         sz = get(sizes, e.id, nothing)
-        sz === nothing && return e
-        return DatasetEntry(;
-            source = e.source,
-            id = e.id,
-            name = e.name,
-            anatomy = e.anatomy,
-            vendor = e.vendor,
-            field_strength = e.field_strength,
-            trajectory = e.trajectory,
-            coils = e.coils,
-            fully_sampled = e.fully_sampled,
-            is3D = e.is3D,
-            approx_size_bytes = sz,
-            sha256 = e.sha256,
-            url = e.url,
-            extra = e.extra,
-        )
+        return sz === nothing ? e : _with_size(e, sz)
     end
 end
 
@@ -143,6 +139,8 @@ function _fetch_index end
 Return the path to a usable index file for `source`, refreshing it from upstream
 when needed:
 
+- a source whose index is static (`_is_static_index`) returns its bundled map
+  immediately — there is no upstream, so nothing is fetched or cached;
 - a fresh cached index (age < `ttl_days`) is reused as-is;
 - otherwise the index is refetched; on success the cache is updated;
 - on **any** fetch failure (or when `offline=true`) the most recent usable index
@@ -150,6 +148,8 @@ when needed:
   `@warn`. This function does not throw on network errors.
 """
 function ensure_index(s::AbstractSource; force::Bool = false, ttl_days::Real = INDEX_TTL_DAYS[], offline::Bool = false, progress::Bool = false, fetch_sizes::Bool = false)
+    _is_static_index(s) && return _bundled_index_path(s)
+
     cached = index_path(s)
     age = index_age_days(s)
     fresh = isfile(cached) && age !== nothing && age < ttl_days
@@ -180,7 +180,9 @@ end
     refresh_index(; progress=true, fetch_sizes=false)
 
 Force-refresh the cached dataset index from upstream — the manual trigger. With no
-argument, refreshes every source in parallel. Returns the index path(s).
+argument, refreshes every source in parallel. Returns the index path(s); a source whose
+index is static (`_is_static_index`) has nothing to refresh and simply reports its
+bundled map.
 
 When `fetch_sizes=true`, an HTTP HEAD request is issued for each entry whose size is
 not already known, and the result is stored as `approx_size_bytes` in the index. This
@@ -248,10 +250,15 @@ function _fetch_index(s::MridataOrg, dest::AbstractString; progress::Bool = fals
     isempty(entries) && error("mridata.org list page yielded no datasets")
 
     if fetch_sizes
-        for (uuid, d) in entries
-            haskey(d, "approx_size_bytes") && continue
-            sz = _http_head_content_length(mridata_url(uuid))
-            sz === nothing || (d["approx_size_bytes"] = sz)
+        # One HEAD per dataset, fired concurrently: the wall time is the slowest request
+        # rather than the sum of ~1000 of them.
+        todo = [uuid for (uuid, d) in entries if !haskey(d, "approx_size_bytes")]
+        sizes = Vector{Union{Int, Nothing}}(undef, length(todo))
+        @sync for (i, uuid) in enumerate(todo)
+            @async sizes[i] = _http_head_content_length(mridata_url(uuid))
+        end
+        for (uuid, sz) in zip(todo, sizes)
+            sz === nothing || (entries[uuid]["approx_size_bytes"] = sz)
         end
     end
 
@@ -400,7 +407,15 @@ end
 # Keys written as native TOML types (not quoted strings).
 const _MRIDATA_NUMERIC_KEYS = ("approx_size_bytes", "coils", "field_strength")
 const _MRIDATA_BOOL_KEYS = ("fully_sampled", "is3D")
+# String-valued keys written first, in this order, so the file has a stable field layout.
+const _MRIDATA_STRING_KEYS = ("name", "anatomy", "vendor", "trajectory", "matrix_size")
+# Everything above; the remaining keys are emitted afterwards, sorted.
+const _MRIDATA_HANDLED_KEYS =
+    Set(("id", _MRIDATA_STRING_KEYS..., _MRIDATA_NUMERIC_KEYS..., _MRIDATA_BOOL_KEYS...))
 
+# Written by hand rather than with `TOML.print` so the key order above is preserved: a
+# refreshed index is diffed against the committed one by maintainers, and TOML.print sorts
+# by key, which reshuffles every entry.
 function _write_mridata_index_toml(dest::AbstractString, entries::AbstractDict)
     tmp = dest * ".part"
     open(tmp, "w") do io
@@ -410,19 +425,15 @@ function _write_mridata_index_toml(dest::AbstractString, entries::AbstractDict)
             println(io, "\n[[dataset]]")
             println(io, "id = ", repr(d["id"]))
             # Stable field order: the typed catalog fields first, then extras.
-            for k in ("name", "anatomy", "vendor", "trajectory", "matrix_size")
+            for k in _MRIDATA_STRING_KEYS
                 haskey(d, k) && println(io, k, " = ", repr(String(d[k])))
             end
-            for k in _MRIDATA_NUMERIC_KEYS
-                haskey(d, k) && println(io, k, " = ", d[k])
-            end
-            for k in _MRIDATA_BOOL_KEYS
+            for k in (_MRIDATA_NUMERIC_KEYS..., _MRIDATA_BOOL_KEYS...)
                 haskey(d, k) && println(io, k, " = ", d[k])
             end
             # Remaining string-valued extras, sorted for a stable diff.
-            handled = Set(["id", "name", "anatomy", "vendor", "trajectory", "matrix_size", _MRIDATA_NUMERIC_KEYS..., _MRIDATA_BOOL_KEYS...])
             for k in sort(collect(keys(d)))
-                k in handled && continue
+                k in _MRIDATA_HANDLED_KEYS && continue
                 println(io, k, " = ", repr(string(d[k])))
             end
         end
@@ -439,18 +450,10 @@ function _http_get_string(url::AbstractString; timeout::Real = 30)
     return String(take!(io))
 end
 
-# Issue an HTTP HEAD request and return the Content-Length as an Int, or nothing
-# if the server does not advertise a size or the request fails.
+# Content-Length via HEAD, or `nothing` when the server does not advertise a size or the
+# request fails. `_probe_url` already performs exactly this request (it also reports
+# Accept-Ranges, which this caller ignores) and swallows network errors the same way.
 function _http_head_content_length(url::AbstractString; timeout::Real = 30)::Union{Int, Nothing}
-    try
-        resp = Downloads.request(String(url); method = "HEAD", output = devnull, timeout = float(timeout))
-        for (k, v) in resp.headers
-            lowercase(k) == "content-length" || continue
-            n = tryparse(Int, strip(v))
-            n === nothing || return n
-        end
-    catch
-        # network error or unsupported method — size stays unknown
-    end
-    return nothing
+    _, n = _probe_url(url; timeout = timeout)
+    return n == 0 ? nothing : n
 end

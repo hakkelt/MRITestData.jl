@@ -12,35 +12,6 @@
 # (phase, freq, coils, slices). We permute it to the canonical (nx=freq, ny=phase,
 # nc=coils, nz=slices) the builder expects, then add a singleton temporal axis.
 
-# Read the `kspace` dataset as a ComplexF32 array, normalising the various ways HDF5 may
-# surface an h5py complex compound (native complex, or an (r,i)/(re,im) NamedTuple).
-function _m4raw_read_kspace(path::AbstractString)
-    HDF5 = MRIFiles.HDF5
-    raw = HDF5.h5open(path) do h
-        haskey(h, "kspace") || error("M4Raw file $(path) has no `kspace` dataset (keys: $(keys(h)))")
-        read(h["kspace"]::HDF5.Dataset)
-    end
-    eltype(raw) <: Complex && return ComplexF32.(raw)
-    if eltype(raw) <: NamedTuple
-        fn = fieldnames(eltype(raw))
-        re, im = if fn == (:r, :i)
-            (:r, :i)
-        elseif fn == (:re, :im)
-            (:re, :im)
-        else
-            error("unexpected complex compound fields $(fn) in M4Raw `kspace`")
-        end
-        return [ComplexF32(getfield(v, re), getfield(v, im)) for v in raw]
-    end
-    if eltype(raw) == Float64 && ndims(raw) == 5 && size(raw, 5) == 2
-        # Breast data is saved as Float64 (slice, coil, kx, ky, 2). Convert to complex
-        # and permute to match standard fastMRI (ky, kx, coil, slice).
-        c = complex.(raw[:, :, :, :, 1], raw[:, :, :, :, 2])
-        return permutedims(ComplexF32.(c), (4, 3, 2, 1))
-    end
-    return error("unexpected eltype $(eltype(raw)) for M4Raw `kspace`")
-end
-
 # Permute the HDF5-read kspace (phase, freq, coils, slices) into the canonical
 # (nx=freq, ny=phase, nc=coils, nz=slices, nt=1) the Cartesian builder expects.
 function _m4raw_canonical_kspace(a::AbstractArray)
@@ -58,7 +29,7 @@ function _m4raw_ismrmrd_path(e::DatasetEntry)
     isfile(dest) && return dest
 
     src = download_dataset(e)
-    k = _m4raw_canonical_kspace(_m4raw_read_kspace(src))
+    k = _m4raw_canonical_kspace(_read_fastmri_layout(src).kspace)
     mask = trues(size(k, 1), size(k, 2))
     fs = something(e.field_strength, 0.3)
     return _cmrxrecon_to_ismrmrd(k, mask, dest; field_strength_T = fs)

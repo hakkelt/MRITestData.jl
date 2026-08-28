@@ -44,14 +44,17 @@ mutable struct ScanSink <: IO
     scan::Zran.ScanState
     bar::ProgressMeter.Progress
     seen::Int
+    buf::Vector{UInt8}   # reused scratch: `scan_feed!` wants a vector, not a raw pointer
 end
+ScanSink(scan, bar) = ScanSink(scan, bar, 0, UInt8[])
 function Base.unsafe_write(s::ScanSink, p::Ptr{UInt8}, n::UInt)
-    buf = Vector{UInt8}(undef, Int(n))
-    GC.@preserve buf unsafe_copyto!(pointer(buf), p, n)
-    Zran.scan_feed!(s.scan, buf)
-    s.seen += Int(n)
+    len = Int(n)
+    length(s.buf) < len && resize!(s.buf, len)
+    GC.@preserve s unsafe_copyto!(pointer(s.buf), p, n)
+    Zran.scan_feed!(s.scan, len == length(s.buf) ? s.buf : view(s.buf, 1:len))
+    s.seen += len
     ProgressMeter.update!(s.bar, s.seen)
-    return Int(n)
+    return len
 end
 Base.write(s::ScanSink, b::UInt8) = (Zran.scan_feed!(s.scan, UInt8[b]); s.seen += 1; 1)
 
@@ -141,7 +144,7 @@ function main(args)
     end
     scan.on_output = (buf, n) -> TarIO.feed!(scanner, buf, n)
     bar = ProgressMeter.Progress(max(total, 1); desc = "Indexing $(setname) ", dt = 0.5)
-    sink = ScanSink(scan, bar, 0)
+    sink = ScanSink(scan, bar)
 
     for (name, id) in frags
         url = synapse_presigned_url(id, token)

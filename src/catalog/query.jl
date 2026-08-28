@@ -3,7 +3,7 @@
 # Backs the interactive browser in `browse.jl`.
 
 """
-    query(; sources = list_sources(), text = nothing, offline = false, filters...)
+    query(; sources = list_sources(), text = missing, offline = false, filters...)
         -> Vector{DatasetEntry}
 
 Search across one or several dataset sources and return the matching entries.
@@ -18,24 +18,30 @@ attributes such as `subject = "patient"` or `scanner_model = "Siemens MAGNETOM S
 - `sources`: a single source or a collection of sources to search
   (default: all of [`list_sources`](@ref)).
 - `text`: a case-insensitive substring (or a predicate, or a `Regex`) matched against
-  the entry's `name`, `id`, and the string values in `extra`. `nothing` disables it.
+  the entry's `name`, `id`, and the string values in `extra`. `missing` (the default)
+  disables it.
 - `offline`: pass `true` to use only the committed fallback index (no network).
-- `filters...`: per-field filters as in [`list_datasets`](@ref) / `_matches`. A field
-  filter value may be a scalar (`==`), a collection (`in`), or a predicate. Keys that
-  are not `DatasetEntry` fields are looked up in `extra`.
+- `filters...`: per-field filters as in [`list_datasets`](@ref) / `_matches`. A
+  filter value may be a scalar (`==`), a collection (`in`), a predicate, or `missing` for
+  no filter. Keys that are not `DatasetEntry` fields are looked up in `extra`, where a key
+  the entry does not carry reads as `nothing`.
+
+`nothing` is a value rather than a wildcard, so `fully_sampled = nothing` selects entries
+with unknown sampling and `subject = nothing` selects entries carrying no `subject` key.
 
 # Examples
 ```julia
-query(; anatomy = :knee, fully_sampled = true)                 # both sources
+query(; anatomy = :knee, fully_sampled = true)                 # every source
 query(; sources = OCMR_SOURCE, field_strength = (1.5, 3.0))
 query(; text = "prisma")                                       # free-text over name/id/extra
 query(; subject = "patient")                                   # an OCMR `extra` field
 query(; field_strength = f -> f !== nothing && f >= 3.0)
+query(; coils = nothing)                                       # coil count not recorded
 ```
 """
 function query(;
         sources = list_sources(),
-        text::Union{Nothing, AbstractString, Regex, Function} = nothing,
+        text::Union{Missing, Nothing, AbstractString, Regex, Function} = missing,
         offline::Bool = false,
         kwargs...,
     )
@@ -49,12 +55,18 @@ function query(;
             extra_filters[String(k)] = v
         end
     end
+    # Case-insensitive substring search compares against lowercased haystacks, so fold the
+    # needle once here rather than once per candidate string of every entry.
+    needle = text isa AbstractString ? lowercase(text) : text
     out = DatasetEntry[]
     for s in srcs
         for e in _catalog_entries(s; offline = offline)
-            _matches(e; field_filters...) || continue
+            # The filters are passed as dictionaries, not splatted back into keyword
+            # arguments: splatting a run-time `Dict` rebuilds the keyword tuple for every
+            # candidate entry, which dominates the cost of a filtered query.
+            _matches(e, field_filters) || continue
             _matches_extra(e, extra_filters) || continue
-            _matches_text(e, text) || continue
+            _matches_text(e, needle) || continue
             push!(out, e)
         end
     end
@@ -63,25 +75,20 @@ end
 
 const _DATASET_ENTRY_FIELDS = Set(fieldnames(DatasetEntry))
 
-# Match `extra` filters with the same semantics as `_matches` (scalar/collection/
-# predicate). A missing key is `nothing`; a `nothing` filter value matches anything.
-function _matches_extra(e::DatasetEntry, filters::AbstractDict)
+# Match `extra` filters with the same semantics as `_matches`, against `extra` keys instead
+# of named fields. A key the entry does not carry reads as `nothing`.
+function _matches_extra(e::DatasetEntry, filters::AbstractDict{String})
     for (k, v) in filters
-        v === nothing && continue
-        fv = get(e.extra, k, nothing)
-        ok = if v isa Function
-            v(fv)::Bool
-        elseif v isa AbstractVector || v isa Tuple || v isa AbstractSet
-            fv in v
-        else
-            fv == v
-        end
-        ok || return false
+        _filter_hit(get(e.extra, k, nothing), v) || return false
     end
     return true
 end
 
-# Free-text match over name, id, and the string-valued `extra` entries.
+# Free-text match over name, id, and the string-valued `extra` entries. A string `needle`
+# must already be lowercased — `query` folds it once before the entry loop. `nothing` is
+# accepted alongside `missing` for "no text filter": unlike a field filter, it cannot be
+# confused with a value to match, since `name`/`id`/`extra` strings are never `nothing`.
+_matches_text(::DatasetEntry, ::Missing) = true
 _matches_text(::DatasetEntry, ::Nothing) = true
 _matches_text(e::DatasetEntry, pred::Function) = pred(e)::Bool
 function _matches_text(e::DatasetEntry, needle::Union{AbstractString, Regex})
@@ -94,5 +101,5 @@ function _matches_text(e::DatasetEntry, needle::Union{AbstractString, Regex})
 end
 
 _text_hit(hay::AbstractString, needle::Regex) = occursin(needle, hay)
-_text_hit(hay::AbstractString, needle::AbstractString) =
-    occursin(lowercase(needle), lowercase(hay))
+# `needle` is already lowercased by `query`; only the haystack is folded here.
+_text_hit(hay::AbstractString, needle::AbstractString) = occursin(needle, lowercase(hay))

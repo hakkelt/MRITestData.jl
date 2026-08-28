@@ -108,6 +108,8 @@ include("catalog/display.jl")
 include("browse.jl")
 include("load/ismrmrd.jl")
 include("load/mat.jl")
+include("load/ismrmrd_build.jl")
+include("load/fastmri_layout.jl")
 include("load/cmrxrecon_ismrmrd.jl")
 include("load/m4raw_ismrmrd.jl")
 include("load/fastmri_ismrmrd.jl")
@@ -125,13 +127,7 @@ function __init__()
         @warn """
         MRITestData downloads data from external sources that have their own terms of use.
         Please review the terms before using downloaded data:
-          • mridata.org    →  http://mridata.org/terms
-          • OCMR           →  https://www.ocmr.info/download/
-          • CMRxRecon2024  →  https://cmrxrecon.github.io/2024/FAQ.html
-          • CMRxRecon-300  →  https://www.synapse.org/Synapse:syn52965326
-          • USC Speech     →  https://creativecommons.org/licenses/by/4.0/
-          • M4Raw          →  https://creativecommons.org/licenses/by/4.0/
-          • fastMRI        →  https://fastmri.med.nyu.edu
+        $(terms_notice())
         To permanently suppress this notice, call:
           MRITestData.dismiss_terms_notice!()
         """

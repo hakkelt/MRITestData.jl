@@ -64,8 +64,11 @@
     end
 
     @testset "human-readable byte sizes (pure)" begin
+        # Binary prefixes: these sizes come from Content-Length / filesize and are
+        # compared against on-disk footprints, so 1024-based units with IEC names.
         @test _human_bytes(0) == "0B"
-        @test _human_bytes(1500) == "1.5KB"
-        @test _human_bytes(1_372_000_000) == "1.3GB"
+        @test _human_bytes(1500) == "1.5KiB"
+        @test _human_bytes(1_372_000_000) == "1.3GiB"
+        @test _human_bytes(1024) == "1.0KiB"
     end
 end

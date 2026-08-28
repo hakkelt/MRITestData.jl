@@ -15,36 +15,8 @@
 #   (for prostate the `coils` column holds the sequence type: DIFF or T2)
 
 const _FASTMRI_MAP_PATH = normpath(joinpath(@__DIR__, "..", "..", "data", "fastmri_map.csv"))
-index_ext(::FastMRI) = "csv"
 _bundled_index_path(::FastMRI) = _FASTMRI_MAP_PATH
-
-# The map is static and bundled — there is no upstream to scrape. "Fetching" just copies
-# the bundled file into the cache (no network). The sentinel URL is used for the meta sidecar.
-_index_source_url(::FastMRI) = "bundled://fastmri_map.csv"
-
-function _fetch_index(::FastMRI, dest::AbstractString; progress::Bool = false, fetch_sizes::Bool = false)
-    mkpath(dirname(dest))
-    cp(_FASTMRI_MAP_PATH, dest; force = true)
-    return dest
-end
-
-# Defensive int reader: handles integer, float-parsed, and string CSV cells.
-function _fastmri_int(row, col, key)
-    idx = get(col, key, 0)
-    idx == 0 && return nothing
-    v = row[idx]
-    v isa Integer && return Int(v)
-    v isa Real && return round(Int, v)
-    return tryparse(Int, strip(String(v)))
-end
-
-# Defensive string reader: returns "" for absent or empty columns.
-function _fastmri_str(row, col, key)
-    idx = get(col, key, 0)
-    idx == 0 && return ""
-    v = row[idx]
-    return strip(v isa AbstractString ? String(v) : string(v))
-end
+_is_static_index(::FastMRI) = true
 
 # Derive the user-facing id from the member path. The path is
 # "<anatomy_split_prefix>/<filename>.h5" (e.g. "knee_singlecoil_train/file1000000.h5");
@@ -55,38 +27,28 @@ end
 
 # Map anatomy strings from the CSV to symbols used in DatasetEntry.
 function _fastmri_anatomy(s::AbstractString)
-    s == "knee" && return :knee
-    s == "brain" && return :brain
-    s == "prostate" && return :prostate
-    s == "breast" && return :breast
-    return nothing
-end
-
-# Map coils string to an Int (or nothing if not a number).
-function _fastmri_coils(s::AbstractString)
-    n = tryparse(Int, s)
-    n !== nothing && return n
-    return nothing
+    return s in ("knee", "brain", "prostate", "breast") ? Symbol(s) : nothing
 end
 
 function _fastmri_entry(row, col)
-    path = _fastmri_str(row, col, "path")
+    path = _csv_cell_str(row, col, "path")
     isempty(path) && return nothing
 
-    archive = _fastmri_str(row, col, "archive")
+    archive = _csv_cell_str(row, col, "archive")
     isempty(archive) && return nothing
 
-    tar_data_offset = _fastmri_int(row, col, "tar_data_offset")
-    file_size = _fastmri_int(row, col, "file_size")
+    tar_data_offset = _csv_cell_int(row, col, "tar_data_offset")
+    file_size = _csv_cell_int(row, col, "file_size")
 
     (tar_data_offset === nothing || file_size === nothing) && return nothing
 
-    anat_str = _fastmri_str(row, col, "anatomy")
+    anat_str = _csv_cell_str(row, col, "anatomy")
     anatomy = _fastmri_anatomy(anat_str)
-    coils_str = _fastmri_str(row, col, "coils")
-    coils = _fastmri_coils(coils_str)
-    split = _fastmri_str(row, col, "split")
-    patient_id = _fastmri_str(row, col, "patient_id")
+    coils_str = _csv_cell_str(row, col, "coils")
+    coils = tryparse(Int, coils_str)
+
+    # For prostate the `coils` column holds the sequence type (DIFF / T2), not a count.
+    seq = !isempty(coils_str) && coils_str ∉ ("singlecoil", "multicoil") ? uppercase(coils_str) : ""
 
     # Field strength: knee/brain — leave unset (ISMRMRD header carries it).
     # Prostate / breast: 3 T scanners in the fastMRI protocol.
@@ -94,9 +56,7 @@ function _fastmri_entry(row, col)
 
     id = _fastmri_path_to_id(path)
     anat_label = isempty(anat_str) ? "?" : uppercasefirst(anat_str)
-    # For prostate, the coils column holds the sequence type (DIFF / T2); include it.
-    seq_label = coils_str ∉ ("singlecoil", "multicoil") && !isempty(coils_str) ?
-        string(" ", uppercase(coils_str)) : ""
+    seq_label = isempty(seq) ? "" : string(" ", seq)
     label = string("fastMRI ", anat_label, seq_label, " — ", basename(id))
 
     extra = Dict{String, Any}(
@@ -105,15 +65,11 @@ function _fastmri_entry(row, col)
         "tar_data_offset" => tar_data_offset,
         "file_size" => file_size,
     )
-    isempty(split) || (extra["split"] = split)
-    isempty(patient_id) || (extra["patient_id"] = patient_id)
-    # Prostate uses the coils column to store sequence type (DIFF / T2).
-    if coils_str ∉ ("singlecoil", "multicoil") && !isempty(coils_str)
-        extra["sequence"] = uppercase(coils_str)
-    end
+    _put_columns!(extra, row, col, _csv_cell_str, ("split", "patient_id"))
+    _put_optional!(extra, "sequence", seq)
 
     # The prostate dataset is highly accelerated (aliased).
-    is_fully_sampled = (anatomy === :prostate) ? false : true
+    is_fully_sampled = anatomy !== :prostate
 
     return DatasetEntry(;
         source = FASTMRI,
@@ -133,28 +89,8 @@ function _fastmri_entry(row, col)
     )
 end
 
-function _fastmri_entries(path::AbstractString)
-    isfile(path) || return DatasetEntry[]
-    data, header = readdlm(path, ','; header = true)
-    col = Dict(strip(String(h)) => i for (i, h) in enumerate(vec(header)))
-    haskey(col, "path") || return DatasetEntry[]
-    entries = DatasetEntry[]
-    for r in axes(data, 1)
-        e = _fastmri_entry(data[r, :], col)
-        e === nothing || push!(entries, e)
-    end
-    return entries
-end
+_fastmri_entries(path::AbstractString) = _parse_offset_map(path, _fastmri_entry)
 
 function _catalog_entries(s::FastMRI; offline::Bool = false)
-    path = ensure_index(s; offline = offline)
-    return _fastmri_entries(path)
-end
-
-function _synthesize_entry(::FastMRI, id::String)
-    return error(
-        "Unknown fastMRI file $(repr(id)). fastMRI entries must be present in the " *
-            "committed offset map (data/fastmri_map.csv); generate it with " *
-            "`scripts/index_fastmri.jl` after receiving download links from fastmri.med.nyu.edu.",
-    )
+    return _cached_index_entries(ensure_index(s; offline = offline), _fastmri_entries)
 end

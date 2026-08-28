@@ -36,9 +36,6 @@ const _ARCHIVES300 = Dict{String, _Archive300}(
 const _CMRX300_PARTS = Dict{String, Tuple{Vector{String}, Int}}()
 const _CMRX300_INDEX = Dict{String, Tuple{Int, Vector{Zran.Checkpoint}}}()
 
-# Compressed bytes pulled per HTTP Range request while streaming toward a member.
-const _CMRX300_BLOCK = 4 * 1024 * 1024
-
 # CMRxRecon-300 ids are the in-archive path with the .mat extension stripped; the cached
 # raw file restores it (its slashes become a directory tree under the cache).
 _cache_basename(::CMRxRecon300, e::DatasetEntry) = string(e.id, ".mat")
@@ -92,21 +89,6 @@ function _cmrx300_entity_id(ordered::Vector{String}, frag::Integer)
     return ordered[frag + 1]
 end
 
-# Largest checkpoint with unc_off ≤ target (checkpoints are sorted by comp_off, which is
-# monotonic in unc_off). Falls back to the first checkpoint.
-function _nearest_checkpoint(cps::Vector{Zran.Checkpoint}, target::Int)
-    lo, hi, ans = 1, length(cps), 1
-    while lo <= hi
-        mid = (lo + hi) ÷ 2
-        if cps[mid].unc_off <= target
-            ans = mid; lo = mid + 1
-        else
-            hi = mid - 1
-        end
-    end
-    return cps[ans]
-end
-
 function _fetch_dataset(::CMRxRecon300, e::DatasetEntry, dest::AbstractString; progress::Bool, verify::Bool)
     set = lowercase(get(e.extra, "set", "training"))
     set = set == "trainingset" ? "training" :
@@ -130,44 +112,22 @@ function _fetch_dataset(::CMRxRecon300, e::DatasetEntry, dest::AbstractString; p
     ordered, chunk = _load_parts300!(set)
     _, cps = _load_index300!(set)
     isempty(cps) && error("empty checkpoint index for $(set); regenerate $(spec.index_path)")
-    ck = _nearest_checkpoint(cps, data_offset)
+    ck = Zran.nearest_checkpoint(cps, data_offset)
 
-    ex = Zran.ExtractState(ck; skip = data_offset - ck.unc_off, nbytes = size)
-    bar = progress ? ProgressMeter.Progress(size; desc = "Downloading $(e.name) ", dt = 0.2) : nothing
-
-    # Presigned S3 URLs are per-fragment and valid for a while, so re-presign only when
-    # the stream crosses into a new fragment rather than on every range request.
-    pos = ck.comp_off
-    cur_frag = -1
-    url = ""
-    while !Zran.extract_done(ex)
+    # Presigned S3 URLs are per-fragment and valid for a while, so re-presign only when the
+    # stream crosses into a new fragment rather than on every range request.
+    cur_frag = Ref(-1)
+    url = Ref("")
+    read_block = function (pos::Int)
         frag = div(pos, chunk)
         within = pos - frag * chunk
-        rend = min(within + _CMRX300_BLOCK - 1, chunk - 1)
-        if frag != cur_frag
-            url = _synapse_presigned_url(_cmrx300_entity_id(ordered, frag), token)
-            cur_frag = frag
+        if frag != cur_frag[]
+            url[] = _synapse_presigned_url(_cmrx300_entity_id(ordered, frag), token)
+            cur_frag[] = frag
         end
-        bytes = _download_range(url, within, rend)
-        isempty(bytes) && error("unexpected end of stream fetching $(e.id) at offset $pos")
-        Zran.extract_feed!(ex, bytes)
-        pos += length(bytes)
-        bar === nothing || ProgressMeter.update!(bar, min(length(ex.out), size))
+        return _download_range(url[], within, min(within + _RANGE_BLOCK_BYTES - 1, chunk - 1))
     end
-    bar === nothing || ProgressMeter.finish!(bar)
 
-    length(ex.out) == size ||
-        error("extracted $(length(ex.out)) bytes for $(e.id), expected $size")
-
-    mkpath(dirname(dest))
-    tmp = dest * ".part"
-    try
-        write(tmp, ex.out)
-    catch err
-        isfile(tmp) && rm(tmp; force = true)
-        rethrow(err)
-    end
-    mv(tmp, dest; force = true)
-    _write_meta(e, dest, _sha256_hex(dest))
-    return dest
+    bytes = _zran_extract(e, ck, data_offset - ck.unc_off, size, read_block; progress = progress)
+    return _finalize_download(e, dest, bytes)
 end

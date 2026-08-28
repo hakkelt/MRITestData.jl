@@ -20,20 +20,13 @@
     # We call the internal parsers directly here (bypassing ensure_index, which
     # needs CACHE_DIR) so that the DatasetEntry kwcall specializations for every
     # field-type combination that occurs in real data are precompiled and cached.
-    _ = [_mridata_entry(d) for d in _mridata_raw(_BUNDLED_MRIDATA_INDEX)]
-    let _pc_data, _pc_header
-        _pc_data, _pc_header = readdlm(_BUNDLED_OCMR_CSV, ','; header = true)
-        _pc_col = Dict(strip(String(h)) => i for (i, h) in enumerate(vec(_pc_header)))
-        for _pc_r in axes(_pc_data, 1)
-            _ocmr_entry(_pc_data[_pc_r, :], _pc_col)
-        end
-    end
-    # CMRxRecon2024 offset-map parser (bypassing ensure_index, which needs CACHE_DIR).
+    _ = _mridata_entries(_BUNDLED_MRIDATA_INDEX)
+    _ = _ocmr_entries(_BUNDLED_OCMR_CSV)
     _ = _cmrxrecon_entries(_CMRXRECON_MAP_PATH)
-    # USC Speech offset-map parser (bypassing ensure_index, which needs CACHE_DIR).
     _ = _usc_speech_entries(_USC_MAP_PATH)
-    # M4Raw offset-map parser (bypassing ensure_index, which needs CACHE_DIR).
     _ = _m4raw_entries(_M4RAW_MAP_PATH)
+    _ = _fastmri_entries(_FASTMRI_MAP_PATH)
+    _ = _cmrx300_entries(_cmrx300_map_path("demo"))
 
     # CMRxRecon2024 .mat→ISMRMRD conversion + load (synthetic; no network/CACHE_DIR).
     let

@@ -4,15 +4,3 @@ LocalPreferences.toml
 Scratch/
 examples/results/
 examples/cache/
-
-# Transient HPC / SLURM job logs and one-off local scratch scripts
-/*.out
-/*.err
-/slurm-*
-/submit_*.sh
-/reconstruct_fastmri_*.sh
-/debug_*.sh
-/launch_jobs.sh
-/check_prostate.jl
-/*_header.xml
-/fastmri.txt

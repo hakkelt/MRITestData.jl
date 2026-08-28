@@ -12,11 +12,9 @@ end
     dismiss_terms_notice!()
 
 Permanently suppress the data-source terms-of-use warning that is printed when
-`using MRITestData` is called. Only call this after you have reviewed the terms:
-  • mridata.org    →  http://mridata.org/terms
-  • OCMR           →  https://www.ocmr.info/download/
-  • CMRxRecon2024  →  https://cmrxrecon.github.io/2024/FAQ.html
-  • CMRxRecon-300  →  https://www.synapse.org/Synapse:syn52965326
+`using MRITestData` is called. Only call this after you have reviewed the terms — the
+notice itself lists them, and `MRITestData.terms_notice()` reprints it at any time
+(`terms_url(source)` gives a single source's URL).
 
 The setting is stored in `LocalPreferences.toml` and persists across Julia sessions.
 Re-enable the notice with [`enable_terms_notice!`](@ref).
@@ -153,6 +151,26 @@ end
 
 # ── fastMRI signed-URL credentials ────────────────────────────────────────────────
 
+# Extract `filename => url` pairs and the shared `Expires` Unix timestamp (0 when no URL
+# carries one) from a fastMRI access email. Split out of `set_fastmri_urls!` so the parser
+# can be tested without touching Preferences. Throws if the text holds no curl commands.
+function _parse_fastmri_email(text::AbstractString)::Tuple{Dict{String, String}, Int}
+    urls = Dict{String, String}()
+    expires = 0
+    for m in eachmatch(r"""curl\s+-C\s+-\s+"([^"]+)"\s+--output\s+(\S+)""", text)
+        url = string(m.captures[1])
+        urls[string(m.captures[2])] = url
+        em = match(r"[?&]Expires=(\d+)", url)
+        if em !== nothing && expires == 0
+            ec = em.captures[1]
+            ec === nothing || (expires = parse(Int, ec))
+        end
+    end
+    isempty(urls) &&
+        throw(ArgumentError("no `curl -C - \"<url>\" --output <file>` commands found in the provided text"))
+    return urls, expires
+end
+
 """
     set_fastmri_urls!(text::AbstractString)
 
@@ -172,22 +190,7 @@ Call this once after receiving the access email — credentials last 90 days. Re
 requesting a new set of links at [https://fastmri.med.nyu.edu](https://fastmri.med.nyu.edu).
 """
 function set_fastmri_urls!(text::AbstractString)
-    urls = Dict{String, String}()
-    expires = 0
-    for m in eachmatch(r"""curl\s+-C\s+-\s+"([^"]+)"\s+--output\s+(\S+)""", text)
-        c1, c2 = m.captures[1], m.captures[2]
-        (c1 === nothing || c2 === nothing) && continue
-        url = string(c1)
-        filename = string(c2)
-        urls[filename] = url
-        em = match(r"[?&]Expires=(\d+)", url)
-        if em !== nothing && expires == 0
-            ec = em.captures[1]
-            ec === nothing || (expires = parse(Int, ec))
-        end
-    end
-    isempty(urls) &&
-        throw(ArgumentError("no `curl -C - \"<url>\" --output <file>` commands found in the provided text"))
+    urls, expires = _parse_fastmri_email(text)
     set_preferences!(MRITestData, "fastmri_urls" => urls; export_prefs = false, force = true)
     set_preferences!(MRITestData, "fastmri_expires" => expires; export_prefs = false, force = true)
     exp_str = expires > 0 ? string(Dates.unix2datetime(expires), " UTC") : "unknown"

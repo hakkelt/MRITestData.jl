@@ -18,13 +18,17 @@ CMRxRecon2024
 CMRxRecon300
 USCSpeech
 M4Raw
+FastMRI
 MRIDATA
 OCMR_SOURCE
 CMRXRECON2024
 CMRXRECON300
 USC_SPEECH
 M4RAW
+FASTMRI
 list_sources
+terms_url
+terms_notice
 ```
 
 ## Catalog & discovery
@@ -97,6 +101,18 @@ set_refresh_period!
 get_refresh_period
 set_synapse_token!
 get_synapse_token
+```
+
+### fastMRI credentials
+
+fastMRI access is form-gated; the confirmation email carries 90-day pre-signed S3 URLs.
+Register them once with [`set_fastmri_urls!`](@ref) — see the
+[fastMRI section of the usage guide](usage.md#FASTMRI-—-NYU-fastMRI-knee/brain/prostate/breast).
+
+```@docs
+set_fastmri_urls!
+get_fastmri_url
+fastmri_url_expires
 ```
 
 The parallel-download tuning Refs read by the settings above:

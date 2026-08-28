@@ -20,7 +20,7 @@
 ```julia
 using MRITestData
 
-list_sources()                                    # [MRIDATA, OCMR_SOURCE]
+list_sources()                                    # every supported source
 list_datasets(OCMR_SOURCE; fully_sampled = true)
 list_datasets(MRIDATA; anatomy = :knee, field_strength = 3.0)
 ```
@@ -33,6 +33,17 @@ list_datasets(MRIDATA; coils = c -> c !== nothing && c >= 8)
 list_datasets(OCMR_SOURCE; field_strength = (1.5, 3.0))
 ```
 
+Many fields are optional, and `nothing` is their honest value when a source does not record
+one. `nothing` is therefore treated as a **value to match**, not a wildcard — use it to find
+the entries where something is unknown. To not filter on a field at all, omit the keyword or
+pass `missing`:
+
+```julia
+list_datasets(FASTMRI; coils = nothing)           # coil count not recorded
+list_datasets(OCMR_SOURCE; fully_sampled = nothing)   # sampling status unknown
+list_datasets(MRIDATA; vendor = missing)          # no filter — same as omitting it
+```
+
 ### Searching across sources
 
 [`query`](@ref) searches **one or several** sources at once with the same filter
@@ -41,11 +52,15 @@ vocabulary. Unknown keywords are matched against each entry's `extra` metadata, 
 name, id, and string-valued `extra` fields:
 
 ```julia
-query(; anatomy = :knee, fully_sampled = true)        # both sources
+query(; anatomy = :knee, fully_sampled = true)        # every source
 query(; sources = OCMR_SOURCE, field_strength = (1.5, 3.0))
 query(; text = "prisma")                              # free-text
 query(; subject = "patient")                          # an OCMR `extra` field
+query(; subject = nothing)                            # entries carrying no `subject`
 ```
+
+The `missing`/`nothing` distinction above applies to `extra` keys too: a key the entry does
+not carry reads as `nothing`.
 
 ### Interactive browser
 
@@ -87,8 +102,9 @@ Pkg.Apps.develop(path = "/path/to/MRITestData")
 Make sure `~/.julia/bin` is on your `PATH`, then launch:
 
 ```sh
-mridata-browser            # browse all sources
-mridata-browser --offline  # use the bundled index without hitting the network
+mridata-browser                     # browse every source
+mridata-browser --offline           # use the bundled index without hitting the network
+mridata-browser --source ocmr       # one source (repeatable; names match `source_name`)
 ```
 
 ## The self-updating index
