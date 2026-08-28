@@ -21,6 +21,10 @@ All sources are exposed through one uniform pipeline — [`list_datasets`](@ref)
 ISMRMRD files are read via [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIFiles.jl)/`MRIBase`;
 the CMRxRecon sources' `.mat` k-space is converted to a cached ISMRMRD file on first load.
 
+See [Dataset contents](@ref) for a careful per-source breakdown of every data type —
+anatomy, contrasts/modalities, sampling, coil configuration, array layout, and file
+counts.
+
 ## Data sources
 
 - **mridata.org** — a community repository of **fully-sampled** raw k-space, mostly 3D
