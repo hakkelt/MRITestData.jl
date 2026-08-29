@@ -81,7 +81,7 @@ query(; text = "prisma")
 `run_browser()` (or the standalone `mridata-browser` app) opens a full-screen terminal
 browser to filter, search, sort and download datasets:
 
-![The mridata-browser terminal UI](docs/src/assets/browser-demo.svg)
+![The mridata-browser terminal UI](docs/src/assets/browser-demo.gif)
 
 ```julia
 run_browser()                        # all sources

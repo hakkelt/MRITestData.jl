@@ -109,6 +109,11 @@ for the full archive lists and the parallel-execution recipe.
 - `docs/generate_recon_images.jl` renders the coil-combined magnitude images in
   [Reconstruction with MRIReco](@ref). They are committed rather than built live because
   reconstruction needs MRIReco plus multi-GB real downloads (and a Synapse token).
-- `docs/src/assets/browser-demo.svg` is a hand-authored animated illustration of the
-  terminal browser (the real TUI cannot be captured in CI). Update it if the column set
-  in `src/browse.jl` changes.
+- `docs/src/assets/browser-demo.gif` is a screen recording of a real
+  `run_browser(offline = true)` session. It is regenerated (not built in CI) from
+  `docs/assets/browser-demo.cast` — an [asciinema](https://asciinema.org/) v2 cast
+  captured by driving the TUI through a pseudo-terminal
+  (`pexpect`, 150×40) and rendered to GIF with
+  [`agg`](https://github.com/asciinema/agg):
+  `agg --font-size 13 --speed 1.15 docs/assets/browser-demo.cast browser-demo.gif`.
+  Re-record it if the column set in `src/browse.jl` or the key bindings change.

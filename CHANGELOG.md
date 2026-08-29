@@ -13,8 +13,8 @@ All notable changes to MRITestData.jl are documented here. The format follows
   `.tar.gz` zran range-extraction.
 - Documentation: `Concepts & data model`, `Tutorial`, `Glossary`, `FAQ & troubleshooting`
   and `Internals & maintainer notes` pages; undersampled (CG-SENSE) reconstruction
-  example and reconstruction-method references; animated illustration of the terminal
-  browser.
+  example and reconstruction-method references; a screen recording (GIF) of the
+  terminal browser.
 - `CITATION.bib`.
 
 ### Changed

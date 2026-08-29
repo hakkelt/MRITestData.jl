@@ -76,7 +76,7 @@ source carries.
 
 ## Interactive browser
 
-![The mridata-browser terminal UI](assets/browser-demo.svg)
+![The mridata-browser terminal UI](assets/browser-demo.gif)
 
 MRITestData ships a full-screen terminal browser built on
 [Tachikoma.jl](https://github.com/kahliburke/Tachikoma.jl)'s `PagedDataTable`. Call it
