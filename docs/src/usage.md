@@ -1,21 +1,25 @@
 # Usage
 
+New to raw k-space, ISMRMRD or the catalog vocabulary? Read [Concepts & data model](@ref)
+first, then the [Tutorial](@ref) for an end-to-end walk-through. This page is the
+reference for every user-facing feature. Archive-fetching mechanics and maintainer
+scripts are in [Internals & maintainer notes](@ref).
+
 !!! warning "Data source terms of use"
     MRITestData downloads files from external repositories. Each source has its own
-    terms of use that you must agree to **before** using the data in your work:
-
-    - **mridata.org** → [http://mridata.org/terms](http://mridata.org/terms)
-    - **OCMR** → [https://www.ocmr.info/download/](https://www.ocmr.info/download/)
-    - **CMRxRecon2024** → [https://cmrxrecon.github.io/2024/FAQ.html](https://cmrxrecon.github.io/2024/FAQ.html)
-    - **CMRxRecon-300** → [https://www.synapse.org/Synapse:syn52965326](https://www.synapse.org/Synapse:syn52965326)
-    - **USC Speech** → [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/)
-    - **M4Raw** → [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/)
-    - **fastMRI** → [https://fastmri.med.nyu.edu](https://fastmri.med.nyu.edu) (fastMRI Dataset Agreement; required before any download)
-
-    Call `MRITestData.dismiss_terms_notice!()` to permanently suppress the startup
-    reminder once you have reviewed the terms.
+    terms you must agree to **before** using the data in your work — see
+    [Licensing & legal](@ref) for the full list and citations. Call
+    `MRITestData.dismiss_terms_notice!()` to suppress the startup reminder once you
+    have reviewed them.
 
 ## Discovering datasets
+
+Two entry points:
+
+| Function | Scope | Matches on |
+|---|---|---|
+| [`list_datasets`](@ref)`(source; filters...)` | **one** source | core [`DatasetEntry`](@ref) fields |
+| [`query`](@ref)`(; sources = …, filters...)` | **one or several** sources (all by default) | core fields **+** `extra` keys **+** `text` free-text search |
 
 ```julia
 using MRITestData
@@ -25,7 +29,9 @@ list_datasets(OCMR_SOURCE; fully_sampled = true)
 list_datasets(MRIDATA; anatomy = :knee, field_strength = 3.0)
 ```
 
-Filters match a [`DatasetEntry`](@ref) field by a scalar (`==`), a vector/tuple
+### Filters
+
+A filter matches a [`DatasetEntry`](@ref) field by a scalar (`==`), a vector/tuple
 (membership), or a predicate function:
 
 ```julia
@@ -33,15 +39,15 @@ list_datasets(MRIDATA; receiver_channels = c -> c !== nothing && c >= 8)
 list_datasets(OCMR_SOURCE; field_strength = (1.5, 3.0))
 ```
 
-Field names, value vocabularies and units follow the DICOM standard wherever DICOM has an
-attribute for the concept (e.g. `anatomy` is Body Part Examined, `contrast` is Acquisition
-Contrast); a handful of fields with no DICOM equivalent are documented extensions. See
-[Taxonomy](@ref) for the full mapping and the external references behind it.
+Field names, value vocabularies and units follow the **DICOM** standard wherever DICOM
+has an attribute for the concept (`anatomy` is Body Part Examined, `contrast` is
+Acquisition Contrast, …); seven fields with no DICOM equivalent are documented
+extensions. See [Taxonomy](@ref).
 
-Many fields are optional, and `nothing` is their honest value when a source does not record
-one. `nothing` is therefore treated as a **value to match**, not a wildcard — use it to find
-the entries where something is unknown. To not filter on a field at all, omit the keyword or
-pass `missing`:
+Many fields are optional, and `nothing` is their honest value when a source records
+none. `nothing` is therefore a **value to match**, not a wildcard — use it to find
+entries where something is unknown. To not filter on a field, omit the keyword or pass
+`missing`:
 
 ```julia
 list_datasets(FASTMRI; receiver_channels = nothing)   # channel count not recorded
@@ -53,8 +59,8 @@ list_datasets(MRIDATA; vendor = missing)              # no filter — same as om
 
 [`query`](@ref) searches **one or several** sources at once with the same filter
 vocabulary. Unknown keywords are matched against each entry's `extra` metadata, and
-`text` does a case-insensitive substring (or `Regex`/predicate) search over the
-name, id, and string-valued `extra` fields:
+`text` does a case-insensitive substring (or `Regex`/predicate) search over the name,
+id, and string-valued `extra` fields:
 
 ```julia
 query(; anatomy = :knee, fully_sampled = true)        # every source
@@ -64,23 +70,27 @@ query(; cohort = :patient)                            # patients, not volunteers
 query(; sources = OCMR_SOURCE, scanner_model = "Siemens MAGNETOM Sola")   # an OCMR `extra` field
 ```
 
-The `missing`/`nothing` distinction above applies to `extra` keys too: a key the entry does
-not carry reads as `nothing`.
+The `missing`/`nothing` distinction applies to `extra` keys too: a key the entry does
+not carry reads as `nothing`. Use [`extra_schema`](@ref)`(source)` to see which keys a
+source carries.
 
-### Interactive browser
+## Interactive browser
+
+![The mridata-browser terminal UI](assets/browser-demo.svg)
 
 MRITestData ships a full-screen terminal browser built on
-[Tachikoma.jl](https://github.com/kahliburke/Tachikoma.jl)'s `PagedDataTable`.
-Call it directly from the Julia REPL:
+[Tachikoma.jl](https://github.com/kahliburke/Tachikoma.jl)'s `PagedDataTable`. Call it
+from the Julia REPL:
 
 ```julia
 using MRITestData
-run_browser()                            # browse all sources
-run_browser(; sources = OCMR_SOURCE)    # one source only
-run_browser(; offline = true)           # skip the network
+run_browser()                          # browse all sources
+run_browser(; sources = OCMR_SOURCE)   # one source only
+run_browser(; offline = true)          # skip the network
 ```
 
 Inside the browser:
+
 - **↑ ↓** — move the selection; **PgUp/PgDn**, **Home/End** — change page.
 - **`/`** — global text search across all columns.
 - **`f`** — open the filter modal (per-column typed filters).
@@ -91,76 +101,72 @@ Inside the browser:
 - **`q` / Esc** — quit without downloading.
 
 Narrowing `run_browser(; sources = ...)` to a single source adds a couple of that
-source's most useful `extra` fields as real, sortable/filterable columns (e.g. OCMR gets
-a `scanner_model` column) — see [`run_browser`](@ref) for the full list.
+source's most useful `extra` fields as real, sortable/filterable columns (e.g. OCMR
+gets a `scanner_model` column) — see [`run_browser`](@ref) for the full list. After
+selecting a dataset you confirm the download (`y`/`n`) and choose a destination path
+(default `<current directory>/<id>.h5`).
 
-After selecting a dataset you are asked to confirm the download (`y`/`n`) and to
-choose a destination path. The default is `<current directory>/<id>.h5`; press
-Enter to accept it.
+### Standalone shell command
 
-**Standalone shell command (optional)**
-
-MRITestData can also be installed as a standalone `mridata-browser` command
-(adds it to `~/.julia/bin`):
+MRITestData can also be installed as a standalone `mridata-browser` command:
 
 ```julia
 using Pkg
-Pkg.Apps.add("MRITestData")          # from the registry
-# or, from a local clone:
-Pkg.Apps.develop(path = "/path/to/MRITestData")
+Pkg.Apps.add("MRITestData")                  # from the registry
+Pkg.Apps.develop(path = "/path/to/MRITestData")   # from a local clone
 ```
 
-Make sure `~/.julia/bin` is on your `PATH`, then launch:
+With `~/.julia/bin` on your `PATH`:
 
 ```sh
 mridata-browser                     # browse every source
-mridata-browser --offline           # use the bundled index without hitting the network
+mridata-browser --offline           # bundled index, no network
 mridata-browser --source ocmr       # one source (repeatable; names match `source_name`)
 ```
 
 ## The self-updating index
 
-Each source's catalog is backed by an **index** that is fetched from upstream and
-cached in a scratchspace:
+`MRIDATA` and `OCMR_SOURCE` are backed by an **index** fetched from upstream and cached
+in a scratchspace:
 
 - **OCMR** — the authoritative `ocmr_data_attributes.csv` from OCMR's S3 bucket.
 - **mridata.org** — scraped from `mridata.org/list` (the site has no JSON API).
 
-The index is downloaded on first use, then refreshed automatically once it is older
-than [`MRITestData.INDEX_TTL_DAYS`](@ref) (default 30 days). On any network failure
-the bundled index that ships with the package is used instead, so discovery always
-works offline.
+The index is downloaded on first use, then refreshed automatically once older than
+[`MRITestData.INDEX_TTL_DAYS`](@ref) (default 30 days). On any network failure the
+bundled index that ships with the package is used instead, so discovery always works
+offline. The other five sources ship a **static** committed index and behave identically
+online and offline (`refresh_index` is a no-op that reports the path).
 
 ```julia
-refresh_index(OCMR_SOURCE)     # force a refresh now (manual trigger)
-refresh_index()                # refresh every source
+refresh_index(OCMR_SOURCE)     # force a refresh now
+refresh_index()                # every source
 index_age_days(OCMR_SOURCE)    # nothing if never fetched (bundled fallback in use)
 
-# Skip the network entirely (used by CI/offline tests):
-list_datasets(OCMR_SOURCE; offline = true)
-```
+list_datasets(OCMR_SOURCE; offline = true)   # skip the network entirely
 
-To change the refresh period:
-
-```julia
-MRITestData.INDEX_TTL_DAYS[] = 7   # refresh weekly
+MRITestData.INDEX_TTL_DAYS[] = 7             # refresh weekly
 ```
 
 ## Downloading and caching
 
 ```julia
 entry = first(list_datasets(OCMR_SOURCE; fully_sampled = true))
-path  = download_dataset(entry)            # ISMRMRD .h5 -> Scratch cache, returns path
+path  = download_dataset(entry)            # -> Scratch cache, returns the local path
 ```
 
-Downloads stream to a temporary `.part` file and are renamed atomically on success,
-so an interrupted transfer never poisons the cache. A `ProgressMeter` bar is shown
-by default; pass `progress = false` to opt out. A generous `max_bytes` guard can
-prevent accidentally pulling very large files:
+Downloads stream to a temporary `.part` file and are renamed atomically on success, so
+an interrupted transfer never poisons the cache. A `ProgressMeter` bar is shown by
+default (`progress = false` to opt out). A `max_bytes` guard prevents accidentally
+pulling a very large file:
 
 ```julia
 download_dataset(entry; progress = false, max_bytes = 2_000_000_000)
 ```
+
+For archive-backed sources this fetches **only the requested file's bytes** via HTTP
+range requests — see [Internals: random-access extraction](@ref) and the
+[disk-footprint reference](@ref "Disk-footprint reference").
 
 Cache management:
 
@@ -170,318 +176,179 @@ clear_cache()                       # all sources
 clear_cache(; source = OCMR_SOURCE) # one source
 ```
 
-## Working with the raw data
-
-[`load_raw`](@ref) accepts an ISMRMRD file path **or** a
-[`DatasetEntry`](@ref)/[`DatasetHandle`](@ref) directly — the dataset is downloaded
-(and cached) on first use:
-
-```julia
-raw = load_raw(entry)        # MRIBase.RawAcquisitionData (profiles + XML header)
-```
-
-This works uniformly for every source. OCMR and mridata.org files are already
-ISMRMRD; CMRxRecon2024 files are MATLAB k-space and are converted to a cached ISMRMRD
-file transparently (see below). To reconstruct, build an `AcquisitionData` from the
-`RawAcquisitionData` and hand it to a reconstruction package — see
-[Reconstruction with MRIReco](@ref).
-
-### CMRxRecon2024: k-space to ISMRMRD
-
-CMRxRecon2024 distributes each acquisition as a MATLAB `.mat` k-space array. The
-catalog exposes the **fully-sampled** ground-truth acquisitions; MRITestData builds a
-valid Cartesian ISMRMRD file the first time you load an entry, so CMRxRecon flows
-through the same `load_raw` pipeline as every other source:
-
-```julia
-entry = first(list_datasets(CMRXRECON2024; offline = true))
-raw   = load_raw(entry)              # downloads the .mat, converts, loads
-```
-
-- All CMRxRecon k-space is Cartesian; each acquisition is stored as one ISMRMRD profile
-  per phase-encode line, with temporal frames mapped to ISMRMRD contrasts.
-- Coils are SVD-compressed to 10 virtual channels (`entry.receiver_channels`, with
-  `entry.coil_data == :derived`); the physical element count is kept in
-  `entry.extra["multi_coil_elements"]`.
-- CMRxRecon does not ship a field of view; a placeholder (matrix size in mm) is written,
-  while the encoding/recon matrix size reflects the true dimensions.
-
-If you need the raw MATLAB arrays instead of ISMRMRD, `MRITestData.load_mat`
-returns the `.mat` contents as a `Dict`:
-
-```julia
-d = MRITestData.load_mat(entry)     # e.g. d["kspace_full"]
-```
-
-### CMRxRecon-300: random-access extraction from split `.tar.gz`
-
-CMRxRecon-300 ships raw k-space (`Recon_ks`) as `.tar.gz` archives split into 16 GiB
-fragments. The `_ks` files are **undersampled** (a regular k-t pattern, R≈3) paired with
-fully-sampled ACS `_calib` files; `load_raw` reads the true acquired-line pattern from the
-data, so the resulting `RawAcquisitionData`/`AcquisitionData` is correctly marked
-undersampled (an artifact-free image needs parallel imaging — ESPIRiT/CG-SENSE with the
-ACS — not a plain inverse FFT). Because a `.tar.gz` is one continuous gzip stream, it cannot be
-range-extracted per file like a ZIP. Instead the package ships a precomputed **zran**
-(zlib random-access) checkpoint index with one checkpoint placed just before each file:
-to fetch one `.mat` it resumes decompression immediately before that file and issues HTTP
-range requests, streaming essentially just the file rather than the whole (≈120–260 GB)
-archive. Loading is otherwise identical to every other source:
-
-```julia
-entry = first(list_datasets(CMRXRECON300; offline = true))
-raw   = load_raw(entry)              # zran-extracts the .mat, converts, loads
-```
-
-Files are stored as Cartesian ISMRMRD (one profile per phase-encode line, frames →
-contrasts), the same as CMRxRecon2024. Building or refining the checkpoint index from the
-archives is a maintainer task — see `scripts/index_cmrxrecon300.jl` and `scripts/README.md`.
-
-### USC Speech: non-Cartesian spiral + figshare ZIP range-extraction
-
-The USC SPAN 75-speaker dataset is the package's first **non-Cartesian** source: real-time
-speech production MRI acquired on a GE Signa Excite **1.5 T** scanner with an 8-channel
-upper-airway array using a **13-interleaf spiral-out** spoiled GRE. Only the **2drt**
-sagittal pharynx/larynx (vocal-tract) raw k-space is cataloged
-(`anatomy = :pharynx_larynx`, `orientation = :sagittal`). Unlike the CMRxRecon sources, the raw
-data already ships as vendor-agnostic **MRD/ISMRMRD `.h5`** — it stores the spiral k-space
-samples together with their trajectory (k-space coordinate) and density-compensation tables
-— so there is no `.mat`→ISMRMRD conversion: it flows straight through the default
-`load_raw` path. Because the trajectory is non-Cartesian, the loaded `RawAcquisitionData`'s
-`params["trajectory"]` is *not* `"cartesian"`; build a non-Cartesian `AcquisitionData` (with
-the trajectory + density compensation) for reconstruction rather than an inverse FFT.
-
-The whole corpus is a single ~570 GB `dataset.zip` on figshare (CC-BY, no account). To pull
-one `.h5` member the package reads the archive's ZIP central directory once — committed as
-`data/usc_speech_map.csv`, recording each member's byte span, local-header length and
-compression method — and issues a single HTTP **range** request for that member, stripping
-the ZIP local header and inflating it if DEFLATE. figshare's `ndownloader` 302-redirects to
-a short-lived presigned S3 URL (which supports ranges); the URL is resolved immediately
-before the range GET and re-resolved once on a 403 (expiry). Loading is otherwise identical
-to every other source:
-
-```julia
-entry = first(list_datasets(USC_SPEECH; offline = true))
-raw   = load_raw(entry)              # ZIP range-extracts + inflates the .h5, then loads
-```
-
-Regenerating the offset map from the figshare archive is a maintainer task — see
-`scripts/generate_usc_speech_map.jl` and `scripts/README.md`.
-
-### M4Raw: fastMRI-layout low-field brain + Zenodo ZIP range-extraction
-
-The M4Raw dataset is the package's first **low-field (0.3 T) brain** source: multi-contrast
-(T1w / T2w / FLAIR, plus T1 GRE), multi-repetition k-space from 183 volunteers acquired with
-a **4-channel** head coil. Each member is one *study × contrast × repetition* of
-**fully-sampled Cartesian** k-space in the **fastMRI HDF5** layout — three datasets
-(`kspace`, shaped `(slices, coils, freq, phase)`; `reconstruction_rss`; and an
-`ismrmrd_header` XML string). Because that is not a complete ISMRMRD file, the package
-converts the k-space to a cached Cartesian ISMRMRD on first load (reusing the same builder as
-the CMRxRecon sources, with an all-true / fully-sampled mask). The loaded
-`RawAcquisitionData`'s `params["trajectory"]` is `"cartesian"`, so a plain inverse FFT (a
-gridding / "direct" reconstruction) reconstructs it — no parallel imaging required.
-
-The corpus ships as several multi-GB ZIPs on Zenodo (CC-BY, no account). To pull one `.h5`
-member the package reads each archive's ZIP central directory once — committed as
-`data/m4raw_map.csv`, recording each member's byte span, local-header length and compression
-method — and issues a single HTTP **range** request for that member, stripping the ZIP local
-header and inflating it if DEFLATE. Loading is otherwise identical to every other source:
-
-```julia
-entry = first(list_datasets(M4RAW; offline = true))
-raw   = load_raw(entry)              # ZIP range-extracts + inflates the .h5, then converts + loads
-```
-
-Regenerating the offset map from the Zenodo archives is a maintainer task — see
-`scripts/generate_m4raw_map.jl` and `scripts/README.md`.
-
-### fastMRI: form-gated credentials
-
-The [fastMRI](https://fastmri.med.nyu.edu) dataset distributes knee, brain, prostate, and
-breast multi-coil k-space in the **fastMRI HDF5** layout — the same format as M4Raw,
-converted to cached Cartesian ISMRMRD on first load.
-
-Access is form-gated. Fill the request form at
-[fastmri.med.nyu.edu](https://fastmri.med.nyu.edu); the confirmation email contains AWS S3
-**pre-signed URLs** for a set of archives (one per anatomy + coil type + split). Knee and
-brain ship as `.tar.xz`; prostate and breast ship as `.tar.gz`. Each file has its own
-unique AWS Signature; the URLs are valid for **90 days**.
-
-Register all signed URLs at once by passing the full email body (or just the curl-command
-block) to [`set_fastmri_urls!`](@ref). The function extracts all URLs and their filenames
-and stores them persistently:
-
-```julia
-using MRITestData
-
-# Pass the full email body — all archives' URLs are extracted in one call:
-MRITestData.set_fastmri_urls!(read("fastmri_email.txt", String))
-
-# Or paste the text inline:
-MRITestData.set_fastmri_urls!("""
-curl -C - "https://fastmri-dataset.s3.amazonaws.com/knee_singlecoil_train.tar.xz?..." \\
-    --output knee_singlecoil_train.tar.xz
-curl -C - "https://fastmri-dataset.s3.amazonaws.com/brain_multicoil_train.tar.xz?..." \\
-    --output brain_multicoil_train.tar.xz
-# ... (paste all curl commands from the email)
-""")
-
-# Check when credentials expire:
-MRITestData.fastmri_url_expires()    # DateTime UTC, or nothing if not stored
-
-# After the offset map is populated (see maintainer task below), use the standard API:
-entries = list_datasets(FASTMRI; offline = true, anatomy = :knee)
-raw     = load_raw(first(entries))
-```
-
-When credentials expire, request new links at
-[fastmri.med.nyu.edu](https://fastmri.med.nyu.edu) and call `set_fastmri_urls!` again.
-
-**Offset map (maintainer task).** Individual `.h5` scan files are extracted from the archives
-without downloading them whole, using one of two strategies depending on the archive format:
-
-- **`.tar.xz` (knee, brain)** — xz archives are structured as independently-compressed
-  blocks, each decompressible in isolation. `scripts/index_fastmri.jl` walks every xz block
-  (fetching it via HTTP range request), decompresses it, and scans the embedded tar members;
-  it appends one row per `.h5` file to `data/fastmri_map.csv`.
-- **`.tar.gz` (prostate, breast)** — a gzip stream is not randomly seekable, so
-  `scripts/index_fastmri_gz.jl` streams each archive once to capture a **zran checkpoint**
-  (32 KiB dictionary + DEFLATE bit offset) at the block boundary just before each member.
-  Checkpoints are written to `data/fastmri_zran/<archive_stem>.bin.gz`; member metadata is
-  appended to the same `data/fastmri_map.csv` (the `series_variant` column holds the
-  archive-name token — `singlecoil`/`multicoil`, or the sequence type `DIFF`/`T2` for
-  prostate — never a coil count). The runtime seeds a raw-inflate decoder from the nearest
-  checkpoint and streams only the member's bytes via HTTP range requests.
-
-Both maps are static and committed; there is no upstream index to scrape. They must be
-regenerated by a maintainer who holds valid signed URLs — see
-[`scripts/README.md`](https://github.com/hakkelt/MRITestData.jl/blob/master/scripts/README.md)
-for the full archive lists and parallel-execution recipe:
-
-```sh
-julia --project=. scripts/index_fastmri.jl knee_singlecoil_test_v2.tar.xz brain_multicoil_val.tar.xz
-julia --project=. scripts/index_fastmri_gz.jl fastMRI_prostate_T2_IDS_001_020.tar.gz
-```
-
-Each positional argument is a stored archive key (filename), a local path, or a signed URL.
-Until the map is populated, `list_datasets(FASTMRI)` returns an empty catalog. After
-committing a populated map, the standard download + load workflow works with no changes.
-
-### CMRxRecon data types
-
-Both CMRxRecon sources are cardiac, multi-coil, Cartesian k-space from Siemens 3 T
-scanners, but they span several acquisition *series* and *views*. The file name encodes
-them (e.g. `cine_sax_ks`, `t1map_ks`, `blackblood`); the series is decomposed onto
-`entry.contrast`, `entry.orientation`, `entry.sequence`, `entry.quantitative`,
-`entry.cardiac_sync`, `entry.phase_contrast` and `entry.blood_signal_nulling` — DICOM does
-not have one "modality" field for this (see [Taxonomy](@ref)). Each acquisition is 5‑D `(kx, ky, coils, slices, frames)` — 4‑D
-when there is no temporal/parametric axis (e.g. BlackBlood) — and loads as Cartesian
-ISMRMRD with the last axis mapped to ISMRMRD *contrasts*.
-
-**Views.** Cardiac imaging uses two standard slice orientations:
-
-- **SAX — short-axis.** A stack of parallel slices cutting across the left ventricle (a
-  "bread-loaf" of the heart). The slice axis holds multiple short-axis levels (base →
-  apex). Used for volumes/function and for most mapping.
-- **LAX — long-axis.** Slices along the heart's long axis. The slice axis instead holds the
-  standard long-axis *views* — 2‑chamber (2ch), 3‑chamber (3ch) and 4‑chamber (4ch).
-
-**Modalities.**
-
-- **Cine** (`cine_sax`, `cine_lax`) — a balanced‑SSFP *movie* of the beating heart across
-  the cardiac cycle; the frame axis is time. The workhorse for cardiac function and the
-  largest acquisitions (many frames × slices/views).
-- **Mapping** — quantitative parametric mapping; the last axis is a series of differently
-  *weighted* images (not time) acquired to fit a relaxation curve:
-  - **T1 mapping** (`t1map`) — images at several inversion times (MOLLI-style); fit yields
-    a per-pixel T1 map (myocardial fibrosis/oedema).
-  - **T2 mapping** (`t2map`) — images at several T2-preparation echo times; fit yields a
-    per-pixel T2 map (oedema/inflammation).
-- **Tagging** (`tagging`, CMRxRecon2024) — cine with a saturation *tag* grid laid over the
-  myocardium so tag deformation reveals regional strain.
-- **Aorta** (`aorta`, CMRxRecon2024) — cine of the aorta (sagittal/transverse) for vessel
-  anatomy and pulsatility.
-- **Flow2d** (`flow2d`, CMRxRecon2024) — 2‑D phase-contrast velocity mapping; encodes
-  through-plane blood velocity (e.g. for flow quantification).
-- **BlackBlood** (`blackblood`, CMRxRecon2024) — a dark-blood-prepared *anatomical* scan
-  (blood signal nulled) for vessel-wall / morphology. It has **no temporal axis** (4‑D),
-  so it loads as a single-contrast Cartesian acquisition.
-
-CMRxRecon‑300 provides **Cine (SAX + LAX) and T1/T2 mapping** for all 300 subjects.
-CMRxRecon2024 adds **Tagging, Aorta, Flow2d and BlackBlood**. Filter by contrast/orientation
-with, e.g.
-
-```julia
-list_datasets(CMRXRECON2024; offline = true)                                    # every series
-query(; sources = CMRXRECON2024, blood_signal_nulling = true, offline = true)   # BlackBlood
-query(; sources = CMRXRECON300, contrast = :mixed, orientation = :short_axis, offline = true)  # Cine SAX
-query(; sources = CMRXRECON2024, quantitative = true, contrast = :t1, offline = true)          # T1 mapping
-```
-
-### Copying a dataset to a custom location
-
-[`copy_dataset`](@ref) ensures the file is available at a destination path of your
-choice. If the file is already in the Scratch cache and unmodified, only a local
-copy is made — no HTTP request is issued:
+[`copy_dataset`](@ref) ensures a file is available at a path of your choice, copying
+from the cache without an HTTP request when it is already present and unmodified:
 
 ```julia
 copy_dataset(entry; dest = "/data/my_scan.h5")
 ```
 
+## Loading the raw data
+
+[`load_raw`](@ref) accepts an ISMRMRD file **path** *or* a
+[`DatasetEntry`](@ref)/[`DatasetHandle`](@ref) directly (downloaded and cached on first
+use) and always returns an `MRIBase.RawAcquisitionData`:
+
+```julia
+raw = load_raw(entry)        # profiles + parsed XML header
+```
+
+See [What `load_raw` returns](@ref) for the structure and the axis conventions. This
+works uniformly for every source: ISMRMRD sources load directly; `.mat` and
+fastMRI-layout sources are converted to a cached ISMRMRD file transparently.
+
+### Per-source notes
+
+| Source | Native format | On load | Reconstruct with |
+|---|---|---|---|
+| `MRIDATA` | ISMRMRD `.h5` | direct | direct FFT |
+| `OCMR_SOURCE` | ISMRMRD `.h5` | direct (ECG block stripped, see below) | direct FFT (`fs_*`) / CG-SENSE (`us_*`) |
+| `CMRXRECON2024` | MATLAB v7.3 `.mat` | → cached Cartesian ISMRMRD | direct FFT (fully sampled) |
+| `CMRXRECON300` | MATLAB v7.3 `.mat` (`Recon_ks` + `Calib`) | → cached ISMRMRD, marked **undersampled**, ACS lines included | **CG-SENSE** with the ACS |
+| `USC_SPEECH` | MRD/ISMRMRD `.h5` (spiral + trajectory + DCF) | direct, **non-Cartesian** | non-Cartesian (NUFFT + DCF) |
+| `M4RAW` | fastMRI HDF5 | → cached Cartesian ISMRMRD (all-true mask) | direct FFT |
+| `FASTMRI` | fastMRI HDF5 | → cached ISMRMRD; train/val fully sampled, test masked | direct FFT / CG-SENSE (test, prostate, breast) |
+
+- **CMRxRecon coils.** CMRxRecon2024 is SVD-compressed to 10 virtual channels
+  (`entry.coil_data == :derived`; physical count in `entry.extra["multi_coil_elements"]`).
+  CMRxRecon-300 keeps its 30 physical channels.
+- **CMRxRecon FOV.** Not shipped upstream; a placeholder (matrix size in mm) is written
+  while the encoding/recon matrix reflects the true dimensions.
+- **OCMR ECG header.** OCMR cine files carry a `<waveformInformation>` block that trips a
+  MRIFiles parser bug; `load_raw` strips it from the cached HDF5 in place on first load.
+- **CMRxRecon raw arrays.** `MRITestData.load_mat(entry)` returns the `.mat` contents as
+  a `Dict` (e.g. `d["kspace_full"]`) if you want to bypass the ISMRMRD conversion.
+- **CMRxRecon data types.** The six CMRxRecon2024 series (Cine, Mapping, Tagging, Aorta,
+  Flow2d, BlackBlood) and the CMRxRecon-300 series (Cine SAX/LAX, T1/T2 map) are
+  decomposed onto `contrast`/`orientation`/`sequence`/`quantitative`/`cardiac_sync`/… —
+  see [Dataset contents](@ref) for the full per-series table and filter examples.
+
+### fastMRI: form-gated credentials
+
+Access is form-gated. Fill the request form at
+[fastmri.med.nyu.edu](https://fastmri.med.nyu.edu); the confirmation email contains AWS
+S3 **pre-signed URLs** (one per anatomy + coil type + split), valid **90 days**.
+Register them all at once with [`set_fastmri_urls!`](@ref) — pass the whole email body
+or just the `curl` block:
+
+```julia
+using MRITestData
+
+MRITestData.set_fastmri_urls!(read("fastmri_email.txt", String))
+MRITestData.fastmri_url_expires()    # DateTime UTC, or nothing if not stored
+
+# After the offset map is committed (maintainer task), use the standard API:
+entries = list_datasets(FASTMRI; offline = true, anatomy = :knee)
+raw     = load_raw(first(entries))
+```
+
+Until a populated `data/fastmri_map.csv` is committed, `list_datasets(FASTMRI)` is empty
+even with valid URLs — building it is a maintainer task
+([Internals & maintainer notes](@ref)). When credentials expire, request new links and
+call `set_fastmri_urls!` again.
+
 ## Reconstruction with MRIReco
 
-MRITestData provides the data-loading pipeline and yields an
-`MRIBase.RawAcquisitionData`. Reconstruction is left to a dedicated package such as
-[MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl); convert the raw
-data to an `AcquisitionData` and reconstruct:
+MRITestData yields an `MRIBase.RawAcquisitionData` and stops there. Reconstruction is
+left to a dedicated package such as
+[MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl): convert to an
+`AcquisitionData` and reconstruct.
+
+### Fully-sampled data → direct reconstruction
 
 ```julia
 using MRITestData, MRIReco
 
-# 1. Download and load (works for any source; pass the entry directly)
 entry = first(list_datasets(OCMR_SOURCE; fully_sampled = true))
 raw   = load_raw(entry)
 
-# 2. Build the AcquisitionData MRIReco expects, then reconstruct
-acq = AcquisitionData(raw)
+acq = AcquisitionData(raw)                  # re-exported by MRIReco (from MRIBase)
 params = MRIReco.defaultRecoParams()
 params[:reco] = "direct"
-img = MRIReco.reconstruction(acq, params)
+img = MRIReco.reconstruction(acq, params)   # AxisArray [x, y, z, echo, coil, rep]
 ```
 
-The result is MRIReco's `AxisArray` with axes `[x, y, z, echo, coil, rep]`.
-`AcquisitionData` is re-exported by MRIReco (from `MRIBase`).
+`echo` carries the temporal/parametric axis (cine frames, mapping weightings). Combine
+coils with a root-sum-of-squares over the coil axis.
 
-This pipeline works for **every source and CMRxRecon modality**. The example script
-`examples/reconstruct_all_types.jl` reconstructs a representative sample of each and was
-verified to succeed on all of them:
+### Reconstructing undersampled data
+
+`OCMR` `us_*` files, all of `CMRXRECON300`, and fastMRI test/prostate/breast are
+**undersampled** — a direct recon aliases. Use CG-SENSE (`"multiCoil"`) with coil
+sensitivity maps estimated by ESPIRiT from the calibration region:
+
+```julia
+using MRITestData, MRIReco, MRICoilSensitivities
+using MRIBase: flag_is_set, flag_remove!
+
+entry = first(list_datasets(CMRXRECON300; offline = true))   # R ≈ 3, ships ACS
+raw   = load_raw(entry)
+acq   = AcquisitionData(raw)
+
+params = MRIReco.defaultRecoParams()
+params[:reco] = "multiCoil"
+
+# The ACS lines are in the same file, flagged ACQ_IS_PARALLEL_CALIBRATION.
+# AcquisitionData drops them from the imaging data; rebuild a calibration-only
+# acquisition (flag cleared) to estimate the sensitivity maps. Fall back to
+# self-calibration from the imaging data when no ACS lines are present.
+calib = [p for p in raw.profiles if flag_is_set(p, "ACQ_IS_PARALLEL_CALIBRATION")]
+if !isempty(calib)
+    clean = deepcopy(calib)
+    foreach(p -> flag_remove!(p, "ACQ_IS_PARALLEL_CALIBRATION"), clean)
+    acq_calib = AcquisitionData(RawAcquisitionData(raw.params, clean))
+    params[:senseMaps] = espirit(acq_calib, (6, 6), 24; eigThresh_1 = 0.02, eigThresh_2 = 0.95)
+else
+    params[:senseMaps] = espirit(acq, (6, 6), 24; eigThresh_1 = 0.02, eigThresh_2 = 0.95)
+end
+
+img = MRIReco.reconstruction(acq, params)   # de-aliased, coil-combined (channel axis = 1)
+```
+
+For compressed-sensing regularised variants (`"multiCoilCS"`, TV / wavelet priors), see
+the MRIReco.jl documentation.
+
+### Method references
+
+- **SENSE** — Pruessmann KP, Weiger M, Scheidegger MB, Boesiger P. *SENSE: Sensitivity
+  encoding for fast MRI.* Magn Reson Med, 1999, 42(5): 952–962.
+- **CG-SENSE (non-Cartesian, iterative)** — Pruessmann KP, Weiger M, Börnert P, Boesiger
+  P. *Advances in sensitivity encoding with arbitrary k-space trajectories.* Magn Reson
+  Med, 2001, 46(4): 638–651.
+- **ESPIRiT** — Uecker M, Lai P, Murphy MJ, et al. *ESPIRiT — an eigenvalue approach to
+  autocalibrating parallel MRI: Where SENSE meets GRAPPA.* Magn Reson Med, 2014, 71(3):
+  990–1001.
+- **Compressed sensing MRI** — Lustig M, Donoho D, Pauly JM. *Sparse MRI: The application
+  of compressed sensing for rapid MR imaging.* Magn Reson Med, 2007, 58(6): 1182–1195.
+- **MRIReco.jl** — Knopp T, Grosser M. *MRIReco.jl: An MRI reconstruction framework
+  written in Julia.* Magn Reson Med, 2021, 86(3): 1633–1646.
+- **ISMRMRD format** — Inati SJ, Naegele JD, Zwart NR, et al. *ISMRM Raw Data format:
+  A proposed standard for MRI raw datasets.* Magn Reson Med, 2017, 77(1): 411–421.
+
+### Verified across every source
+
+`examples/reconstruct_all_types.jl` reconstructs a representative sample of each source
+and modality and was verified to succeed on all of them:
 
 | Source / modality | Example recon dimensions `[x, y, z, echo, coil, rep]` |
 | --- | --- |
 | CMRxRecon-300 Cine SAX | `(512, 162, 6, 24, 30, 1)` — 6 slices × 24 frames, 30 coils |
 | CMRxRecon-300 Cine LAX | `(448, 168, 19, 4, 30, 1)` |
-| CMRxRecon-300 T1 / T2 map | `(512, 144, 5, 9, 30, 1)` / `(384, 116, 5, 3, 30, 1)` — frames axis = weightings |
+| CMRxRecon-300 T1 / T2 map | `(512, 144, 5, 9, 30, 1)` / `(384, 116, 5, 3, 30, 1)` — echo axis = weightings |
 | CMRxRecon2024 Cine / Mapping | `(416, 168, 1, 12, 10, 1)` / `(384, 116, 5, 3, 10, 1)` — 10 virtual coils |
 | CMRxRecon2024 Aorta / Tagging / Flow2d | `(416, 168, 2, 12, 10, 1)` / `(448, 180, 3, 12, 10, 1)` / `(384, 144, 2, 12, 10, 1)` |
 | CMRxRecon2024 BlackBlood | `(512, 156, 5, 1, 10, 1)` — single contrast (no temporal axis) |
 | mridata.org (3-D Cartesian) | `(640, 368, 41, 1, 15, 1)` — 41 slices, 15 coils |
 | OCMR (cardiac cine) | `(512, 208, 1, 1, 15, 1)` |
 
-(`echo` carries the temporal/parametric axis — cine frames, mapping weightings; BlackBlood
-has none. The CMRxRecon-300 raw data keeps its 30 physical coils, while CMRxRecon2024 ships
-10 SVD-compressed virtual coils. The reconstruction here is a plain direct/inverse-FFT
-recon: it gives an artifact-free image for the fully-sampled sources, but the
-**undersampled CMRxRecon-300** `_ks` data aliases — see below.)
-
 #### Representative reconstructions
 
-Coil-combined (sum-of-squares) magnitude images from the above, produced by
-`docs/generate_recon_images.jl` (the readout axis is cropped to remove CMRxRecon's 2×
-oversampling). They are pre-rendered and committed rather than built live, because
-reconstruction needs MRIReco plus real data downloads (a Synapse token and several GB).
+Coil-combined (sum-of-squares) magnitude images, produced by
+`docs/generate_recon_images.jl` (readout axis cropped to remove CMRxRecon's 2×
+oversampling). They are pre-rendered and committed because reconstruction needs MRIReco
+plus real data downloads (a Synapse token and several GB).
 
-Fully-sampled sources reconstruct cleanly with a direct recon —
-
-CMRxRecon2024 — BlackBlood: dark-blood anatomical slices (blood pool nulled):
+CMRxRecon2024 — BlackBlood (dark-blood anatomical slices, blood pool nulled):
 
 ![CMRxRecon2024 BlackBlood](assets/recon/cmrxrecon2024_blackblood.png)
 
@@ -493,37 +360,35 @@ OCMR — a cardiac cine frame:
 
 ![OCMR cardiac cine](assets/recon/ocmr_cine.png)
 
-In contrast, **CMRxRecon-300 is k-t undersampled** (here R≈3), so the *same* direct recon
-shows the expected aliasing — the heart replicated and overlapped along the phase-encode
-direction. `load_raw` records the true sampling pattern, so this is faithfully represented;
-an artifact-free image requires parallel imaging (ESPIRiT/CG-SENSE) using the paired
-fully-sampled ACS `_calib` data (`entry.locator["calib_path"]`):
+**CMRxRecon-300 is k-t undersampled** (here R ≈ 3), so the *same direct recon* shows the
+expected aliasing — the heart replicated along the phase-encode direction. `load_raw`
+records the true sampling pattern, so this is faithful; an artifact-free image needs
+CG-SENSE with the paired ACS `_calib` data (`entry.locator["calib_path"]`):
 
 ![CMRxRecon-300 Cine (R≈3 undersampled, direct recon aliases)](assets/recon/cmrxrecon300_cine_sax.png)
 
 ## Persistent settings
 
-Several tunable parameters can be persisted across Julia sessions via
-`LocalPreferences.toml`:
+Tunables persisted across sessions via `LocalPreferences.toml`:
 
 ```julia
 # Terms-of-use notice
 MRITestData.dismiss_terms_notice!()   # suppress startup warning (after reviewing terms)
-MRITestData.enable_terms_notice!()    # re-enable it
+MRITestData.enable_terms_notice!()
 
-# Parallel download chunks (default: 4; set to 1 to disable)
+# Parallel download chunks (default 4; 1 disables) and the minimum size for chunking
 MRITestData.set_chunk_size!(8)
-
-# Minimum file size for parallel chunking (default: 8 MiB)
 MRITestData.set_min_file_size!(4 * 1024 * 1024)
 
-# Dataset-index TTL in days (default: 30)
+# Dataset-index TTL in days (default 30)
 MRITestData.set_refresh_period!(7)
 
 # Synapse token (CMRxRecon2024 and CMRxRecon-300)
 MRITestData.set_synapse_token!("your-synapse-pat")
 
 # fastMRI signed URLs (paste the full email body or curl-command block)
-MRITestData.set_fastmri_urls!(email_text)    # see fastMRI section above
-MRITestData.fastmri_url_expires()            # check stored credential expiry
+MRITestData.set_fastmri_urls!(email_text)
+MRITestData.fastmri_url_expires()
 ```
+
+See [FAQ & troubleshooting](@ref) for credential setup and common errors.

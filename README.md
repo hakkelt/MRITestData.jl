@@ -43,10 +43,17 @@ ISMRMRD file on first load, so every source flows through the same
 `list_datasets` → `download_dataset` → [`load_raw`](#working-with-the-raw-data)
 pipeline and yields a `RawAcquisitionData`.
 
+Full documentation: **<https://hakkelt.github.io/MRITestData.jl/dev/>** — start with
+[Concepts & data model](https://hakkelt.github.io/MRITestData.jl/dev/concepts/) and the
+[Tutorial](https://hakkelt.github.io/MRITestData.jl/dev/tutorial/).
+
 ## Installation
 
+The package is **not yet registered in the General registry**:
+
 ```julia
-pkg> add MRITestData
+using Pkg
+Pkg.add(url = "https://github.com/hakkelt/MRITestData.jl")
 ```
 
 `MRITestData` depends on `MRIFiles`/`MRIBase` (which pull in HDF5) but **not** on any
@@ -63,7 +70,26 @@ list_datasets(MRIDATA; anatomy = :knee, field_strength = 3.0)
 
 # Filters: scalar (==), vector/tuple (membership), or a predicate function
 list_datasets(MRIDATA; receiver_channels = c -> c !== nothing && c >= 8)
+
+# Across sources, extra keys and free text:
+query(; anatomy = :knee, fully_sampled = true)
+query(; text = "prisma")
 ```
+
+## Interactive browser
+
+`run_browser()` (or the standalone `mridata-browser` app) opens a full-screen terminal
+browser to filter, search, sort and download datasets:
+
+![The mridata-browser terminal UI](docs/src/assets/browser-demo.svg)
+
+```julia
+run_browser()                        # all sources
+run_browser(; sources = OCMR_SOURCE, offline = true)
+```
+
+Keys: `↑↓` move · `/` search · `f` filter · `1`-`9` sort · `d` details pane · `⏎`
+download · `q` quit.
 
 ## Working with the raw data
 
@@ -96,9 +122,15 @@ raw = load_raw(first(list_datasets(OCMR_SOURCE; fully_sampled = true)))
 acq = AcquisitionData(raw)
 
 params = MRIReco.defaultRecoParams()
-params[:reco] = "direct"
-img = MRIReco.reconstruction(acq, params)   # AxisArray [x, y, z, echo, coil, rep]
+params[:reco] = "direct"                     # inverse FFT — fully-sampled data
+img = MRIReco.reconstruction(acq, params)    # AxisArray [x, y, z, echo, coil, rep]
 ```
+
+Undersampled sources (`CMRXRECON300`, OCMR `us_*`, fastMRI test/prostate/breast) alias
+under a direct recon — use CG-SENSE with ESPIRiT coil maps instead. Full example and
+method references:
+[Reconstructing undersampled data](https://hakkelt.github.io/MRITestData.jl/dev/usage/#Reconstructing-undersampled-data)
+and `examples/reconstruct_all_types.jl`.
 
 ## CMRxRecon2024 (Synapse access)
 
@@ -224,9 +256,9 @@ breast multi-coil k-space acquired on clinical Siemens/GE scanners, in the fastM
 layout (`kspace`/`reconstruction_rss`/`ismrmrd_header`) — the same format as M4Raw.
 
 Access is gated by a [data-use agreement](https://fastmri.med.nyu.edu) form. After
-approval you receive an automated email containing AWS S3 pre-signed URLs for all four
-anatomies (≈60–250 GB each as `.tar.xz` archives). The URLs are **time-limited** (90 days)
-and carry per-file unique signatures.
+approval you receive an automated email containing AWS S3 pre-signed URLs for the
+archives (≈60–250 GB each; knee and brain as `.tar.xz`, prostate and breast as
+`.tar.gz`). The URLs are **time-limited** (90 days) and carry per-file unique signatures.
 
 To register the credentials, paste the full email body once:
 
@@ -239,11 +271,11 @@ MRITestData.set_fastmri_urls!(read("fastmri_email.txt", String))  # persisted ac
 MRITestData.fastmri_url_expires()   # check when credentials expire (DateTime UTC)
 ```
 
-Individual `.h5` scan files are extracted from the `.tar.xz` archives via **xz block-level
-HTTP range requests** (analogous to the zran approach used for CMRxRecon-300). An offset map
-(`data/fastmri_map.csv`) encodes each member's xz block position; it is built once by the
-maintainer script `scripts/index_fastmri.jl` against the actual archives. Until the map is
-populated the catalog is empty. Loading is identical to every other source:
+Individual `.h5` scan files are extracted without downloading the archive whole: knee and
+brain via **xz block-level HTTP range requests** (`scripts/index_fastmri.jl`), prostate and
+breast via the **zran** checkpoint approach used for CMRxRecon-300 (`scripts/index_fastmri_gz.jl`).
+Both write to `data/fastmri_map.csv`. Until the map is populated the catalog is empty.
+Loading is identical to every other source:
 
 ```julia
 entries = list_datasets(FASTMRI; offline = true)
@@ -293,3 +325,14 @@ network). Live-download tests are gated behind an environment variable:
 # live downloads from mridata.org / OCMR
 MRITESTDATA_NETWORK_TESTS=true julia --project=test test/runtests.jl
 ```
+
+## Citing
+
+If MRITestData.jl helped your work, cite it via [`CITATION.bib`](CITATION.bib) — **and**
+cite each dataset provider whose data you used, as their terms require (see
+[Licensing & legal](https://hakkelt.github.io/MRITestData.jl/stable/legal/)).
+`CITATION.bib` also collects the dataset citations.
+
+## Changelog
+
+See [`CHANGELOG.md`](CHANGELOG.md).

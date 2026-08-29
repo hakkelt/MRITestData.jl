@@ -181,15 +181,12 @@ counts, sequence names, sampling — that are not present in any committed CSV):
   <https://pubs.rsna.org/doi/10.1148/ryai.240443> ·
   <https://pmc.ncbi.nlm.nih.gov/articles/PMC11950877/>
 
-All three values flagged as unverified in the initial version of this refactor have now
-been checked against the sources above:
+Notes on a few source-specific field values verified against those publications:
 
-- **CMRxRecon mapping-series orientation** — confirmed SAX for both T1map and T2map.
-- **CMRxRecon BlackBlood contrast weighting** — the paper specifies the sequence (turbo
-  spin echo) and view (SAX) but never states a T1/T2 weighting (no TE/TR is given), so
-  `contrast = :unknown` is correct as a reflection of a genuine gap in the source, not an
-  unverified guess. The mapping sequences themselves needed a correction in the
-  process: T2 mapping is FLASH-based (spoiled gradient echo), not the balanced SSFP
-  originally guessed.
-- **M4Raw "T1 GRE"** — confirmed T1-weighted by the M4RawV1.5 dataset card, which
-  post-dates (and is not covered by) the original Scientific Data paper.
+- **CMRxRecon T1/T2 mapping** — SAX view for both `T1map` and `T2map`. T2 mapping is
+  FLASH-based (spoiled gradient echo), not balanced SSFP.
+- **CMRxRecon BlackBlood** — the paper gives the sequence (turbo spin echo) and view
+  (SAX) but no T1/T2 weighting (no TE/TR), so `contrast = :unknown` reflects a genuine
+  gap in the source rather than a guess.
+- **M4Raw "T1 GRE"** — T1-weighted per the M4RawV1.5 dataset card, which post-dates the
+  original *Scientific Data* paper.

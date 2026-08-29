@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 486" font-family="'JetBrains Mono','DejaVu Sans Mono',Menlo,Consolas,monospace" font-size="12.5">
+  <!--
+    Illustration of the `mridata-browser` / run_browser() terminal UI.
+    Hand-authored (the interactive TUI cannot be captured in CI).
+    Keep the column set in sync with `_COLUMNS` in src/browse.jl.
+    ~13 s SMIL loop: list -> move selection -> text search -> filter modal -> details pane.
+  -->
+  <rect width="860" height="486" rx="8" fill="#0f1419"/>
+  <rect width="860" height="28" rx="8" fill="#1b2129"/>
+  <rect y="20" width="860" height="8" fill="#1b2129"/>
+  <circle cx="18" cy="14" r="5" fill="#ff5f56"/>
+  <circle cx="36" cy="14" r="5" fill="#ffbd2e"/>
+  <circle cx="54" cy="14" r="5" fill="#27c93f"/>
+  <text x="430" y="18" fill="#8b98a5" text-anchor="middle">mridata-browser</text>
+
+  <!-- column header (shared) -->
+  <text x="16" y="52" fill="#7aa2cf" font-weight="bold" xml:space="preserve">  #  Source         ID                   Anatomy   Contrast   B₀[T]  Trajectory  Ch   Sampling        Cached</text>
+  <line x1="16" y1="58" x2="844" y2="58" stroke="#2b3440"/>
+
+  <!-- footer help (shared) -->
+  <line x1="16" y1="452" x2="844" y2="452" stroke="#2b3440"/>
+  <text x="16" y="472" fill="#8b98a5" xml:space="preserve">↑↓ move   / search   f filter   1-9 sort   d details   ⏎ download   q quit</text>
+
+  <!-- ============ scene 0 : list, selection on row 3 ============ -->
+  <g>
+    <animate attributeName="opacity" dur="13s" repeatCount="indefinite" calcMode="discrete"
+             values="1;0;0;0;0" keyTimes="0;0.2;0.4;0.6;0.8"/>
+    <rect x="16" y="120" width="828" height="20" fill="#24405c"/>
+    <g fill="#c8d0da" xml:space="preserve">
+      <text x="16" y="78"> 1  MRIDATA        knee_3d_01           knee      pd         3.0    cartesian   15   full             ✓</text>
+      <text x="16" y="100"> 2  MRIDATA        brain_3d_02          brain     t1         3.0    cartesian    8   full</text>
+      <text x="16" y="135" fill="#ffffff" font-weight="bold"> 3  OCMR_SOURCE    fs_0001_1_5T         heart     mixed      1.5    cartesian    ?   full             ✓</text>
+      <text x="16" y="157"> 4  OCMR_SOURCE    us_0014_3T           heart     mixed      3.0    cartesian    ?   undersampled</text>
+      <text x="16" y="179"> 5  CMRXRECON2024  P001_cine_sax        heart     mixed      3.0    cartesian   10   full</text>
+      <text x="16" y="201"> 6  CMRXRECON300   P001_cine_sax_ks     heart     mixed      3.0    cartesian   30   undersampled</text>
+      <text x="16" y="223"> 7  USC_SPEECH     sub001/2drt/01_vcv1  pharynx   —          1.5    spiral       8   full</text>
+      <text x="16" y="245"> 8  M4RAW          2024_T1_01_r1        brain     t1         0.3    cartesian    4   full</text>
+      <text x="16" y="267"> 9  M4RAW          2024_FLAIR_01_r2     brain     flair      0.3    cartesian    4   full</text>
+      <text x="16" y="289">10  FASTMRI        knee_mc_train_0001   knee      pd         3.0    cartesian    ?   full</text>
+      <text x="16" y="311">11  FASTMRI        brain_mc_val_0044    brain     t2         3.0    cartesian    ?   full</text>
+      <text x="16" y="333">12  FASTMRI        prostate_T2_012      prostate  t2         3.0    cartesian    ?   undersampled</text>
+    </g>
+    <text x="16" y="428" fill="#5f6b7a" xml:space="preserve">page 1/37   ·   441 datasets   ·   7 sources</text>
+  </g>
+
+  <!-- ============ scene 1 : selection moved down to row 6 ============ -->
+  <g opacity="0">
+    <animate attributeName="opacity" dur="13s" repeatCount="indefinite" calcMode="discrete"
+             values="0;1;0;0;0" keyTimes="0;0.2;0.4;0.6;0.8"/>
+    <rect x="16" y="186" width="828" height="20" fill="#24405c"/>
+    <g fill="#c8d0da" xml:space="preserve">
+      <text x="16" y="78"> 1  MRIDATA        knee_3d_01           knee      pd         3.0    cartesian   15   full             ✓</text>
+      <text x="16" y="100"> 2  MRIDATA        brain_3d_02          brain     t1         3.0    cartesian    8   full</text>
+      <text x="16" y="122"> 3  OCMR_SOURCE    fs_0001_1_5T         heart     mixed      1.5    cartesian    ?   full             ✓</text>
+      <text x="16" y="144"> 4  OCMR_SOURCE    us_0014_3T           heart     mixed      3.0    cartesian    ?   undersampled</text>
+      <text x="16" y="166"> 5  CMRXRECON2024  P001_cine_sax        heart     mixed      3.0    cartesian   10   full</text>
+      <text x="16" y="201" fill="#ffffff" font-weight="bold"> 6  CMRXRECON300   P001_cine_sax_ks     heart     mixed      3.0    cartesian   30   undersampled</text>
+      <text x="16" y="223"> 7  USC_SPEECH     sub001/2drt/01_vcv1  pharynx   —          1.5    spiral       8   full</text>
+      <text x="16" y="245"> 8  M4RAW          2024_T1_01_r1        brain     t1         0.3    cartesian    4   full</text>
+      <text x="16" y="267"> 9  M4RAW          2024_FLAIR_01_r2     brain     flair      0.3    cartesian    4   full</text>
+      <text x="16" y="289">10  FASTMRI        knee_mc_train_0001   knee      pd         3.0    cartesian    ?   full</text>
+      <text x="16" y="311">11  FASTMRI        brain_mc_val_0044    brain     t2         3.0    cartesian    ?   full</text>
+      <text x="16" y="333">12  FASTMRI        prostate_T2_012      prostate  t2         3.0    cartesian    ?   undersampled</text>
+    </g>
+    <text x="16" y="428" fill="#5f6b7a" xml:space="preserve">R = 3.0   ·   ACS available   ·   CG-SENSE recommended</text>
+  </g>
+
+  <!-- ============ scene 2 : text search "/knee" ============ -->
+  <g opacity="0">
+    <animate attributeName="opacity" dur="13s" repeatCount="indefinite" calcMode="discrete"
+             values="0;0;1;0;0" keyTimes="0;0.2;0.4;0.6;0.8"/>
+    <rect x="560" y="64" width="284" height="22" fill="#1b2129" stroke="#7aa2cf"/>
+    <text x="572" y="80" fill="#e6c07b" xml:space="preserve">search: knee▏</text>
+    <rect x="16" y="86" width="828" height="20" fill="#24405c"/>
+    <g fill="#c8d0da" xml:space="preserve">
+      <text x="16" y="101" fill="#ffffff" font-weight="bold"> 1  MRIDATA        knee_3d_01           knee      pd         3.0    cartesian   15   full             ✓</text>
+      <text x="16" y="123"> 7  MRIDATA        knee_3d_07           knee      pd         1.5    cartesian    8   full</text>
+      <text x="16" y="145">10  FASTMRI        knee_mc_train_0001   knee      pd         3.0    cartesian    ?   full</text>
+      <text x="16" y="167">11  FASTMRI        knee_sc_train_0001   knee      pd         3.0    cartesian    1   full</text>
+      <text x="16" y="189">18  FASTMRI        knee_mc_test_0007    knee      pd         3.0    cartesian    ?   undersampled</text>
+    </g>
+    <text x="16" y="428" fill="#5f6b7a" xml:space="preserve">5 matches   ·   substring over name, id, extra fields</text>
+  </g>
+
+  <!-- ============ scene 3 : filter modal ============ -->
+  <g opacity="0">
+    <animate attributeName="opacity" dur="13s" repeatCount="indefinite" calcMode="discrete"
+             values="0;0;0;1;0" keyTimes="0;0.2;0.4;0.6;0.8"/>
+    <g fill="#4a5568" xml:space="preserve" opacity="0.5">
+      <text x="16" y="78"> 1  MRIDATA        knee_3d_01           knee      pd         3.0    cartesian   15   full</text>
+      <text x="16" y="100"> 2  MRIDATA        brain_3d_02          brain     t1         3.0    cartesian    8   full</text>
+      <text x="16" y="122"> 3  OCMR_SOURCE    fs_0001_1_5T         heart     mixed      1.5    cartesian    ?   full</text>
+      <text x="16" y="144"> 4  OCMR_SOURCE    us_0014_3T           heart     mixed      3.0    cartesian    ?   undersampled</text>
+      <text x="16" y="166"> 5  CMRXRECON2024  P001_cine_sax        heart     mixed      3.0    cartesian   10   full</text>
+    </g>
+    <rect x="214" y="150" width="432" height="196" rx="4" fill="#161b22" stroke="#7aa2cf" stroke-width="1.5"/>
+    <text x="234" y="178" fill="#7aa2cf" font-weight="bold">Filter — Sampling</text>
+    <line x1="214" y1="190" x2="646" y2="190" stroke="#2b3440"/>
+    <g xml:space="preserve">
+      <rect x="222" y="200" width="416" height="20" fill="#24405c"/>
+      <text x="234" y="215" fill="#ffffff" font-weight="bold">▸ undersampled</text>
+      <text x="234" y="240" fill="#c8d0da">  full</text>
+      <text x="234" y="264" fill="#c8d0da">  (any)</text>
+    </g>
+    <text x="234" y="304" fill="#8b98a5" xml:space="preserve">⏎ apply    esc cancel</text>
+    <text x="234" y="326" fill="#5f6b7a" xml:space="preserve">typed per-column filters · B₀, Ch, R take ranges</text>
+  </g>
+
+  <!-- ============ scene 4 : details pane ============ -->
+  <g opacity="0">
+    <animate attributeName="opacity" dur="13s" repeatCount="indefinite" calcMode="discrete"
+             values="0;0;0;0;1" keyTimes="0;0.2;0.4;0.6;0.8"/>
+    <rect x="16" y="120" width="828" height="20" fill="#24405c"/>
+    <g fill="#c8d0da" xml:space="preserve">
+      <text x="16" y="78"> 1  MRIDATA        knee_3d_01           knee      pd         3.0    cartesian   15   full</text>
+      <text x="16" y="100"> 2  MRIDATA        brain_3d_02          brain     t1         3.0    cartesian    8   full</text>
+      <text x="16" y="135" fill="#ffffff" font-weight="bold"> 3  OCMR_SOURCE    fs_0001_1_5T         heart     mixed      1.5    cartesian    ?   full</text>
+      <text x="16" y="157"> 4  OCMR_SOURCE    us_0014_3T           heart     mixed      3.0    cartesian    ?   undersampled</text>
+    </g>
+    <rect x="360" y="150" width="468" height="230" rx="4" fill="#161b22" stroke="#7aa2cf" stroke-width="1.5"/>
+    <text x="378" y="176" fill="#7aa2cf" font-weight="bold">fs_0001_1_5T — extra metadata</text>
+    <line x1="360" y1="188" x2="828" y2="188" stroke="#2b3440"/>
+    <g xml:space="preserve" font-size="11.5">
+      <text x="378" y="208" fill="#e6c07b">scanner_model</text>
+      <text x="378" y="222" fill="#c8d0da">  Siemens MAGNETOM Avanto</text>
+      <text x="378" y="236" fill="#5f6b7a">  query: scanner_model</text>
+      <text x="378" y="262" fill="#e6c07b">acquisition_duration_class</text>
+      <text x="378" y="276" fill="#c8d0da">  short</text>
+      <text x="378" y="290" fill="#5f6b7a">  query: acquisition_duration_class</text>
+      <text x="378" y="316" fill="#e6c07b">slice_mode</text>
+      <text x="378" y="330" fill="#c8d0da">  stack</text>
+      <text x="378" y="344" fill="#5f6b7a">  query: slice_mode</text>
+    </g>
+    <text x="378" y="368" fill="#8b98a5" xml:space="preserve">esc / d  close</text>
+  </g>
+</svg>

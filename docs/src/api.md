@@ -131,8 +131,8 @@ get_synapse_token
 ### fastMRI credentials
 
 fastMRI access is form-gated; the confirmation email carries 90-day pre-signed S3 URLs.
-Register them once with [`set_fastmri_urls!`](@ref) — see the
-[fastMRI section of the usage guide](usage.md#FASTMRI-—-NYU-fastMRI-knee/brain/prostate/breast).
+Register them once with [`set_fastmri_urls!`](@ref) — see
+[fastMRI: form-gated credentials](@ref).
 
 ```@docs
 set_fastmri_urls!
