@@ -502,13 +502,21 @@ const _CARDIAC_SERIES = Dict{String, NamedTuple}(
         quantitative = false, cardiac_sync = :retrospective,
         phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
     ),
+    # T1/T2 mapping: SAX view and pulse sequences confirmed against the CMRxRecon2024
+    # dataset paper (Wang et al., Radiology: AI 2025, plan §12) — "the modified
+    # Look-Locker inversion recovery-fast low angle shot sequence was used for T1
+    # mapping" / "the T2-prepared-fast low angle shot sequence was used for T2 mapping",
+    # both "with SAX view". Fixes the pre-verification guess of "T2-prepared balanced
+    # SSFP" (T2-prep is FLASH/spoiled-gradient-echo based here, not bSSFP).
     "t1map" => (
-        contrast = :t1, orientation = :short_axis, sequence = "MOLLI inversion recovery",
+        contrast = :t1, orientation = :short_axis,
+        sequence = "modified Look-Locker inversion recovery (fast low angle shot readout)",
         quantitative = true, cardiac_sync = :none,
         phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
     ),
     "t2map" => (
-        contrast = :t2, orientation = :short_axis, sequence = "T2-prepared balanced SSFP",
+        contrast = :t2, orientation = :short_axis,
+        sequence = "T2-prepared fast low angle shot",
         quantitative = true, cardiac_sync = :none,
         phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
     ),
@@ -523,8 +531,12 @@ const _CARDIAC_SERIES = Dict{String, NamedTuple}(
         phase_contrast = true, blood_signal_nulling = false, anatomy = :heart,
     ),
     "blackblood" => (
-        # Contrast weighting is unconfirmed against the challenge protocol (plan §13 ¹).
-        contrast = :unknown, orientation = nothing, sequence = "dark-blood turbo spin echo",
+        # Sequence and SAX view confirmed against the dataset paper: "the turbo
+        # spin-echo sequence was used for black-blood under breath hold" / "black-blood
+        # with SAX view" (Wang et al. 2025, plan §12). The paper does not state a T1 vs
+        # T2 weighting for this sequence (no TE/TR given), so contrast genuinely stays
+        # :unknown — that is the source's own gap, not an unverified guess.
+        contrast = :unknown, orientation = :short_axis, sequence = "turbo spin echo",
         quantitative = false, cardiac_sync = :none,
         phase_contrast = false, blood_signal_nulling = true, anatomy = :heart,
     ),

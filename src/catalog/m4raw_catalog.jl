@@ -33,8 +33,10 @@ function _m4raw_path_to_id(path::AbstractString, set::AbstractString)
 end
 
 # T1/T2 are turbo spin echo; FLAIR adds an inversion-recovery prep; GRE is a spoiled
-# gradient echo. GRE's weighting is not explicitly stated in the M4Raw paper's sequence
-# table and is carried over from the pre-refactor label — unconfirmed (plan §13 ¹).
+# gradient echo. GRE was not part of the original M4Raw Scientific Data paper (which
+# describes only T1w/T2w TSE and FLAIR); its T1-weighting is confirmed by the M4RawV1.5
+# release notes and dataset card, which describe it as "T1w Gradient echo (GRE) data"
+# (github.com/mylyu/M4Raw, Zenodo record 8056074; plan §12).
 function _m4raw_series(contrast_str::AbstractString)
     contrast_str == "T1" && return (contrast = :t1, sequence = "turbo spin echo", echo_type = :spin)
     contrast_str == "T2" && return (contrast = :t2, sequence = "turbo spin echo", echo_type = :spin)

@@ -117,18 +117,26 @@ arrays with `MRITestData.load_mat`.
 so each series decomposes onto several core fields. The file name also encodes the
 series (e.g. `cine_sax`, `t1map`, `aorta_tra`):
 
-| Series | Files | `contrast` | `orientation` | `quantitative` | `cardiac_sync` / other flags |
-|---|---|---|---|---|---|
-| **Cine** | `cine_sax`, `cine_lax`, `cine_lvot` | `:mixed` | `:short_axis`/`:long_axis`/`:lvot` | `false` | `:retrospective` |
-| **Mapping** | `T1map`, `T2map` | `:t1`/`:t2` | `:short_axis` ¹ | `true` | `:none` |
-| **Tagging** | `tagging` | `:tagging` | `:short_axis` | `false` | `:retrospective` |
-| **Aorta** | `aorta_sag`, `aorta_tra` | `:mixed` | `:sagittal`/`:axial` | `false` | `:none` — `anatomy == :aorta` |
-| **Flow2d** | `flow2d` | `:flow_encoded` | — | `false` | `phase_contrast == true` |
-| **BlackBlood** | `blackblood` | `:unknown` ¹ | — | `false` | `blood_signal_nulling == true` |
+| Series | Files | `contrast` | `orientation` | `sequence` | `quantitative` | `cardiac_sync` / other flags |
+|---|---|---|---|---|---|---|
+| **Cine** | `cine_sax`, `cine_lax`, `cine_lvot` | `:mixed` | `:short_axis`/`:long_axis`/`:lvot` | `"balanced steady-state free precession"` (TrueFISP) | `false` | `:retrospective` |
+| **Mapping** | `T1map`, `T2map` | `:t1`/`:t2` | `:short_axis` | MOLLI-FLASH / T2-prepared FLASH ¹ | `true` | `:none` |
+| **Tagging** | `tagging` | `:tagging` | `:short_axis` | `"tagged cine (SPAMM)"` | `false` | `:retrospective` |
+| **Aorta** | `aorta_sag`, `aorta_tra` | `:mixed` | `:sagittal`/`:axial` | — | `false` | `:none` — `anatomy == :aorta` |
+| **Flow2d** | `flow2d` | `:flow_encoded` | — | — | `false` | `phase_contrast == true` |
+| **BlackBlood** | `blackblood` | `:unknown` ² | `:short_axis` | `"turbo spin echo"` | `false` | `blood_signal_nulling == true` |
 
-¹ Mapping orientation and BlackBlood contrast weighting are carried over from the
-pre-refactor labels and are not independently confirmed against the challenge protocol —
-see [Taxonomy](@ref) §Open questions.
+¹ `entry.sequence`: `"modified Look-Locker inversion recovery (fast low angle shot
+readout)"` for T1map, `"T2-prepared fast low angle shot"` for T2map — confirmed against
+Wang et al. 2025 (see [Taxonomy](@ref) references): "the modified Look-Locker inversion
+recovery-fast low angle shot sequence was used for T1 mapping" / "the T2-prepared-fast
+low angle shot sequence was used for T2 mapping", both "with SAX view". T2 mapping is
+FLASH-based (spoiled gradient echo), not balanced SSFP.
+
+² Sequence and view are confirmed the same way ("the turbo spin-echo sequence was used
+for black-blood under breath hold", "black-blood with SAX view"); the paper does not
+state a T1 vs T2 weighting for it (no TE/TR given), so `contrast` stays genuinely
+`:unknown` — that is a gap in the source, not an unverified guess.
 
 **Views.** **SAX** (short-axis) — a stack of parallel slices across the left ventricle
 (base → apex on the slice axis). **LAX** (long-axis) — the slice axis instead holds the
@@ -264,8 +272,10 @@ file counts in the committed map (`data/m4raw_map.csv`, 2030 files):
 | FLAIR | 416 | `:fluid_attenuated` | `"turbo spin echo (inversion-recovery prepared)"` |
 | T1 GRE ¹ | 366 | `:t1` | `"spoiled gradient echo"`; separate archive (`M4RawV1.5_gre_data.zip`) |
 
-¹ GRE's weighting is carried over from the pre-refactor label and is not independently
-confirmed against the M4Raw paper's sequence table.
+¹ GRE was added in the M4RawV1.5 release, after the original Scientific Data paper (which
+describes only T1w/T2w TSE and FLAIR); its T1-weighting is confirmed by the M4RawV1.5
+release notes and dataset card ("T1w Gradient echo (GRE) data") on
+[github.com/mylyu/M4Raw](https://github.com/mylyu/M4Raw) and Zenodo record 8056074.
 
 **Sets** (`entry.split`): `:train` (1024), `:val` (240), `:test` (400); the GRE archive
 carries no train/val/test split (`entry.split === nothing`). All splits are fully

@@ -167,8 +167,29 @@ counts, sequence names, sampling — that are not present in any committed CSV):
   four-channel head coil, 18 axial slices, 5 mm thick, 0.94×1.23 mm in-plane, T1w/T2w
   TSE and FLAIR, 183 volunteers.
   <https://www.nature.com/articles/s41597-023-02181-4>
+- M4Raw GitHub repository / Zenodo record 8056074 — the M4RawV1.5 release notes and
+  dataset card, source for the GRE contrast added after the original paper ("T1w
+  Gradient echo (GRE) data for all 183 subjects are released").
+  <https://github.com/mylyu/M4Raw>
+- CMRxRecon2024 dataset paper (Wang et al., *Radiology: Artificial Intelligence* 2025) —
+  source for the T1/T2 mapping and BlackBlood pulse sequences and views: "the modified
+  Look-Locker inversion recovery-fast low angle shot sequence was used for T1 mapping"
+  / "the T2-prepared-fast low angle shot sequence was used for T2 mapping", both "with
+  SAX view"; "the turbo spin-echo sequence was used for black-blood under breath hold",
+  "black-blood with SAX view"; "'TrueFISP' sequence for cine, phase-contrast (flow2d),
+  and tagging".
+  <https://pubs.rsna.org/doi/10.1148/ryai.240443> ·
+  <https://pmc.ncbi.nlm.nih.gov/articles/PMC11950877/>
 
-Three values are carried over from the pre-refactor labels and are **not** independently
-confirmed against the challenge protocol / paper sequence tables: the CMRxRecon mapping
-series' orientation, the CMRxRecon BlackBlood contrast weighting, and M4Raw's "T1 GRE"
-label. Verify before relying on them for anything beyond cataloging.
+All three values flagged as unverified in the initial version of this refactor have now
+been checked against the sources above:
+
+- **CMRxRecon mapping-series orientation** — confirmed SAX for both T1map and T2map.
+- **CMRxRecon BlackBlood contrast weighting** — the paper specifies the sequence (turbo
+  spin echo) and view (SAX) but never states a T1/T2 weighting (no TE/TR is given), so
+  `contrast = :unknown` is correct as a reflection of a genuine gap in the source, not an
+  unverified guess. The mapping sequences themselves needed a correction in the
+  process: T2 mapping is FLASH-based (spoiled gradient echo), not the balanced SSFP
+  originally guessed.
+- **M4Raw "T1 GRE"** — confirmed T1-weighted by the M4RawV1.5 dataset card, which
+  post-dates (and is not covered by) the original Scientific Data paper.

@@ -1,8 +1,16 @@
 # Refactor plan: DICOM-anchored dataset taxonomy
 
-Status: proposed, not started.
+Status: implemented (commits `2c0b6a5`, `f5c6ab6` on `feat/fastmri-source`).
 Scope: `src/catalog/`, `src/download/`, `src/load/`, `src/browse.jl`, `data/*.csv`
 headers, `test/`, `docs/`.
+
+**Post-implementation note.** The three ¹-flagged §6 values and open question 1 (§13)
+have since been checked against the CMRxRecon2024 and M4Raw papers; see
+`docs/src/taxonomy.md`. Two needed real corrections (T2map is FLASH-based, not balanced
+SSFP; BlackBlood is confirmed SAX/turbo-spin-echo but the paper never states a T1/T2
+weighting, so `:unknown` is correct as a source gap, not a guess); M4Raw's GRE
+T1-weighting was confirmed via the M4RawV1.5 dataset card. The table below is left as
+originally proposed — a historical record of the plan, not the current source of truth.
 
 This document is **not** part of the Documenter build (it lives outside `docs/src/`).
 
