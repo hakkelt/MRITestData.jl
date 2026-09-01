@@ -26,7 +26,7 @@ const _COLUMNS = PagedColumn[
     PagedColumn("Trajectory"; format = _fmt_sym, col_type = :text),
     PagedColumn("Channels"; align = col_right, format = _fmt_channels, col_type = :text),
     PagedColumn("Sampling"; format = _fmt_sampling, col_type = :text),
-    PagedColumn("R"; align = col_right, format = _fmt_accel, col_type = :text),
+    PagedColumn("R"; align = col_right, format = _fmt_accel, col_type = :numeric),
     PagedColumn("Frames"; align = col_right, col_type = :numeric),
     PagedColumn("Split"; format = _fmt_sym, col_type = :text),
     PagedColumn("Cached"; col_type = :text),
@@ -85,7 +85,10 @@ function _entry_row(i::Int, e::DatasetEntry, highlight_keys::Vector{String} = St
         e.trajectory,
         e.receiver_channels,
         _sampling_value(e),
-        e.acceleration,
+        # NaN, not `nothing`: an all-Float64 column lets Tachikoma sort the R column
+        # without hitting `isless(::Nothing, ::Float64)`, and NaN already sorts last
+        # ascending / first descending under Julia's total order on Float64.
+        something(e.acceleration, NaN),
         e.num_frames,
         e.split,
         _fmt_cached(e),
@@ -97,14 +100,32 @@ function _entry_row(i::Int, e::DatasetEntry, highlight_keys::Vector{String} = St
     return row
 end
 
-function _build_provider(entries::Vector{DatasetEntry})
-    columns, highlight_keys = _source_columns(entries)
+"""
+    _build_provider(entries, indices = 1:length(entries); visible = nothing)
+
+Build an `InMemoryPagedProvider` over `entries[indices]` (`indices` are positions into
+`entries`, not a re-numbered 1:n range — the `"#"` column keeps carrying the *global*
+index so [`_selected_entry`](@ref) and the size-prefetch machinery keep mapping back into
+`entries` correctly after a query narrows the row set), optionally projected down to the
+column names in `visible` (`nothing` = every column). `"#"` is always kept regardless of
+`visible`, and always stays column 1.
+"""
+function _build_provider(
+        entries::Vector{DatasetEntry}, indices = 1:length(entries);
+        visible::Union{Nothing, Vector{String}} = nothing,
+    )
+    all_columns, highlight_keys = _source_columns(entries)
+    keep_pos = [
+        i for (i, c) in enumerate(all_columns)
+            if c.name == "#" || visible === nothing || c.name in visible
+    ]
+    columns = all_columns[keep_pos]
     ncols = length(columns)
-    data = [Vector{Any}(undef, length(entries)) for _ in 1:ncols]
-    for (i, e) in enumerate(entries)
-        row = _entry_row(i, e, highlight_keys)
-        for c in 1:ncols
-            data[c][i] = row[c]
+    data = [Vector{Any}(undef, length(indices)) for _ in 1:ncols]
+    for (row_i, gi) in enumerate(indices)
+        row = _entry_row(gi, entries[gi], highlight_keys)
+        for (c, pos) in enumerate(keep_pos)
+            data[c][row_i] = row[pos]
         end
     end
     return InMemoryPagedProvider(columns, data), columns
@@ -156,7 +177,11 @@ mutable struct BrowserModel <: Model
     entries::Vector{DatasetEntry}
     pdt::PagedDataTable
     columns::Vector{PagedColumn}  # base columns, plus this session's source-adaptive ones
-    size_col::Int                 # position of "Size" in `columns`; found once, not hard-coded
+    size_col::Union{Nothing, Int}      # position of "Size" in `columns`; nothing when hidden
+    # local-row-index (into `pdt.provider.data`) for each global `entries` index currently
+    # shown — recomputed by `_rebuild_provider!` whenever the query/column selection
+    # changes, so the size-prefetch patch (below) can still find the right provider row.
+    row_index_of::Dict{Int, Int}
     stage::Symbol
     selected::Union{Nothing, DatasetEntry}
     path_input::TextInput
@@ -168,18 +193,29 @@ mutable struct BrowserModel <: Model
     tq::TaskQueue
     last_prefetch_page::Int      # page number for which we last fired a prefetch
     prefetch_generation::Int     # incremented each time we fire; used to discard stale results
+    # expression query overlay (`/`)
+    active_query::String                       # applied query text; "" = none
+    active_query_indices::Union{Nothing, Vector{Int}}  # matching global `entries` indices
+    expr_input::TextInput
+    query_error::String
+    # column-visibility picker (`c`)
+    visible_columns::Union{Nothing, Vector{String}}    # nothing = every column shown
+    column_cursor::Int
+    column_toggle::Vector{Bool}   # working copy while the picker is open
 end
 
 function BrowserModel(entries::Vector{DatasetEntry})
     provider, columns = _build_provider(entries)
     pdt = PagedDataTable(provider; page_size = 20, page_sizes = Int[20, 30, 50, 100])
     tq = TaskQueue()
-    size_col = findfirst(c -> c.name == "Size", columns)::Int
+    size_col = findfirst(c -> c.name == "Size", columns)
+    row_index_of = Dict{Int, Int}(i => i for i in 1:length(entries))
     return BrowserModel(
         entries,
         pdt,
         columns,
         size_col,
+        row_index_of,
         :browse,
         nothing,
         TextInput(; label = "Path: ", focused = true),
@@ -189,7 +225,29 @@ function BrowserModel(entries::Vector{DatasetEntry})
         tq,
         0,
         0,
+        "",
+        nothing,
+        TextInput(; label = "Query: ", focused = true),
+        "",
+        nothing,
+        1,
+        Bool[],
     )
+end
+
+# Rebuild `m.pdt`'s provider from the current `active_query_indices` (nothing = every
+# entry) and `visible_columns` (nothing = every column) — the single place both the query
+# overlay and the column-visibility picker apply their result.
+function _rebuild_provider!(m::BrowserModel)
+    indices = m.active_query_indices === nothing ? collect(1:length(m.entries)) : m.active_query_indices
+    provider, columns = _build_provider(m.entries, indices; visible = m.visible_columns)
+    m.columns = columns
+    m.size_col = findfirst(c -> c.name == "Size", columns)
+    m.row_index_of = Dict{Int, Int}(gi => li for (li, gi) in enumerate(indices))
+    pdt_set_provider!(m.pdt, provider)
+    m.last_prefetch_page = 0
+    m.prefetch_generation += 1
+    return nothing
 end
 
 # CMRxRecon (2024 and -300) downloads require a Synapse Personal Access Token. An entry
@@ -286,6 +344,8 @@ function update!(m::BrowserModel, evt::KeyEvent)
     m.stage === :token && return _update_token!(m, evt)
     m.stage === :path && return _update_path!(m, evt)
     m.stage === :details && return _update_details!(m, evt)
+    m.stage === :query && return _update_query!(m, evt)
+    m.stage === :columns && return _update_columns!(m, evt)
     return nothing
 end
 
@@ -301,11 +361,13 @@ function update!(m::BrowserModel, evt::TaskEvent{Tuple{Int, Vector{Int}, Dict{St
     gen == m.prefetch_generation || return   # stale result from an old page
     isempty(sizes) && return
 
-    # Only the Size column changes, and provider rows are in `m.entries` order, so the
-    # column is patched in place. Replacing the provider would re-box every cell of every
-    # column and reset page/sort/filter/search, which would then have to be saved and
-    # restored around it.
-    size_column = m.pdt.provider.data[m.size_col]
+    # Only the Size column changes, so it's patched in place via `row_index_of` (the
+    # provider may show a query-filtered subset of `m.entries`, in a different row count
+    # and order). Replacing the provider would re-box every cell of every column and reset
+    # page/sort/filter/search, which would then have to be saved and restored around it.
+    # `m.size_col` is `nothing` when the Size column is currently hidden — `m.entries` is
+    # still updated below so a re-shown Size column picks up the fetched value later.
+    size_column = m.size_col === nothing ? nothing : m.pdt.provider.data[m.size_col]
     changed = false
     for i in fetch_indices
         (i < 1 || i > length(m.entries)) && continue
@@ -314,7 +376,10 @@ function update!(m::BrowserModel, evt::TaskEvent{Tuple{Int, Vector{Int}, Dict{St
         sz = get(sizes, e.id, nothing)
         sz === nothing && continue
         m.entries[i] = _with_size(e, sz)
-        size_column[i] = sz
+        if size_column !== nothing
+            li = get(m.row_index_of, i, nothing)
+            li === nothing || (size_column[li] = sz)
+        end
         changed = true
     end
 
@@ -352,6 +417,27 @@ function _update_browse!(m::BrowserModel, evt::KeyEvent)
         return nothing
     end
 
+    # '/' opens the expression query overlay instead of Tachikoma's own substring search
+    # (intercepted here so it never reaches `handle_key!(pdt, evt)` below).
+    if evt.key == :char && evt.char == '/'
+        set_text!(m.expr_input, m.active_query)
+        m.query_error = ""
+        m.stage = :query
+        return nothing
+    end
+
+    if evt.key == :char && evt.char == 'c'
+        all_columns, _ = _source_columns(m.entries)
+        toggleable = filter(c -> c.name != "#", all_columns)
+        m.column_toggle = [
+            m.visible_columns === nothing || c.name in m.visible_columns
+                for c in toggleable
+        ]
+        m.column_cursor = 1
+        m.stage = :columns
+        return nothing
+    end
+
     if (evt.key == :char && evt.char == 'q') || evt.key == :escape
         return _quit!(m)
     end
@@ -366,6 +452,66 @@ function _update_details!(m::BrowserModel, evt::KeyEvent)
         m.stage = :browse
     elseif evt.key == :char && (evt.char == 'q' || evt.char == 'Q')
         return _quit!(m)
+    end
+    return nothing
+end
+
+function _update_query!(m::BrowserModel, evt::KeyEvent)
+    if evt.key == :escape
+        m.query_error = ""
+        m.stage = :browse
+        return nothing
+    end
+    if evt.key == :enter
+        txt = strip(text(m.expr_input))
+        if isempty(txt)
+            m.active_query = ""
+            m.active_query_indices = nothing
+            m.query_error = ""
+            _rebuild_provider!(m)
+            m.stage = :browse
+            return nothing
+        end
+        try
+            pred = _compile_query_expr(parse_query_expr(txt), _query_sources(m))
+            m.active_query = String(txt)
+            m.active_query_indices = [i for (i, e) in enumerate(m.entries) if pred(e)]
+            m.query_error = ""
+            _rebuild_provider!(m)
+            m.stage = :browse
+        catch err
+            err isa QueryParseError || rethrow()
+            m.query_error = sprint(showerror, err)
+        end
+        return nothing
+    end
+    handle_key!(m.expr_input, evt)
+    return nothing
+end
+
+# The sources actually present among `m.entries` — used to validate/resolve `extra` field
+# names in a query the same way `query(text; sources = ...)` would for this session.
+_query_sources(m::BrowserModel) = unique(e.source for e in m.entries)
+
+function _update_columns!(m::BrowserModel, evt::KeyEvent)
+    n = length(m.column_toggle)
+    if evt.key == :escape
+        m.stage = :browse
+    elseif evt.key == :up
+        n > 0 && (m.column_cursor = max(1, m.column_cursor - 1))
+    elseif evt.key == :down
+        n > 0 && (m.column_cursor = min(n, m.column_cursor + 1))
+    elseif evt.key == :char && evt.char == ' '
+        if n > 0
+            m.column_toggle[m.column_cursor] = !m.column_toggle[m.column_cursor]
+        end
+    elseif evt.key == :enter
+        all_columns, _ = _source_columns(m.entries)
+        toggleable = filter(c -> c.name != "#", all_columns)
+        shown = [c.name for (c, on) in zip(toggleable, m.column_toggle) if on]
+        m.visible_columns = length(shown) == length(toggleable) ? nothing : shown
+        _rebuild_provider!(m)
+        m.stage = :browse
     end
     return nothing
 end
@@ -432,9 +578,11 @@ const _HELP_BAR = StatusBar(
         Span("PgUp/PgDn ", tstyle(:accent)),
         Span("page  ", tstyle(:text_dim)),
         Span("/ ", tstyle(:accent)),
-        Span("search  ", tstyle(:text_dim)),
+        Span("query  ", tstyle(:text_dim)),
         Span("f ", tstyle(:accent)),
         Span("filter  ", tstyle(:text_dim)),
+        Span("c ", tstyle(:accent)),
+        Span("columns  ", tstyle(:text_dim)),
         Span("1-9 ", tstyle(:accent)),
         Span("sort  ", tstyle(:text_dim)),
         Span("Enter ", tstyle(:accent)),
@@ -465,6 +613,8 @@ function view(m::BrowserModel, f::Frame)
     m.stage === :token && _render_token!(m, area, buf)
     m.stage === :path && _render_path!(m, area, buf)
     m.stage === :details && _render_details!(m, area, buf)
+    m.stage === :query && _render_query!(m, area, buf)
+    m.stage === :columns && _render_columns!(m, area, buf)
     return nothing
 end
 
@@ -495,6 +645,34 @@ function _render_path!(m::BrowserModel, area::Rect, buf)
         width = 64,
         lines = [("Enter to confirm, Esc to go back:", tstyle(:text_dim))],
     )
+    return nothing
+end
+
+# Expression query overlay (`/`): a single-line input plus, when the last attempt failed to
+# parse, the error message underneath (styled distinctly so a typo is obvious at a glance).
+function _render_query!(m::BrowserModel, area::Rect, buf)
+    lines = [
+        ("dataset=fastmri AND R<3   |   id='fs_*'   |   Esc to cancel, Enter to apply", tstyle(:text_dim)),
+    ]
+    isempty(m.query_error) || push!(lines, (m.query_error, tstyle(:error)))
+    _render_input_modal!(area, buf, " Query ", m.expr_input; width = 76, lines = lines)
+    return nothing
+end
+
+# Column-visibility picker (`c`): a checklist of every column this session could show,
+# `"#"` excluded (it's always shown — the internal row/entry key).
+function _render_columns!(m::BrowserModel, area::Rect, buf)
+    all_columns, _ = _source_columns(m.entries)
+    toggleable = filter(c -> c.name != "#", all_columns)
+    lines = String[]
+    for (i, c) in enumerate(toggleable)
+        mark = i <= length(m.column_toggle) && m.column_toggle[i] ? "x" : " "
+        cursor = i == m.column_cursor ? "> " : "  "
+        push!(lines, "$(cursor)[$(mark)] $(c.name)")
+    end
+    push!(lines, "")
+    push!(lines, "[↑↓] move   [Space] toggle   [Enter] apply   [Esc] cancel")
+    _render_modal!(area, buf, " Columns ", lines)
     return nothing
 end
 
@@ -597,8 +775,11 @@ terminal, including from within the Julia REPL.
 
 **Keys**
 - `↑ ↓` move selection; `PgUp/PgDn` change page
-- `/` global search across all columns
-- `f` open the per-column filter modal
+- `/` open the expression query overlay (see below); Enter applies, Esc cancels
+- `f` open the per-column filter modal (single-column, AND-only — the expression query
+  is more capable but resets this modal's filters when applied, see below)
+- `c` open the column-visibility picker — `Space` toggles the highlighted column,
+  `Enter` applies, `Esc` cancels; `"#"` (the row index) is always shown
 - `1`-`9` sort by that column (toggles ascending/descending)
 - `d` open the details pane for the highlighted dataset — every `extra` key it carries,
   with its description and its `query`/`list_datasets` keyword (`Esc`/`d` closes it)
@@ -607,7 +788,21 @@ terminal, including from within the Julia REPL.
 
 When `sources` narrows the session to a single source, a couple of that source's most
 useful `extra` fields (e.g. OCMR's `scanner_model`) are added as real columns —
-sortable/filterable like any other — on top of the base column set.
+sortable/filterable like any other — on top of the base column set; they're also
+toggleable from the column picker and queryable by their `extra_schema` key.
+
+**Expression queries (`/`)** use the same boolean language as the string form of
+[`query`](@ref) — `AND`/`OR` (AND binds tighter), parentheses, `=`/`!=`/`<`/`<=`/`>`/`>=`,
+quoted or bare values, and `*` wildcards for string matches:
+```
+(dataset=fastmri AND R<3) OR id='fs_*'
+anatomy=knee AND fully_sampled=true
+```
+Field names accept any [`DatasetEntry`](@ref) field, the friendly aliases matching the
+table's column headers (`dataset`/`source`, `r`, `b0`, `channels`, `frames`, `size`,
+`sampling`), or a per-source `extra` key. Applying a query (or changing the visible
+columns) resets the per-column filter/search/sort state, since column indices and the row
+set both change underneath it.
 
 After selecting a dataset you are asked to confirm (`y`/`n`) and to choose a
 destination path. The default is `<current directory>/<id>.h5`; press Enter to

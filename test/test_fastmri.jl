@@ -47,6 +47,20 @@ end
     end
 end
 
+@testitem "FastMRI: single-coil receiver_channels is inferred as 1" tags = [] begin
+    using MRITestData
+    entries = list_datasets(FASTMRI; offline = true)
+    singlecoil = filter(e -> e.coil_data === :derived, entries)
+    multicoil = filter(e -> e.coil_data === :original && e.anatomy === :knee, entries)
+    if !isempty(singlecoil)
+        @test all(e -> e.receiver_channels == 1, singlecoil)
+    end
+    # Multicoil (raw) rows are unaffected — channel count still unknown.
+    if !isempty(multicoil)
+        @test all(e -> e.receiver_channels === nothing, multicoil)
+    end
+end
+
 @testitem "FastMRI: source metadata" tags = [] begin
     using MRITestData
     @test MRITestData.source_name(FASTMRI) == "fastmri"

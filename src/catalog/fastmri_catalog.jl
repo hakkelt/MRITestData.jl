@@ -145,7 +145,10 @@ function _fastmri_entry(row, col)
         vendor = series.vendor,
         scanner_model = series.scanner_model,
         field_strength = series.field_strength,
-        receiver_channels = series.receiver_channels,
+        # Single-coil data is 1 channel by construction (it's the RSS-combined derived
+        # series, not a raw multi-coil acquisition) — the map/papers never state this
+        # explicitly, so it has to be inferred from `coil_data` rather than read off a row.
+        receiver_channels = coil_data === :derived ? 1 : series.receiver_channels,
         coil_data = coil_data,
         anatomy = something(anatomy, :unknown),
         contrast = series.contrast,

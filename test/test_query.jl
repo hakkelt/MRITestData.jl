@@ -92,3 +92,110 @@ end
     @test extra_schema(OCMR_SOURCE) isa Dict{String, String}
     @test haskey(extra_schema(OCMR_SOURCE), "scanner_model")
 end
+
+@testitem "query: string expression language — tokenizer/parser" begin
+    using MRITestData: parse_query_expr, QueryParseError, QCmp, QAnd, QOr
+
+    @testset "single comparison, every operator" begin
+        for (txt, op) in
+            [("a=1", :eq), ("a!=1", :neq), ("a<1", :lt), ("a<=1", :lte), ("a>1", :gt), ("a>=1", :gte)]
+            node = parse_query_expr(txt)
+            @test node isa QCmp
+            @test node.field == "a"
+            @test node.op == op
+            @test node.value == 1.0
+        end
+    end
+
+    @testset "AND binds tighter than OR; parens override" begin
+        n = parse_query_expr("a=1 AND b=2 OR c=3")
+        @test n isa QOr
+        @test n.l isa QAnd
+        n2 = parse_query_expr("a=1 AND (b=2 OR c=3)")
+        @test n2 isa QAnd
+        @test n2.r isa QOr
+        # case-insensitive keywords, no spaces needed around operators
+        n3 = parse_query_expr("a=1 and b<3")
+        @test n3 isa QAnd
+    end
+
+    @testset "value forms" begin
+        @test parse_query_expr("a='fs_*'").value == "fs_*"
+        @test parse_query_expr("a=\"x y\"").value == "x y"
+        @test parse_query_expr("a=bareword").value == "bareword"
+        @test parse_query_expr("a=true").value === true
+        @test parse_query_expr("a=false").value === false
+        @test parse_query_expr("a=-1.5").value == -1.5
+    end
+
+    @testset "parse errors carry a usable message" begin
+        @test_throws QueryParseError parse_query_expr("a=")
+        @test_throws QueryParseError parse_query_expr("a=1 AND")
+        @test_throws QueryParseError parse_query_expr("(a=1")
+        @test_throws QueryParseError parse_query_expr("a='unterminated")
+        @test_throws QueryParseError parse_query_expr("a 1")   # missing operator
+        try
+            parse_query_expr("a=")
+        catch e
+            @test e isa QueryParseError
+            @test occursin("byte", sprint(showerror, e))
+        end
+    end
+end
+
+@testitem "query: string expression language — evaluation (offline)" begin
+    using MRITestData
+
+    @testset "field aliases match the browser's column headers" begin
+        fastmri_r = query("dataset=fastmri AND R<3"; offline = true)
+        @test !isempty(fastmri_r)
+        @test all(e -> MRITestData.source_name(e.source) == "fastmri", fastmri_r)
+        @test all(e -> e.acceleration !== nothing && e.acceleration < 3, fastmri_r)
+
+        # keyword and string forms agree
+        kw = query(; sources = FASTMRI, acceleration = a -> a !== nothing && a < 3, offline = true)
+        @test Set(e.id for e in fastmri_r) == Set(e.id for e in kw)
+
+        b0 = query("b0=3"; offline = true)
+        @test !isempty(b0)
+        @test all(e -> e.field_strength == 3.0, b0)
+    end
+
+    @testset "wildcard vs exact string match" begin
+        glob = query("id='fs_*'"; offline = true)
+        @test !isempty(glob)
+        @test all(e -> startswith(e.id, "fs_"), glob)
+
+        exact = query("anatomy=knee"; offline = true)
+        @test !isempty(exact)
+        @test all(e -> e.anatomy === :knee, exact)
+        # exact match is case-insensitive but not a substring match
+        @test isempty(query("anatomy=kne"; offline = true))
+    end
+
+    @testset "AND/OR/parens combine like the grammar says" begin
+        a = query("(anatomy=knee AND R<3) OR fully_sampled=true"; offline = true)
+        b = filter(
+            e -> (e.anatomy === :knee && e.acceleration !== nothing && e.acceleration < 3) ||
+                e.fully_sampled === true, query(; offline = true),
+        )
+        @test Set(e.id for e in a) == Set(e.id for e in b)
+    end
+
+    @testset "extra-key field resolution" begin
+        withmodel = filter(e -> haskey(e.extra, "scanner_model"), list_datasets(OCMR_SOURCE; offline = true))
+        if !isempty(withmodel)
+            want = withmodel[1].extra["scanner_model"]
+            res = query("scanner_model='$(want)'"; sources = OCMR_SOURCE, offline = true)
+            @test !isempty(res)
+            @test all(e -> get(e.extra, "scanner_model", nothing) == want, res)
+        end
+    end
+
+    @testset "unknown field: warn (default, matches nothing) vs strict (errors)" begin
+        @test isempty(query("definitely_not_a_field=1"; sources = OCMR_SOURCE, offline = true))
+        @test_throws ErrorException query(
+            "definitely_not_a_field=1"; sources = OCMR_SOURCE, offline = true, strict = true,
+        )
+    end
+end

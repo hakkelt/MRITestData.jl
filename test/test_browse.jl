@@ -50,6 +50,34 @@
     end
 end
 
+@testitem "Browse: R column is numeric — sorts missing last, filters exclude them" begin
+    using MRITestData
+    using MRITestData: _build_provider, _COLUMNS, _fmt_accel
+    using Tachikoma.Paged: fetch_page, PageRequest, sort_asc, ColumnFilter, filter_lt, apply_filter
+
+    @test _fmt_accel(nothing) == ""
+    @test _fmt_accel(NaN) == ""
+    @test _fmt_accel(2.0) == "×2.0"
+
+    rcol = findfirst(c -> c.name == "R", _COLUMNS)
+    @test _COLUMNS[rcol].col_type == :numeric
+
+    entries = query(; offline = true)
+    provider, cols = _build_provider(entries)
+    prov_rcol = findfirst(c -> c.name == "R", cols)
+    req = PageRequest(1, length(entries), prov_rcol, sort_asc, Dict{Int, ColumnFilter}(), "")
+    res = fetch_page(provider, req)
+    vals = [r[prov_rcol] for r in res.rows]
+    @test all(v -> v isa Float64, vals)   # no `nothing` reaches the provider column
+    # Sorting ascending never throws (would with a mixed Nothing/Float64 column) and puts
+    # unknown acceleration (NaN) after every real value.
+    known = filter(!isnan, vals)
+    @test issorted(known)
+    @test all(isnan, vals[(length(known) + 1):end])
+
+    @test apply_filter(filter_lt, "3", NaN, :numeric) == false
+end
+
 @testitem "Browse: source-adaptive extra columns (offline)" begin
     using MRITestData
     using MRITestData: _build_provider, _source_columns, _browse_highlights, BrowserModel
@@ -225,4 +253,99 @@ end
     @test_throws ErrorException _browser_sources(["--source", "nope"])
     # A trailing --source with no value names nothing, so every source is browsed.
     @test _browser_sources(["--source"]) == list_sources()
+end
+
+@testitem "browse: _build_provider row subset + column visibility" begin
+    using MRITestData
+    using MRITestData: _build_provider, DatasetEntry
+    using Tachikoma.Paged: fetch_page, PageRequest, sort_none, ColumnFilter
+
+    entries = [
+        DatasetEntry(; source = OCMR_SOURCE, id = "e$i", name = "Entry $i", anatomy = :heart, url = "")
+            for i in 1:10
+    ]
+
+    # `indices` are positions into `entries`, not renumbered — "#" carries the *global*
+    # index so a downstream `_selected_entry` still maps back into `entries` correctly.
+    provider, cols = _build_provider(entries, [3, 7, 9])
+    @test cols[1].name == "#"
+    req = PageRequest(1, 10, 0, sort_none, Dict{Int, ColumnFilter}(), "")
+    res = fetch_page(provider, req)
+    @test res.total_count == 3
+    @test [r[1] for r in res.rows] == [3, 7, 9]
+    idcol = findfirst(c -> c.name == "ID", cols)
+    @test [r[idcol] for r in res.rows] == ["e3", "e7", "e9"]
+
+    # `visible` projects down to a chosen set of columns; "#" is always kept regardless.
+    provider2, cols2 = _build_provider(entries; visible = ["ID", "Anatomy"])
+    @test [c.name for c in cols2] == ["#", "ID", "Anatomy"]
+    res2 = fetch_page(provider2, PageRequest(1, 10, 0, sort_none, Dict{Int, ColumnFilter}(), ""))
+    @test length(res2.rows[1]) == 3
+end
+
+@testitem "browse: query overlay narrows rows; a bad expression leaves query_error set" begin
+    using MRITestData
+    using MRITestData: BrowserModel, _update_query!
+    using Tachikoma: KeyEvent
+
+    entries = query(; offline = true)
+    m = BrowserModel(entries)
+    total = m.pdt.total_count
+    @test total == length(entries)
+
+    MRITestData.set_text!(m.expr_input, "dataset=fastmri")
+    _update_query!(m, KeyEvent(:enter))
+    @test m.stage === :browse
+    @test m.active_query == "dataset=fastmri"
+    @test m.pdt.total_count == count(e -> MRITestData.source_name(e.source) == "fastmri", entries)
+    @test m.pdt.total_count < total
+
+    # Enter on empty text clears the active query and restores the full row set.
+    m.stage = :query
+    MRITestData.set_text!(m.expr_input, "")
+    _update_query!(m, KeyEvent(:enter))
+    @test m.active_query_indices === nothing
+    @test m.pdt.total_count == total
+
+    # An invalid expression stays in :query with an error message; the table is untouched.
+    m.stage = :query
+    MRITestData.set_text!(m.expr_input, "dataset=")
+    _update_query!(m, KeyEvent(:enter))
+    @test m.stage === :query
+    @test !isempty(m.query_error)
+    @test m.pdt.total_count == total
+
+    # Esc backs out without applying, leaving the previous state alone.
+    m.query_error = ""
+    _update_query!(m, KeyEvent(:escape))
+    @test m.stage === :browse
+    @test m.pdt.total_count == total
+end
+
+@testitem "browse: column-visibility picker toggles and applies" begin
+    using MRITestData
+    using MRITestData: BrowserModel, _update_columns!, _selected_entry, _source_columns
+    using Tachikoma: KeyEvent
+
+    entries = list_datasets(OCMR_SOURCE; offline = true)
+    m = BrowserModel(entries)
+    m.pdt.selected = 1
+    sel_before = _selected_entry(m)
+
+    all_columns, _ = _source_columns(m.entries)
+    toggleable = filter(c -> c.name != "#", all_columns)
+    m.column_toggle = fill(true, length(toggleable))
+    m.column_cursor = 1
+
+    _update_columns!(m, KeyEvent(' '))   # toggle off the first toggleable column
+    @test m.column_toggle[1] == false
+    _update_columns!(m, KeyEvent(:enter))
+    @test m.stage === :browse
+    @test toggleable[1].name ∉ [c.name for c in m.columns]
+    @test any(c -> c.name == "#", m.columns)   # "#" always kept
+
+    # Selection still maps back to the same entry after the column set shrinks.
+    sel_after = _selected_entry(m)
+    @test sel_after !== nothing
+    @test sel_after.id == sel_before.id
 end

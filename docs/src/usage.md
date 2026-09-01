@@ -74,6 +74,37 @@ The `missing`/`nothing` distinction applies to `extra` keys too: a key the entry
 not carry reads as `nothing`. Use [`extra_schema`](@ref)`(source)` to see which keys a
 source carries.
 
+### String queries
+
+[`query`](@ref) also has a string-expression form for compound conditions that don't fit
+one flat keyword filter — the same language the browser's `/` overlay uses:
+
+```julia
+query("dataset=fastmri AND R<3")
+query("id='fs_*'")
+query("(anatomy=knee AND R<3) OR fully_sampled=true")
+```
+
+```
+or_expr  := and_expr (OR and_expr)*
+and_expr := atom (AND atom)*
+atom     := '(' or_expr ')' | field OP value
+OP       := '=' | '!=' | '<' | '<=' | '>' | '>='
+```
+
+`AND`/`OR` are case-insensitive keywords and `AND` binds tighter than `OR`; parenthesize
+to override. A value is a bare word, a `'single'`/`"double"`-quoted string, or a number. A
+string containing `*` is a case-insensitive glob (`*` matches any run of characters,
+anchored to the whole value); without `*` it's an exact case-insensitive compare.
+`<`/`<=`/`>`/`>=` compare numerically and never match a non-numeric or missing field.
+
+`field` accepts any [`DatasetEntry`](@ref) field name, a friendly alias matching the
+browser's column headers (`dataset`/`source`, `r`/`accel` → `acceleration`, `b0` →
+`field_strength`, `channels` → `receiver_channels`, `frames` → `num_frames`, `size` →
+`approx_size_bytes`, `sampling` → the fully-sampled/pattern value the browser displays),
+or a per-source `extra` key — all case-insensitive. `strict = true` errors on an unknown
+field instead of `@warn`ing and matching nothing, same as the keyword form.
+
 ## Interactive browser
 
 ![The mridata-browser terminal UI](assets/browser-demo.gif)
@@ -92,8 +123,12 @@ run_browser(; offline = true)          # skip the network
 Inside the browser:
 
 - **↑ ↓** — move the selection; **PgUp/PgDn**, **Home/End** — change page.
-- **`/`** — global text search across all columns.
-- **`f`** — open the filter modal (per-column typed filters).
+- **`/`** — open the expression query overlay (see [String queries](@ref)); Enter
+  applies, Esc cancels.
+- **`f`** — open the filter modal (per-column typed filters; single column, AND-only —
+  applying an expression query resets this).
+- **`c`** — open the column-visibility picker: **Space** toggles the highlighted column,
+  **Enter** applies, **Esc** cancels. `"#"` (the row index) is always shown.
 - **`1`-`9`** — sort by that column (toggles ascending/descending).
 - **`d`** — open the details pane: every `extra` key the highlighted dataset carries,
   with its description and its `query`/`list_datasets` keyword (`Esc`/`d` closes it).
@@ -102,7 +137,8 @@ Inside the browser:
 
 Narrowing `run_browser(; sources = ...)` to a single source adds a couple of that
 source's most useful `extra` fields as real, sortable/filterable columns (e.g. OCMR
-gets a `scanner_model` column) — see [`run_browser`](@ref) for the full list. After
+gets a `scanner_model` column) — see [`run_browser`](@ref) for the full list; they're
+also toggleable from the column picker and queryable by their `extra_schema` key. After
 selecting a dataset you confirm the download (`y`/`n`) and choose a destination path
 (default `<current directory>/<id>.h5`).
 

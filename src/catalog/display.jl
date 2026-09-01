@@ -25,7 +25,7 @@ _fmt_b0(v) = v === nothing ? "?" : string(v, "T")
 _fmt_channels(v) = v === nothing ? "?" : string(v, "ch")
 _fmt_size(v) = v === nothing ? "?" : _human_bytes(v)
 _fmt_sym(v) = (v === nothing || v === :unknown) ? "?" : string(v)
-_fmt_accel(v) = v === nothing ? "" : string("×", round(v; digits = 1))
+_fmt_accel(v) = (v === nothing || (v isa AbstractFloat && isnan(v))) ? "" : string("×", round(v; digits = 1))
 
 # Sampling, using explicit words rather than glyphs:
 #   true → "fully sampled",
