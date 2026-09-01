@@ -126,6 +126,23 @@ end
         @test parse_query_expr("a=true").value === true
         @test parse_query_expr("a=false").value === false
         @test parse_query_expr("a=-1.5").value == -1.5
+        # missing-value sentinel, however spelled
+        for w in ("nothing", "null", "missing", "none", "NOTHING")
+            @test parse_query_expr("a=$w").value === MRITestData._QMISSING
+        end
+    end
+
+    @testset "size suffixes on numeric literals" begin
+        @test parse_query_expr("size<100M").value == 100_000_000.0
+        @test parse_query_expr("size<=2GiB").value == 2.0 * 1024^3
+        @test parse_query_expr("size>500KB").value == 500_000.0
+        @test parse_query_expr("size<1.5G").value == 1.5e9
+        # a plain number is unchanged; a non-numeric word stays a bareword
+        @test parse_query_expr("frames>10").value == 10.0
+        @test parse_query_expr("anatomy=knee").value == "knee"
+        # a lone trailing 'T' is ignored so field strength works; 'P' is not a suffix
+        @test parse_query_expr("b0=3T").value == 3.0
+        @test parse_query_expr("a=3P").value == "3P"
     end
 
     @testset "parse errors carry a usable message" begin
@@ -159,6 +176,24 @@ end
         b0 = query("b0=3"; offline = true)
         @test !isempty(b0)
         @test all(e -> e.field_strength == 3.0, b0)
+    end
+
+    @testset "size comparison with a suffix" begin
+        small = query("dataset=ocmr AND size < 100M"; offline = true)
+        @test !isempty(small)
+        @test all(e -> e.approx_size_bytes !== nothing && e.approx_size_bytes < 100_000_000, small)
+    end
+
+    @testset "nothing / not-nothing" begin
+        all_e = query(; offline = true)
+        with_r = query("R != nothing"; offline = true)
+        without_r = query("R = nothing"; offline = true)
+        @test all(e -> e.acceleration !== nothing, with_r)
+        @test all(e -> e.acceleration === nothing, without_r)
+        @test length(with_r) + length(without_r) == length(all_e)
+        # `null`/`missing` are accepted spellings; `:unknown` symbols count as missing too
+        @test Set(e.id for e in query("R = null"; offline = true)) == Set(e.id for e in without_r)
+        @test all(e -> e.anatomy === :unknown, query("anatomy = missing"; offline = true))
     end
 
     @testset "wildcard vs exact string match" begin

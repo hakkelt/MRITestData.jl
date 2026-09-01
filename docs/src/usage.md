@@ -77,12 +77,14 @@ source carries.
 ### String queries
 
 [`query`](@ref) also has a string-expression form for compound conditions that don't fit
-one flat keyword filter — the same language the browser's `/` overlay uses:
+one flat keyword filter — the same language the browser's `s` search overlay uses:
 
 ```julia
 query("dataset=fastmri AND R<3")
 query("id='fs_*'")
 query("(anatomy=knee AND R<3) OR fully_sampled=true")
+query("dataset=ocmr AND size < 100M")
+query("R != nothing")                     # only entries with a known acceleration
 ```
 
 ```
@@ -93,10 +95,14 @@ OP       := '=' | '!=' | '<' | '<=' | '>' | '>='
 ```
 
 `AND`/`OR` are case-insensitive keywords and `AND` binds tighter than `OR`; parenthesize
-to override. A value is a bare word, a `'single'`/`"double"`-quoted string, or a number. A
-string containing `*` is a case-insensitive glob (`*` matches any run of characters,
-anchored to the whole value); without `*` it's an exact case-insensitive compare.
-`<`/`<=`/`>`/`>=` compare numerically and never match a non-numeric or missing field.
+to override. A value is a bare word, a `'single'`/`"double"`-quoted string, a number, or
+the bare word `nothing` (also `null`/`missing`/`none`) meaning "no value" — `R = nothing`
+finds entries without an acceleration, `R != nothing` the ones with. Numbers take a size
+suffix `K`/`M`/`G` (1000-based) or `Ki`/`Mi`/`Gi` (1024-based) with an optional trailing
+`B` (`size < 100M`); a lone trailing `T` is ignored, so `b0=3T` reads as `3`. A string
+containing `*` is a case-insensitive glob (`*` matches any run of characters, anchored to
+the whole value); without `*` it's an exact case-insensitive compare. `<`/`<=`/`>`/`>=`
+compare numerically and never match a non-numeric or missing field.
 
 `field` accepts any [`DatasetEntry`](@ref) field name, a friendly alias matching the
 browser's column headers (`dataset`/`source`, `r`/`accel` → `acceleration`, `b0` →
@@ -123,15 +129,19 @@ run_browser(; offline = true)          # skip the network
 Inside the browser:
 
 - **↑ ↓** — move the selection; **PgUp/PgDn**, **Home/End** — change page.
-- **`/`** — open the expression query overlay (see [String queries](@ref)); Enter
-  applies, Esc cancels.
-- **`f`** — open the filter modal (per-column typed filters; single column, AND-only —
-  applying an expression query resets this).
+- **`s`** (or **`/`**) — open the search / expression-query overlay (see
+  [String queries](@ref)); Enter applies, Esc cancels.
+- **`f`** — open the filter modal (per-column typed filters). On its column list, **`p`**
+  cycles the highlighted column's missing-value filter (none → present → missing → none)
+  and **`x`** clears every active filter (per-column, missing-value, and the expression
+  query).
 - **`c`** — open the column-visibility picker: **Space** toggles the highlighted column,
   **Enter** applies, **Esc** cancels. `"#"` (the row index) is always shown.
 - **`1`-`9`** — sort by that column (toggles ascending/descending).
-- **`d`** — open the details pane: every `extra` key the highlighted dataset carries,
-  with its description and its `query`/`list_datasets` keyword (`Esc`/`d` closes it).
+- **`d`** — open the details pane: a `keyword │ value │ description` table of every
+  `extra` key the highlighted dataset carries (the keyword is also its
+  `query`/`list_datasets` filter name; the description column wraps). `Esc`, `d`, or `q`
+  closes it (no download quit from the details pane).
 - **Enter** — select the highlighted dataset and start the download flow.
 - **`q` / Esc** — quit without downloading.
 

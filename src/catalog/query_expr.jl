@@ -18,12 +18,18 @@
 
 abstract type QueryNode end
 
+# The right-hand side of `field = nothing` / `field != nothing` (also spelled `null`,
+# `missing`, `none`) — "the field carries no value". `:eq` matches missing entries,
+# `:neq` matches the ones that have a value.
+struct _QMissing end
+const _QMISSING = _QMissing()
+
 """
     QCmp(field, op, value)
 
 One `field OP value` comparison in a parsed query expression (see [`parse_query_expr`](@ref)).
 `op` is one of `:eq`, `:neq`, `:lt`, `:lte`, `:gt`, `:gte`; `value` is a `String`, `Float64`,
-or `Bool` literal.
+`Bool`, or the missing-value sentinel.
 """
 struct QCmp <: QueryNode
     field::String
@@ -65,6 +71,25 @@ end
 
 const _QOP_MAP = Dict("=" => :eq, "!=" => :neq, "<" => :lt, "<=" => :lte, ">" => :gt, ">=" => :gte)
 const _QWORD_STOP = "()'\"=<>!"
+
+# A numeric literal, optionally with a size suffix: `K`/`M`/`G` (1000-based) or `Ki`/`Mi`/`Gi`
+# (1024-based), each with an optional trailing `B`. A lone trailing `T` is ignored, so
+# `b0=3T` reads as `3` (field strength in Tesla) rather than a size. Returns the value in
+# base units (bytes for a size), or `nothing` when `word` is not numeric.
+const _QNUM_RE = r"^(-?\d+(?:\.\d+)?)(?:([KMG])(I)?)?B?T?$"i
+const _QNUM_MULT = Dict('K' => 1, 'M' => 2, 'G' => 3)
+
+function _parse_number(word::AbstractString)
+    m = match(_QNUM_RE, word)
+    m === nothing && return nothing
+    digits = m.captures[1]
+    digits === nothing && return nothing
+    val = parse(Float64, digits)
+    unit = m.captures[2]
+    unit === nothing && return val
+    base = m.captures[3] === nothing ? 1000.0 : 1024.0
+    return val * base^_QNUM_MULT[uppercase(unit)[1]]
+end
 
 function _tokenize(s::AbstractString)
     tokens = _QToken[]
@@ -124,7 +149,7 @@ function _tokenize(s::AbstractString)
                 :and
             elseif uppercase(word) == "OR"
                 :or
-            elseif occursin(r"^-?\d+(\.\d+)?$", word)
+            elseif _parse_number(word) !== nothing
                 :number
             else
                 :bareword
@@ -204,9 +229,19 @@ function _parse_cmp(p::_QParser)
     value = if val_tok.kind == :string
         val_tok.text
     elseif val_tok.kind == :number
-        parse(Float64, val_tok.text)
+        n = _parse_number(val_tok.text)
+        n === nothing ? throw(QueryParseError("invalid numeric literal", val_tok.pos)) : n
     elseif val_tok.kind == :bareword
-        lowercase(val_tok.text) == "true" ? true : lowercase(val_tok.text) == "false" ? false : val_tok.text
+        lc = lowercase(val_tok.text)
+        if lc in ("nothing", "null", "missing", "none")
+            _QMISSING           # sentinel: "field has no value"
+        elseif lc == "true"
+            true
+        elseif lc == "false"
+            false
+        else
+            val_tok.text
+        end
     else
         throw(QueryParseError("expected a value, got $(repr(val_tok.text))", val_tok.pos))
     end
@@ -278,6 +313,20 @@ function _query_eq(v, lit::AbstractString)
     s = _query_str(v)
     s === nothing && return false
     return occursin('*', lit) ? occursin(_glob_to_regex(lit), s) : lowercase(s) == lowercase(lit)
+end
+
+# A field value counts as "missing" when it is `nothing`, the `:unknown` vocab symbol, an
+# empty string, or `NaN` (the sentinel the browser stores for an absent acceleration).
+_query_is_missing(::Nothing) = true
+_query_is_missing(v::Symbol) = v === :unknown
+_query_is_missing(v::AbstractString) = isempty(v)
+_query_is_missing(v::AbstractFloat) = isnan(v)
+_query_is_missing(@nospecialize(_)) = false
+
+function _query_cmp(v, op::Symbol, ::_QMissing)
+    op === :eq && return _query_is_missing(v)
+    op === :neq && return !_query_is_missing(v)
+    return false
 end
 
 function _query_cmp(v, op::Symbol, lit)
@@ -352,10 +401,14 @@ atom     := '(' or_expr ')' | field OP value
 OP       := '=' | '!=' | '<' | '<=' | '>' | '>='
 ```
 `AND`/`OR` are case-insensitive and `AND` binds tighter than `OR`; parenthesize to
-override. A value is a bare word, a `'single'`/`"double"`-quoted string, or a number.
-A string containing `*` is matched as a case-insensitive glob (`*` → any run of
-characters, anchored); without `*` it's an exact case-insensitive compare. `<`/`<=`/`>`/`>=`
-compare numerically and never match a non-numeric or missing field.
+override. A value is a bare word, a `'single'`/`"double"`-quoted string, a number, or the
+bare word `nothing` (also `null`/`missing`/`none`) — `R = nothing` matches entries with no
+acceleration, `R != nothing` matches the ones that have it. A number may carry a size
+suffix — `K`/`M`/`G` (1000-based) or `Ki`/`Mi`/`Gi` (1024-based), with an optional trailing
+`B` — so `size < 100M` and `size >= 2GiB` work (a lone trailing `T` is ignored, so `b0=3T`
+reads as `3`). A string containing `*` is matched as a case-insensitive glob (`*` → any run
+of characters, anchored); without `*` it's an exact case-insensitive compare.
+`<`/`<=`/`>`/`>=` compare numerically and never match a non-numeric or missing field.
 
 `field` accepts any [`DatasetEntry`](@ref) field name, a friendly alias matching the
 browser's column headers (`dataset`/`source`, `r`/`accel` → `acceleration`, `b0` →
@@ -369,6 +422,8 @@ displays), or a per-source `extra` key (see [`extra_schema`](@ref)) — all case
 query("dataset=fastmri AND R<3")
 query("id='fs_*'")
 query("(anatomy=knee AND R<3) OR fully_sampled=true")
+query("dataset=ocmr AND size < 100M")
+query("R != nothing")                     # only entries with a known acceleration
 ```
 """
 function query(

@@ -202,6 +202,10 @@ mutable struct BrowserModel <: Model
     visible_columns::Union{Nothing, Vector{String}}    # nothing = every column shown
     column_cursor::Int
     column_toggle::Vector{Bool}   # working copy while the picker is open
+    # Missing-value filter — column name → `:present` (keep only entries that carry a value)
+    # or `:missing` (keep only entries that don't). Cycled from the filter modal (`p`);
+    # applied by `_rebuild_provider!` alongside the expression query.
+    missingness_filters::Dict{String, Symbol}
 end
 
 function BrowserModel(entries::Vector{DatasetEntry})
@@ -227,26 +231,100 @@ function BrowserModel(entries::Vector{DatasetEntry})
         0,
         "",
         nothing,
-        TextInput(; label = "Query: ", focused = true),
+        TextInput(; label = "Search: ", focused = true),
         "",
         nothing,
         1,
         Bool[],
+        Dict{String, Symbol}(),
     )
+end
+
+# Whether entry `e` carries a real (non-missing) value for the column named `name` — the
+# predicate behind the filter modal's `p` cycle. Unknown symbol vocab (`:unknown`) and
+# `nothing` both count as missing; identity columns are always present.
+function _column_present(e::DatasetEntry, name::AbstractString)
+    name == "#" && return true
+    name == "Source" && return true
+    name == "ID" && return true
+    name == "Anatomy" && return e.anatomy !== :unknown
+    name == "Contrast" && return e.contrast !== :unknown
+    name == "B₀ [T]" && return e.field_strength !== nothing
+    name == "Trajectory" && return e.trajectory !== :unknown
+    name == "Channels" && return e.receiver_channels !== nothing
+    name == "Sampling" && return _sampling_value(e) !== nothing
+    name == "R" && return e.acceleration !== nothing
+    name == "Frames" && return e.num_frames !== nothing
+    name == "Split" && return e.split !== nothing
+    name == "Cached" && return true
+    name == "Size" && return e.approx_size_bytes !== nothing
+    # Any source-adaptive extra column: its name is the `extra` key.
+    return get(e.extra, name, nothing) !== nothing
 end
 
 # Rebuild `m.pdt`'s provider from the current `active_query_indices` (nothing = every
 # entry) and `visible_columns` (nothing = every column) — the single place both the query
 # overlay and the column-visibility picker apply their result.
 function _rebuild_provider!(m::BrowserModel)
-    indices = m.active_query_indices === nothing ? collect(1:length(m.entries)) : m.active_query_indices
+    base = m.active_query_indices === nothing ? (1:length(m.entries)) : m.active_query_indices
+    indices = if isempty(m.missingness_filters)
+        collect(base)
+    else
+        [
+            i for i in base
+                if all(pairs(m.missingness_filters)) do (name, want)
+                    present = _column_present(m.entries[i], name)
+                    want === :present ? present : !present
+            end
+        ]
+    end
     provider, columns = _build_provider(m.entries, indices; visible = m.visible_columns)
+    # Preserve the per-column filter/sort state when the column set is unchanged (only the
+    # row set moved) — its keys are column indices, which stay valid. A changed column set
+    # has to reset them (`pdt_set_provider!`), since those indices would now be wrong.
+    same_columns =
+        length(columns) == length(m.pdt.columns) &&
+        all(((a, b),) -> a.name == b.name, zip(columns, m.pdt.columns))
     m.columns = columns
     m.size_col = findfirst(c -> c.name == "Size", columns)
     m.row_index_of = Dict{Int, Int}(gi => li for (li, gi) in enumerate(indices))
-    pdt_set_provider!(m.pdt, provider)
+    if same_columns
+        m.pdt.provider = provider
+        m.pdt.columns = columns
+        m.pdt.page = 1
+        pdt_fetch!(m.pdt)
+    else
+        pdt_set_provider!(m.pdt, provider)
+    end
     m.last_prefetch_page = 0
     m.prefetch_generation += 1
+    return nothing
+end
+
+# Filter modal `p`: cycle the highlighted column's missing-value filter
+# (none → present → missing → none), then close the modal and re-filter.
+function _cycle_missingness_filter!(m::BrowserModel, col_idx::Int)
+    (col_idx < 1 || col_idx > length(m.columns)) && return nothing
+    name = m.columns[col_idx].name
+    name == "#" && return nothing
+    cur = get(m.missingness_filters, name, nothing)
+    nxt = cur === nothing ? :present : cur === :present ? :missing : nothing
+    nxt === nothing ? delete!(m.missingness_filters, name) : (m.missingness_filters[name] = nxt)
+    m.pdt.filter_modal.visible = false
+    _rebuild_provider!(m)
+    return nothing
+end
+
+# Filter modal `x`: drop every active filter — the per-column filters, the missing-value
+# restrictions, and the expression query — back to the full catalog.
+function _clear_all_filters!(m::BrowserModel)
+    empty!(m.pdt.filters)
+    empty!(m.missingness_filters)
+    m.active_query = ""
+    m.active_query_indices = nothing
+    m.query_error = ""
+    m.pdt.filter_modal.visible = false
+    _rebuild_provider!(m)
     return nothing
 end
 
@@ -392,8 +470,18 @@ update!(m::BrowserModel, ::TaskEvent) = nothing
 
 function _update_browse!(m::BrowserModel, evt::KeyEvent)
     pdt = m.pdt
-    # While the table's own sub-inputs are open, delegate everything to it.
+    # While the table's own sub-inputs are open, delegate everything to it — except two
+    # extra shortcuts on the filter modal's column-list section (no text entry there, so
+    # the plain letters are free): `p` cycles the column's present/missing filter, `x`
+    # clears every active filter.
     if pdt.search_visible || pdt.filter_modal.visible || pdt.goto_visible
+        if pdt.filter_modal.visible && pdt.filter_modal.section == 1 && evt.key == :char
+            if evt.char == 'p' || evt.char == 'P'
+                return _cycle_missingness_filter!(m, pdt.filter_modal.col_cursor)
+            elseif evt.char == 'x' || evt.char == 'X'
+                return _clear_all_filters!(m)
+            end
+        end
         handle_key!(pdt, evt)
         return nothing
     end
@@ -417,9 +505,9 @@ function _update_browse!(m::BrowserModel, evt::KeyEvent)
         return nothing
     end
 
-    # '/' opens the expression query overlay instead of Tachikoma's own substring search
-    # (intercepted here so it never reaches `handle_key!(pdt, evt)` below).
-    if evt.key == :char && evt.char == '/'
+    # `s` (and `/` as an alias) opens the search / expression-query overlay, intercepted
+    # here so `/` never reaches Tachikoma's own substring search in `handle_key!` below.
+    if evt.key == :char && (evt.char == 's' || evt.char == 'S' || evt.char == '/')
         set_text!(m.expr_input, m.active_query)
         m.query_error = ""
         m.stage = :query
@@ -447,11 +535,11 @@ function _update_browse!(m::BrowserModel, evt::KeyEvent)
 end
 
 function _update_details!(m::BrowserModel, evt::KeyEvent)
-    if evt.key == :escape || (evt.key == :char && evt.char == 'd')
+    # `q` closes the pane rather than quitting the app: in a read-only sub-view it reads as
+    # "close this", and it isn't advertised as quit (see `_render_details!`).
+    if evt.key == :escape || (evt.key == :char && evt.char in ('d', 'q', 'Q'))
         m.selected = nothing
         m.stage = :browse
-    elseif evt.key == :char && (evt.char == 'q' || evt.char == 'Q')
-        return _quit!(m)
     end
     return nothing
 end
@@ -577,8 +665,8 @@ const _HELP_BAR = StatusBar(
         Span("move  ", tstyle(:text_dim)),
         Span("PgUp/PgDn ", tstyle(:accent)),
         Span("page  ", tstyle(:text_dim)),
-        Span("/ ", tstyle(:accent)),
-        Span("query  ", tstyle(:text_dim)),
+        Span("s ", tstyle(:accent)),
+        Span("search  ", tstyle(:text_dim)),
         Span("f ", tstyle(:accent)),
         Span("filter  ", tstyle(:text_dim)),
         Span("c ", tstyle(:accent)),
@@ -608,6 +696,15 @@ function view(m::BrowserModel, f::Frame)
     )
     render(m.pdt, table_area, buf)
     render(_HELP_BAR, bar_area, buf)
+
+    # Tachikoma owns the filter modal; add the two extra shortcuts as a hint above it.
+    if m.pdt.filter_modal.visible && m.pdt.filter_modal.section == 1
+        set_string!(
+            buf, area.x + 2, area.y + 1,
+            "p  cycle present / missing        x  clear all filters",
+            tstyle(:text_dim),
+        )
+    end
 
     m.stage === :confirm && _render_confirm!(m, area, buf)
     m.stage === :token && _render_token!(m, area, buf)
@@ -652,10 +749,11 @@ end
 # parse, the error message underneath (styled distinctly so a typo is obvious at a glance).
 function _render_query!(m::BrowserModel, area::Rect, buf)
     lines = [
-        ("dataset=fastmri AND R<3   |   id='fs_*'   |   Esc to cancel, Enter to apply", tstyle(:text_dim)),
+        ("e.g.  dataset=fastmri AND R<3   |   id='fs_*'   |   size < 100M   |   R != nothing", tstyle(:text_dim)),
+        ("Esc to cancel, Enter to apply", tstyle(:text_dim)),
     ]
     isempty(m.query_error) || push!(lines, (m.query_error, tstyle(:error)))
-    _render_input_modal!(area, buf, " Query ", m.expr_input; width = 76, lines = lines)
+    _render_input_modal!(area, buf, " Search ", m.expr_input; width = 82, lines = lines)
     return nothing
 end
 
@@ -676,6 +774,27 @@ function _render_columns!(m::BrowserModel, area::Rect, buf)
     return nothing
 end
 
+# Greedy word-wrap `s` to lines no wider than `width` (a word longer than `width` still
+# gets its own over-long line rather than being split mid-word).
+function _wrap_text(s::AbstractString, width::Int)
+    width <= 0 && return [String(s)]
+    words = split(s)
+    isempty(words) && return [""]
+    out = String[]
+    cur = ""
+    for w in words
+        cand = isempty(cur) ? String(w) : "$cur $w"
+        if isempty(cur) || textwidth(cand) <= width
+            cur = cand
+        else
+            push!(out, cur)
+            cur = String(w)
+        end
+    end
+    push!(out, cur)
+    return out
+end
+
 # Every `extra` key of the selected entry, with its `extra_schema` description and its
 # query keyword (`extra` keys and query keywords are the same string — see `query`) — the
 # details pane that makes `extra` filtering stop being guess-and-check.
@@ -692,14 +811,30 @@ function _render_details!(m::BrowserModel, area::Rect, buf)
     if isempty(schema)
         push!(lines, "(this source has no extra metadata beyond the core fields)")
     else
-        push!(lines, "extra / query keyword              value")
-        for k in sort!(collect(keys(schema)))
-            push!(lines, "$(rpad(k, 32))$(_fmt_extra_value(get(e.extra, k, nothing)))")
-            push!(lines, "  $(schema[k])")
+        keys_sorted = sort!(collect(keys(schema)))
+        vals = Dict(k => _fmt_extra_value(get(e.extra, k, nothing)) for k in keys_sorted)
+        # Fit `keyword │ value │ description` into the modal: the table line width is capped
+        # so `_render_modal!` never draws past the frame; value gets at most a third of the
+        # leftover, description takes the rest and wraps.
+        line_w = clamp(area.width - 8, 40, 108)
+        wk = min(max(maximum(textwidth, keys_sorted; init = 0), textwidth("query keyword")), line_w ÷ 2)
+        wv = clamp(maximum(textwidth, values(vals); init = 0), textwidth("value"), max(8, (line_w - wk - 6) ÷ 3))
+        wd = max(16, line_w - wk - wv - 6)
+        push!(lines, "$(rpad("query keyword", wk)) │ $(rpad("value", wv)) │ $(rpad("description", wd))")
+        push!(lines, "$(rpad("", wk, '─'))─┼─$(rpad("", wv, '─'))─┼─$(rpad("", wd, '─'))")
+        for k in keys_sorted
+            dsegs = _wrap_text(schema[k], wd)
+            vsegs = _wrap_text(vals[k], wv)
+            for j in 1:max(length(dsegs), length(vsegs))
+                kcell = j == 1 ? rpad(k, wk) : " "^wk
+                vcell = rpad(j <= length(vsegs) ? vsegs[j] : "", wv)
+                dcell = j <= length(dsegs) ? dsegs[j] : ""
+                push!(lines, "$kcell │ $vcell │ $dcell")
+            end
         end
     end
     push!(lines, "")
-    push!(lines, "[Esc / d] back   [q] quit")
+    push!(lines, "[Esc / d] back")
     _render_modal!(area, buf, " Details ", lines)
     return nothing
 end
@@ -775,14 +910,18 @@ terminal, including from within the Julia REPL.
 
 **Keys**
 - `↑ ↓` move selection; `PgUp/PgDn` change page
-- `/` open the expression query overlay (see below); Enter applies, Esc cancels
-- `f` open the per-column filter modal (single-column, AND-only — the expression query
-  is more capable but resets this modal's filters when applied, see below)
+- `s` (or `/`) open the search / expression-query overlay (see below); Enter applies,
+  Esc cancels
+- `f` open the per-column filter modal (single-column, typed filters). On its column
+  list: `p` cycles the highlighted column's missing-value filter (none → present →
+  missing → none), `x` clears every active filter (per-column, missing-value, and the
+  expression query)
 - `c` open the column-visibility picker — `Space` toggles the highlighted column,
   `Enter` applies, `Esc` cancels; `"#"` (the row index) is always shown
 - `1`-`9` sort by that column (toggles ascending/descending)
-- `d` open the details pane for the highlighted dataset — every `extra` key it carries,
-  with its description and its `query`/`list_datasets` keyword (`Esc`/`d` closes it)
+- `d` open the details pane for the highlighted dataset — a `keyword │ value │ description`
+  table of every `extra` key it carries (the keyword is also its `query`/`list_datasets`
+  filter name; the description column wraps). `Esc`/`d`/`q` closes it — no download quit
 - `Enter` select the highlighted dataset and start the download flow
 - `q` / `Esc` quit without downloading
 
@@ -791,18 +930,21 @@ useful `extra` fields (e.g. OCMR's `scanner_model`) are added as real columns �
 sortable/filterable like any other — on top of the base column set; they're also
 toggleable from the column picker and queryable by their `extra_schema` key.
 
-**Expression queries (`/`)** use the same boolean language as the string form of
+**Search / expression queries (`s`)** use the same boolean language as the string form of
 [`query`](@ref) — `AND`/`OR` (AND binds tighter), parentheses, `=`/`!=`/`<`/`<=`/`>`/`>=`,
-quoted or bare values, and `*` wildcards for string matches:
+quoted or bare values, `*` wildcards for string matches, `K`/`M`/`G` size suffixes on
+numbers, and `nothing` for "no value":
 ```
 (dataset=fastmri AND R<3) OR id='fs_*'
 anatomy=knee AND fully_sampled=true
+size < 100M
+R != nothing
 ```
 Field names accept any [`DatasetEntry`](@ref) field, the friendly aliases matching the
 table's column headers (`dataset`/`source`, `r`, `b0`, `channels`, `frames`, `size`,
-`sampling`), or a per-source `extra` key. Applying a query (or changing the visible
-columns) resets the per-column filter/search/sort state, since column indices and the row
-set both change underneath it.
+`sampling`), or a per-source `extra` key. Changing the visible columns resets the
+per-column filter/sort state (column indices move underneath it); an expression query
+keeps it.
 
 After selecting a dataset you are asked to confirm (`y`/`n`) and to choose a
 destination path. The default is `<current directory>/<id>.h5`; press Enter to

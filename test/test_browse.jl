@@ -131,11 +131,14 @@ end
     _update_details!(m, KeyEvent('d'))
     @test m.stage === :browse
 
-    # 'q' from :details quits like everywhere else.
+    # 'q' from :details closes the pane (does NOT quit the app — it's a read-only view and
+    # 'q' isn't advertised there).
     m.stage = :details
     m.selected = ocmr_only[1]
     _update_details!(m, KeyEvent('q'))
-    @test m.quit
+    @test m.stage === :browse
+    @test m.selected === nothing
+    @test !m.quit
 end
 
 @testitem "Browse: sampling/header/token modal (offline)" begin
@@ -348,4 +351,88 @@ end
     sel_after = _selected_entry(m)
     @test sel_after !== nothing
     @test sel_after.id == sel_before.id
+end
+
+@testitem "browse: 's' and '/' open the search overlay, 'c' the column picker" begin
+    using MRITestData
+    using MRITestData: BrowserModel
+    using Tachikoma: KeyEvent
+    import Tachikoma: update!
+
+    for key in ('s', '/')
+        m = BrowserModel(list_datasets(OCMR_SOURCE; offline = true))
+        @test m.stage === :browse
+        update!(m, KeyEvent(key))
+        @test m.stage === :query
+    end
+
+    m = BrowserModel(list_datasets(OCMR_SOURCE; offline = true))
+    update!(m, KeyEvent('c'))
+    @test m.stage === :columns
+end
+
+@testitem "browse: details pane renders the keyword/value/description table" begin
+    using MRITestData
+    using MRITestData: BrowserModel, _render_details!, _wrap_text
+    using Tachikoma: Buffer, Rect, Frame, GraphicsRegion, PixelSnapshot
+
+    @testset "word wrap" begin
+        @test _wrap_text("one two three", 100) == ["one two three"]
+        @test _wrap_text("aaaa bbbb cccc dddd", 9) == ["aaaa bbbb", "cccc dddd"]
+        @test _wrap_text("supercalifragilistic short", 8) == ["supercalifragilistic", "short"]
+        @test _wrap_text("", 10) == [""]
+    end
+
+    # OCMR carries extra keys with descriptions, so the pane has a populated table.
+    ocmr = list_datasets(OCMR_SOURCE; offline = true)
+    m = BrowserModel(ocmr)
+    m.stage = :details
+    m.selected = ocmr[1]
+    for width in (140, 70)   # description column adapts to the modal width
+        buf = Buffer(Rect(0, 0, width, 45))
+        f = Frame(buf, Rect(0, 0, width, 45), GraphicsRegion[], PixelSnapshot[])
+        _render_details!(m, f.area, buf)   # must not throw
+    end
+    @test !isempty(MRITestData.extra_schema(OCMR_SOURCE))
+end
+
+@testitem "browse: filter modal present/missing cycle and 'clear all'" begin
+    using MRITestData
+    using MRITestData: BrowserModel, _column_present, _cycle_missingness_filter!, _clear_all_filters!
+    using Tachikoma: KeyEvent
+    import Tachikoma: update!
+
+    entries = query(; offline = true)
+    m = BrowserModel(entries)
+    total = m.pdt.total_count
+
+    chan_col = findfirst(c -> c.name == "Channels", m.columns)
+    present = count(e -> _column_present(e, "Channels"), entries)
+
+    # none → present
+    _cycle_missingness_filter!(m, chan_col)
+    @test m.missingness_filters["Channels"] === :present
+    @test m.pdt.total_count == present
+    @test m.pdt.total_count < total
+
+    # present → missing
+    _cycle_missingness_filter!(m, chan_col)
+    @test m.missingness_filters["Channels"] === :missing
+    @test m.pdt.total_count == total - present
+
+    # missing → none
+    _cycle_missingness_filter!(m, chan_col)
+    @test isempty(m.missingness_filters)
+    @test m.pdt.total_count == total
+
+    # compose an expression query + a restriction, then clear everything
+    MRITestData.set_text!(m.expr_input, "dataset=ocmr")
+    update!(m, KeyEvent(:enter))
+    _cycle_missingness_filter!(m, findfirst(c -> c.name == "R", m.columns))
+    @test m.pdt.total_count < total
+    _clear_all_filters!(m)
+    @test m.pdt.total_count == total
+    @test isempty(m.missingness_filters)
+    @test m.active_query == ""
+    @test m.active_query_indices === nothing
 end
