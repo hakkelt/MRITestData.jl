@@ -208,8 +208,27 @@ mutable struct BrowserModel <: Model
     missingness_filters::Dict{String, Symbol}
 end
 
-function BrowserModel(entries::Vector{DatasetEntry})
-    provider, columns = _build_provider(entries)
+# Persisted browser column selection (the `c` picker). Stored in `LocalPreferences.toml`
+# as the list of visible column names; an absent preference means "show every column".
+function _load_persisted_columns()::Union{Nothing, Vector{String}}
+    v = load_preference(MRITestData, "browser_columns", nothing)
+    v === nothing && return nothing
+    return String[String(x) for x in v]
+end
+
+function _persist_columns(visible::Union{Nothing, Vector{String}})
+    set_preferences!(
+        MRITestData, "browser_columns" => visible;
+        export_prefs = false, force = true,
+    )
+    return nothing
+end
+
+function BrowserModel(
+        entries::Vector{DatasetEntry};
+        visible_columns::Union{Nothing, Vector{String}} = nothing,
+    )
+    provider, columns = _build_provider(entries; visible = visible_columns)
     pdt = PagedDataTable(provider; page_size = 20, page_sizes = Int[20, 30, 50, 100])
     tq = TaskQueue()
     size_col = findfirst(c -> c.name == "Size", columns)
@@ -233,7 +252,7 @@ function BrowserModel(entries::Vector{DatasetEntry})
         nothing,
         TextInput(; label = "Search: ", focused = true),
         "",
-        nothing,
+        visible_columns,
         1,
         Bool[],
         Dict{String, Symbol}(),
@@ -644,7 +663,7 @@ function _update_path!(m::BrowserModel, evt::KeyEvent)
         e = m.selected
         if e !== nothing
             dest = strip(text(m.path_input))
-            isempty(dest) && (dest = joinpath(pwd(), basename(cache_path(e))))
+            isempty(dest) && (dest = joinpath(pwd(), _cache_basename(e)))
             # Leave the TUI; the download runs once app() releases the terminal.
             _quit!(m, DownloadRequest(e, String(dest)))
         end
@@ -917,7 +936,8 @@ terminal, including from within the Julia REPL.
   missing → none), `x` clears every active filter (per-column, missing-value, and the
   expression query)
 - `c` open the column-visibility picker — `Space` toggles the highlighted column,
-  `Enter` applies, `Esc` cancels; `"#"` (the row index) is always shown
+  `Enter` applies, `Esc` cancels; `"#"` (the row index) is always shown. The applied
+  selection is persisted in `LocalPreferences.toml` and restored on the next launch
 - `1`-`9` sort by that column (toggles ascending/descending)
 - `d` open the details pane for the highlighted dataset — a `keyword │ value │ description`
   table of every `extra` key it carries (the keyword is also its `query`/`list_datasets`
@@ -966,15 +986,33 @@ run_browser(; offline = true)            # skip the network
 ```
 """
 function run_browser(; sources = list_sources(), offline::Bool = false)
-    model = BrowserModel(query(; sources = sources, offline = offline))
+    model = BrowserModel(
+        query(; sources = sources, offline = offline);
+        visible_columns = _load_persisted_columns(),
+    )
     app(model; fps = 30)
+
+    # Remember the column selection for the next launch.
+    try
+        _persist_columns(model.visible_columns)
+    catch
+    end
 
     request = model.request
     request === nothing && return nothing
 
     println("\nDownloading to: $(request.dest)")
     try
-        copy_dataset(request.entry; dest = request.dest, progress = true)
+        # The browser always names an explicit destination, so it downloads via `path=`
+        # (which works even when no default download path has been configured) and then
+        # renames to the exact file name the user asked for.
+        dir = dirname(request.dest)
+        isempty(dir) && (dir = pwd())
+        got = download_dataset(request.entry; path = dir, progress = true)
+        if abspath(got) != abspath(request.dest)
+            mkpath(dirname(request.dest))
+            mv(got, request.dest; force = true)
+        end
     catch err
         # A one-line summary for the terminal, then rethrow: an expired credential, a
         # missing token or a stale offset map all need the actual exception to diagnose.

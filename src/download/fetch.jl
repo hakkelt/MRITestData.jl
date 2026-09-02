@@ -316,12 +316,19 @@ function _download_with_progress(url::AbstractString, dest::AbstractString; prog
 end
 
 """
-    download_dataset(x; force=false, verify=true, progress=true, max_bytes=nothing) -> String
+    download_dataset(x; path=nothing, force=false, verify=true, progress=true, max_bytes=nothing) -> String
 
 Download the dataset for `x` (a [`DatasetEntry`](@ref) or [`DatasetHandle`](@ref))
 into the cache and return its path. If already cached (see [`is_cached`](@ref)) the
 cached path is returned without re-downloading unless `force=true`.
 
+A download destination must be configured with [`set_download_path!`](@ref) first;
+until then this throws. Passing `path` is the exception — see below.
+
+- `path`: download into this directory instead of the configured cache and return the
+  file path there. Works even when no default download path has been set. The file is
+  reused on a later call if it is already present (unless `force=true`); no `.meta.toml`
+  freshness tracking is done for an explicit `path`.
 - `verify`: when the entry pins a `sha256`, verify the download against it.
 - `progress`: show a `ProgressMeter` bar (set `false` to opt out).
 - `max_bytes`: if the entry's `approx_size_bytes` exceeds this, error before
@@ -337,13 +344,23 @@ speed improvement on high-latency connections.
 """
 function download_dataset(
         e::DatasetEntry;
+        path::Union{AbstractString, Nothing} = nothing,
         force::Bool = false,
         verify::Bool = true,
         progress::Bool = true,
         max_bytes::Union{Integer, Nothing} = nothing,
     )
-    dest = cache_path(e)
-    if !force && is_cached(e)
+    if path === nothing
+        _require_download_path()
+        dest = cache_path(e)
+        already = !force && is_cached(e)
+    else
+        dir = abspath(String(path))
+        mkpath(dir)
+        dest = joinpath(dir, _cache_basename(e))
+        already = !force && isfile(dest)
+    end
+    if already
         return dest
     end
 

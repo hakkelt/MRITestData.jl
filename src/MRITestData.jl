@@ -2,7 +2,7 @@
     MRITestData
 
 Query and download free, open-access MRI k-space datasets and load them into
-`MRIBase.RawAcquisitionData`.
+[`MRIFiles.RawAcquisitionData`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data).
 
 Supported sources: [`MRIDATA`](@ref) (mridata.org), [`OCMR_SOURCE`](@ref) (the OCMR
 cardiac repository), [`CMRXRECON2024`](@ref) (the CMRxRecon2024 challenge data),
@@ -15,7 +15,7 @@ the CMRxRecon sources ship MATLAB `.mat` k-space; M4Raw and fastMRI ship fastMRI
 `.h5` files (M4Raw range-extracted from Zenodo ZIPs; fastMRI range-extracted from `.tar.xz`
 archives via xz block-level HTTP range requests for knee/brain, and from `.tar.gz` archives
 via zran checkpoints for prostate/breast), all converted to a cached ISMRMRD file on first
-load. All are read via `MRIFiles`/`MRIBase`.
+load. All are read via [`MRIFiles`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data).
 
 fastMRI access is gated: fill the form at [https://fastmri.med.nyu.edu](https://fastmri.med.nyu.edu);
 the confirmation email contains 90-day pre-signed AWS S3 URLs for all archives. Pass the
@@ -40,8 +40,9 @@ until they expire.
 ```julia
 using MRITestData
 entries = list_datasets(OCMR_SOURCE; field_strength = 1.5)
+MRITestData.set_download_path!(:cache)  # once per machine: where downloads go
 path = download_dataset(entries[1])     # downloads (cached), returns path
-raw  = load_raw(path)                   # MRIBase.RawAcquisitionData
+raw  = load_raw(path)                   # MRIFiles.RawAcquisitionData
 ```
 """
 module MRITestData
@@ -121,8 +122,9 @@ include("settings.jl")
 include("precompile.jl")
 
 function __init__()
-    CACHE_DIR[] = @get_scratch!("datasets")
+    _SCRATCH_DIR[] = @get_scratch!("datasets")
     # Apply persisted preferences to the runtime Refs.
+    _apply_download_path_preference()
     INDEX_TTL_DAYS[] = get_refresh_period()
     PARALLEL_CHUNKS[] = get_chunk_size()
     PARALLEL_MIN_BYTES[] = get_min_file_size()
@@ -155,6 +157,7 @@ export dismiss_terms_notice!, enable_terms_notice!
 export set_chunk_size!, get_chunk_size
 export set_min_file_size!, get_min_file_size
 export set_refresh_period!, get_refresh_period
+export set_download_path!, get_download_path, unset_download_path!
 export set_synapse_token!, get_synapse_token
 export set_fastmri_urls!, get_fastmri_url, fastmri_url_expires
 

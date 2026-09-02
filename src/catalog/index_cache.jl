@@ -6,9 +6,10 @@
 # On any network failure we fall back to the committed bundled index that ships
 # with the package, so discovery always works offline.
 #
-# Layout under CACHE_DIR[]:
-#   <cache>/index/<source>.<ext>            the cached index
-#   <cache>/index/<source>.index_meta.toml  sidecar: fetched_at, url, ok
+# Layout under the package Scratch space (independent of the configured download path —
+# the index is small self-updating metadata, not user data):
+#   <scratch>/index/<source>.<ext>            the cached index
+#   <scratch>/index/<source>.index_meta.toml  sidecar: fetched_at, url, ok
 
 """
     _is_static_index(source) -> Bool
@@ -34,8 +35,12 @@ index_ext(::OCMR) = "csv"
 index_ext(::MridataOrg) = "toml"
 
 function _index_dir()
-    isempty(CACHE_DIR[]) && error("cache directory not initialised; is MRITestData loaded?")
-    dir = joinpath(CACHE_DIR[], "index")
+    # The index is small self-updating metadata, not user data, so it does not follow the
+    # configured download path: it lives under the Scratch space. A non-empty `CACHE_DIR`
+    # still wins so tests can redirect it to a temp dir.
+    root = !isempty(CACHE_DIR[]) ? CACHE_DIR[] : _SCRATCH_DIR[]
+    isempty(root) && error("cache directory not initialised; is MRITestData loaded?")
+    dir = joinpath(root, "index")
     isdir(dir) || mkpath(dir)
     return dir
 end

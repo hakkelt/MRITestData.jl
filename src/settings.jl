@@ -114,6 +114,112 @@ function set_refresh_period!(days::Int)
     return nothing
 end
 
+# ── Download path ──────────────────────────────────────────────────────────────
+
+# Absolute path of the package Scratch space, filled in by `__init__`. `set_download_path!`
+# points downloads either here (`:cache`) or at a user directory.
+const _SCRATCH_DIR = Ref{String}("")
+
+# Whether a download destination has been chosen (via `set_download_path!` or a persisted
+# preference). Downloads are refused until it is `true`; see `_require_download_path`.
+const DOWNLOAD_PATH_SET = Ref(false)
+
+# Apply the persisted `download_path` preference to the runtime Refs. Called from `__init__`
+# after `_SCRATCH_DIR` is known.
+function _apply_download_path_preference()
+    pref = load_preference(MRITestData, "download_path", nothing)
+    if pref === nothing
+        CACHE_DIR[] = ""
+        DOWNLOAD_PATH_SET[] = false
+    elseif pref == "cache"
+        CACHE_DIR[] = _SCRATCH_DIR[]
+        DOWNLOAD_PATH_SET[] = true
+    else
+        CACHE_DIR[] = String(pref)
+        DOWNLOAD_PATH_SET[] = true
+    end
+    return nothing
+end
+
+function _require_download_path()
+    (DOWNLOAD_PATH_SET[] || !isempty(CACHE_DIR[])) && return nothing
+    error(
+        """
+        No download path is configured. MRITestData does not download anything until you
+        choose where files should be stored:
+
+          MRITestData.set_download_path!("/path/to/directory")  # download into this folder
+          MRITestData.set_download_path!(:cache)                # use the package Scratch cache
+
+        The choice is persisted across sessions. Alternatively pass `path=` to
+        `download_dataset` for a one-off destination without setting a default.
+        """,
+    )
+end
+
+"""
+    set_download_path!(dir::AbstractString)
+    set_download_path!(:cache)
+
+Choose where downloaded datasets (and their cached ISMRMRD conversions) are stored, and
+persist the choice in `LocalPreferences.toml`.
+
+Until this is called **all downloads are refused** — [`download_dataset`](@ref),
+[`copy_dataset`](@ref) and an entry-based [`load_raw`](@ref) throw with instructions.
+(Passing `path=` to `download_dataset` is the one-off exception.)
+
+- `set_download_path!(dir)` uses `dir` (created if missing) as the cache root.
+- `set_download_path!(:cache)` uses the package's per-user Scratch space — the original
+  default behaviour.
+
+Retrieve the current value with [`get_download_path`](@ref); clear it with
+[`unset_download_path!`](@ref).
+"""
+function set_download_path!(dir::AbstractString)
+    p = abspath(String(dir))
+    mkpath(p)
+    set_preferences!(MRITestData, "download_path" => p; export_prefs = false, force = true)
+    CACHE_DIR[] = p
+    DOWNLOAD_PATH_SET[] = true
+    @info "MRITestData download path set to $p (persisted across sessions)."
+    return nothing
+end
+
+function set_download_path!(which::Symbol)
+    which === :cache || which === :scratch ||
+        throw(ArgumentError("expected a directory path or `:cache`, got `:$which`"))
+    set_preferences!(MRITestData, "download_path" => "cache"; export_prefs = false, force = true)
+    CACHE_DIR[] = _SCRATCH_DIR[]
+    DOWNLOAD_PATH_SET[] = true
+    @info "MRITestData downloads will use the package Scratch cache ($(_SCRATCH_DIR[]))."
+    return nothing
+end
+
+"""
+    get_download_path() -> Union{String, Nothing}
+
+Return the configured download directory, or `nothing` if none has been set (in which
+case downloads are refused — see [`set_download_path!`](@ref)).
+"""
+function get_download_path()::Union{String, Nothing}
+    isempty(CACHE_DIR[]) && return nothing
+    return CACHE_DIR[]
+end
+
+"""
+    unset_download_path!()
+
+Forget the persisted download path. Downloads are refused again until
+[`set_download_path!`](@ref) is called.
+"""
+function unset_download_path!()
+    set_preferences!(MRITestData, "download_path" => nothing; export_prefs = false, force = true)
+    CACHE_DIR[] = ""
+    DOWNLOAD_PATH_SET[] = false
+    @info "MRITestData download path cleared; downloads are refused until it is set again."
+    return nothing
+end
+
 # ── Synapse Personal Access Token (CMRxRecon2024) ───────────────────────────────
 
 """
