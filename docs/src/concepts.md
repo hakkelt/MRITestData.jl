@@ -66,8 +66,8 @@ first time you load them — so every source behaves the same downstream.
 
 ## What `load_raw` returns
 
-[`load_raw`](@ref) always returns an `MRIBase.RawAcquisitionData` (from
-[MRIBase.jl](https://github.com/MagneticResonanceImaging/MRIBase.jl)):
+[`load_raw`](@ref) always returns a
+[`RawAcquisitionData`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data):
 
 ```julia
 raw = load_raw(entry)
@@ -96,7 +96,7 @@ So a cine's frame index and a mapping series' inversion-time index both land on
 (`M4RAW`).
 
 `RawAcquisitionData` is *raw data*, not an image and not yet a reconstruction problem.
-To reconstruct you build an `MRIBase.AcquisitionData` from it and hand that to a
+To reconstruct you build an `AcquisitionData` from it and hand that to a
 reconstruction package — see [Reconstruction with MRIReco](@ref). This package
 deliberately stops at the raw-data boundary.
 

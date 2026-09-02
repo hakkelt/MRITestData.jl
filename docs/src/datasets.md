@@ -15,7 +15,9 @@ for licensing see [Licensing & legal](@ref).
     `M4RAW`, `FASTMRI`) are backed by **static committed offset maps** (`data/*_map.csv`),
     so the file counts below are exact for the shipped package.
 
-Every source is normalised to an `MRIBase.RawAcquisitionData` by [`load_raw`](@ref).
+Every source is normalised to a
+[`RawAcquisitionData`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data)
+by [`load_raw`](@ref).
 The temporal / parametric axis (cine frames, mapping weightings, …) is always mapped to
 ISMRMRD **contrasts**; the slice axis to ISMRMRD **slices**; `repetition` stays 0 unless
 noted.
@@ -45,8 +47,7 @@ field strength, channel count (→ `entry.receiver_channels`), matrix size
 `entry.extra`. mridata.org's own anatomy labels go well beyond this package's curated
 DICOM Body Part Examined subset (hip, shoulder, spine, phantom scans, …); anything not
 recognised becomes `entry.anatomy == :other`. The committed `data/mridata_index.toml` is
-a small **curated overlay** used to fill fields the site does not expose (notably
-`approx_size_bytes`) and as the offline fallback when the scrape fails entirely.
+the offline fallback used only when the scrape fails entirely.
 
 Any mridata UUID can also be passed to [`dataset`](@ref) directly — a minimal entry is
 synthesised from the UUID.
@@ -89,10 +90,6 @@ named — see [`extra_schema`](@ref)`(OCMR_SOURCE)`):
 
 Field strength and fully/under-sampled status are also encoded in the file name
 (`fs_0001_1_5T.h5`, `us_0014_3T.h5`) and used as a fallback.
-
-**ECG header workaround.** OCMR cine files carry a `<waveformInformation>` (ECG) block
-that trips a MRIFiles parser bug; [`load_raw`](@ref) strips it from the cached HDF5
-in-place on first load.
 
 ---
 

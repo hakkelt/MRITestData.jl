@@ -113,7 +113,7 @@ field instead of `@warn`ing and matching nothing, same as the keyword form.
 
 ## Interactive browser
 
-![The mridata-browser terminal UI](assets/browser-demo.gif)
+![The mridata-browser terminal UI — paging, the details pane, filters and the query language](assets/browser-demo.gif)
 
 MRITestData ships a full-screen terminal browser built on
 [Tachikoma.jl](https://github.com/kahliburke/Tachikoma.jl)'s `PagedDataTable`. Call it
@@ -136,7 +136,8 @@ Inside the browser:
   and **`x`** clears every active filter (per-column, missing-value, and the expression
   query).
 - **`c`** — open the column-visibility picker: **Space** toggles the highlighted column,
-  **Enter** applies, **Esc** cancels. `"#"` (the row index) is always shown.
+  **Enter** applies, **Esc** cancels. `"#"` (the row index) is always shown. The applied
+  selection is persisted in `LocalPreferences.toml` and restored on the next launch.
 - **`1`-`9`** — sort by that column (toggles ascending/descending).
 - **`d`** — open the details pane: a `keyword │ value │ description` table of every
   `extra` key the highlighted dataset carries (the keyword is also its
@@ -150,7 +151,8 @@ source's most useful `extra` fields as real, sortable/filterable columns (e.g. O
 gets a `scanner_model` column) — see [`run_browser`](@ref) for the full list; they're
 also toggleable from the column picker and queryable by their `extra_schema` key. After
 selecting a dataset you confirm the download (`y`/`n`) and choose a destination path
-(default `<current directory>/<id>.h5`).
+(default `<current directory>/<id>.h5`). The browser downloads to the path you give
+regardless of whether a default download path is configured.
 
 ### Standalone shell command
 
@@ -196,9 +198,26 @@ MRITestData.INDEX_TTL_DAYS[] = 7             # refresh weekly
 
 ## Downloading and caching
 
+### Choosing where downloads go
+
+Nothing is downloaded until you configure a destination once (persisted in
+`LocalPreferences.toml`):
+
+```julia
+MRITestData.set_download_path!("/data/mri")   # download into this directory
+MRITestData.set_download_path!(:cache)        # …or the per-package Scratch cache
+MRITestData.get_download_path()               # current value (`nothing` until set)
+MRITestData.unset_download_path!()            # forget it — downloads refused again
+```
+
+Until then [`download_dataset`](@ref), [`copy_dataset`](@ref) and an entry-based
+[`load_raw`](@ref) throw. Everything below the download path — the `.part` staging
+files, `.meta.toml` sidecars and the cached ISMRMRD conversions — lives under whichever
+location you pick.
+
 ```julia
 entry = first(list_datasets(OCMR_SOURCE; fully_sampled = true))
-path  = download_dataset(entry)            # -> Scratch cache, returns the local path
+path  = download_dataset(entry)            # -> configured location, returns the local path
 ```
 
 Downloads stream to a temporary `.part` file and are renamed atomically on success, so
@@ -208,6 +227,13 @@ pulling a very large file:
 
 ```julia
 download_dataset(entry; progress = false, max_bytes = 2_000_000_000)
+```
+
+Pass `path` for a one-off destination without changing the default (this also works
+before any default is configured):
+
+```julia
+download_dataset(entry; path = "/tmp/mri")   # -> /tmp/mri/<id>.h5
 ```
 
 For archive-backed sources this fetches **only the requested file's bytes** via HTTP
@@ -233,7 +259,8 @@ copy_dataset(entry; dest = "/data/my_scan.h5")
 
 [`load_raw`](@ref) accepts an ISMRMRD file **path** *or* a
 [`DatasetEntry`](@ref)/[`DatasetHandle`](@ref) directly (downloaded and cached on first
-use) and always returns an `MRIBase.RawAcquisitionData`:
+use) and always returns a
+[`RawAcquisitionData`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data):
 
 ```julia
 raw = load_raw(entry)        # profiles + parsed XML header
@@ -248,7 +275,7 @@ fastMRI-layout sources are converted to a cached ISMRMRD file transparently.
 | Source | Native format | On load | Reconstruct with |
 |---|---|---|---|
 | `MRIDATA` | ISMRMRD `.h5` | direct | direct FFT |
-| `OCMR_SOURCE` | ISMRMRD `.h5` | direct (ECG block stripped, see below) | direct FFT (`fs_*`) / CG-SENSE (`us_*`) |
+| `OCMR_SOURCE` | ISMRMRD `.h5` | direct | direct FFT (`fs_*`) / CG-SENSE (`us_*`) |
 | `CMRXRECON2024` | MATLAB v7.3 `.mat` | → cached Cartesian ISMRMRD | direct FFT (fully sampled) |
 | `CMRXRECON300` | MATLAB v7.3 `.mat` (`Recon_ks` + `Calib`) | → cached ISMRMRD, marked **undersampled**, ACS lines included | **CG-SENSE** with the ACS |
 | `USC_SPEECH` | MRD/ISMRMRD `.h5` (spiral + trajectory + DCF) | direct, **non-Cartesian** | non-Cartesian (NUFFT + DCF) |
@@ -260,8 +287,6 @@ fastMRI-layout sources are converted to a cached ISMRMRD file transparently.
   CMRxRecon-300 keeps its 30 physical channels.
 - **CMRxRecon FOV.** Not shipped upstream; a placeholder (matrix size in mm) is written
   while the encoding/recon matrix reflects the true dimensions.
-- **OCMR ECG header.** OCMR cine files carry a `<waveformInformation>` block that trips a
-  MRIFiles parser bug; `load_raw` strips it from the cached HDF5 in place on first load.
 - **CMRxRecon raw arrays.** `MRITestData.load_mat(entry)` returns the `.mat` contents as
   a `Dict` (e.g. `d["kspace_full"]`) if you want to bypass the ISMRMRD conversion.
 - **CMRxRecon data types.** The six CMRxRecon2024 series (Cine, Mapping, Tagging, Aorta,
@@ -295,7 +320,7 @@ call `set_fastmri_urls!` again.
 
 ## Reconstruction with MRIReco
 
-MRITestData yields an `MRIBase.RawAcquisitionData` and stops there. Reconstruction is
+MRITestData yields a `RawAcquisitionData` and stops there. Reconstruction is
 left to a dedicated package such as
 [MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl): convert to an
 `AcquisitionData` and reconstruct.
@@ -308,7 +333,7 @@ using MRITestData, MRIReco
 entry = first(list_datasets(OCMR_SOURCE; fully_sampled = true))
 raw   = load_raw(entry)
 
-acq = AcquisitionData(raw)                  # re-exported by MRIReco (from MRIBase)
+acq = AcquisitionData(raw)                  # re-exported by MRIReco
 params = MRIReco.defaultRecoParams()
 params[:reco] = "direct"
 img = MRIReco.reconstruction(acq, params)   # AxisArray [x, y, z, echo, coil, rep]
@@ -325,7 +350,7 @@ sensitivity maps estimated by ESPIRiT from the calibration region:
 
 ```julia
 using MRITestData, MRIReco, MRICoilSensitivities
-using MRIBase: flag_is_set, flag_remove!
+using MRIReco: flag_is_set, flag_remove!
 
 entry = first(list_datasets(CMRXRECON300; offline = true))   # R ≈ 3, ships ACS
 raw   = load_raw(entry)
@@ -418,6 +443,10 @@ CG-SENSE with the paired ACS `_calib` data (`entry.locator["calib_path"]`):
 Tunables persisted across sessions via `LocalPreferences.toml`:
 
 ```julia
+# Download location (required before any download; see above)
+MRITestData.set_download_path!(:cache)         # or a directory path
+MRITestData.get_download_path()
+
 # Terms-of-use notice
 MRITestData.dismiss_terms_notice!()   # suppress startup warning (after reviewing terms)
 MRITestData.enable_terms_notice!()

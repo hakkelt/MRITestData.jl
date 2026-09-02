@@ -40,8 +40,8 @@ DICOM anchoring of the catalog field names.
 | Term | Meaning |
 |---|---|
 | **ISMRMRD / MRD** | ISMRM Raw Data — a vendor-neutral HDF5 container for raw acquisitions + an XML experiment header. |
-| **`RawAcquisitionData`** | The MRIBase type [`load_raw`](@ref) returns: readout profiles + parsed header. |
-| **`AcquisitionData`** | The MRIBase type a reconstruction package consumes; built by the caller from `RawAcquisitionData`. |
+| **`RawAcquisitionData`** | The type [`load_raw`](@ref) returns: readout profiles + parsed header ([MRIReco.jl docs](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data)). |
+| **`AcquisitionData`** | The type a reconstruction package consumes; built by the caller from `RawAcquisitionData`. |
 | **Profile / acquisition** | One readout line: its complex samples plus an encoding counter (phase-encode line, slice, contrast, …). |
 | **fastMRI HDF5 layout** | The `kspace` / `reconstruction_rss` / `ismrmrd_header` HDF5 schema used by fastMRI and M4Raw. |
 | **Encoded vs recon matrix** | Encoded = as-acquired size (may include oversampling); recon = target image size. |

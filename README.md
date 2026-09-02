@@ -9,8 +9,9 @@
 <a href="https://github.com/fredrikekre/Runic.jl"><img src="https://img.shields.io/badge/code_style-%E1%9A%B1%E1%9A%A2%E1%9A%BE%E1%9B%81%E1%9A%B2-black"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat"></a>
 
-Query and download free, open-access **MRI k-space datasets** and load them into
-`MRIBase.RawAcquisitionData`, so reconstruction code (e.g.
+Query and download free, open-access **MRI k-space datasets** and load them into a
+[`RawAcquisitionData`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data),
+so reconstruction code (e.g.
 [MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl)) can be exercised
 on real scanner data instead of only synthetic phantoms.
 
@@ -35,7 +36,7 @@ Supported sources:
 | [`FASTMRI`](https://fastmri.med.nyu.edu) | knee, brain, prostate, breast multi-coil k-space (NYU/FAIR); form-gated, 90-day signed URLs | fastMRI `.h5` |
 
 mridata.org, OCMR and USC Speech serve ISMRMRD, read via
-[`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIFiles.jl)/`MRIBase`.
+[`MRIFiles`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data).
 The CMRxRecon sources ship MATLAB v7.3 `.mat` k-space (read via
 [`MAT.jl`](https://github.com/JuliaIO/MAT.jl)); M4Raw and fastMRI ship fastMRI-layout
 `.h5` (`kspace`/`reconstruction_rss`/`ismrmrd_header`); all are converted to a cached
@@ -56,8 +57,28 @@ using Pkg
 Pkg.add(url = "https://github.com/hakkelt/MRITestData.jl")
 ```
 
-`MRITestData` depends on `MRIFiles`/`MRIBase` (which pull in HDF5) but **not** on any
+`MRITestData` depends on `MRIFiles` (which pulls in HDF5) but **not** on any
 reconstruction package — reconstruction is left to the caller (see below).
+
+## Choosing where downloads go
+
+Before anything is downloaded you must pick a destination once — it is persisted in
+`LocalPreferences.toml` and remembered across sessions:
+
+```julia
+using MRITestData
+
+MRITestData.set_download_path!("/data/mri")   # download into this directory
+MRITestData.set_download_path!(:cache)        # …or use the package Scratch cache
+MRITestData.get_download_path()               # current value (nothing until set)
+```
+
+Until then `download_dataset`, `copy_dataset` and entry-based `load_raw` throw. For a
+one-off destination without changing the default, pass `path`:
+
+```julia
+download_dataset(entry; path = "/tmp/mri")
+```
 
 ## Discovering datasets (offline)
 
@@ -88,22 +109,26 @@ run_browser()                        # all sources
 run_browser(; sources = OCMR_SOURCE, offline = true)
 ```
 
-Keys: `↑↓` move · `/` search · `f` filter · `1`-`9` sort · `d` details pane · `⏎`
-download · `q` quit.
+Keys: `↑↓` move · `PgUp/PgDn` page · `/` search (string or expression query) · `f`
+filter · `c` columns · `1`-`9` sort · `d` details pane · `⏎` download · `q` quit.
+
+The column selection (`c`) is persisted in `LocalPreferences.toml` and restored on the
+next launch.
 
 ## Working with the raw data
 
 `load_raw` accepts an ISMRMRD path **or** a catalog entry/handle (downloaded and
-cached on first use) and returns an `MRIBase.RawAcquisitionData`:
+cached on first use) and returns a
+[`RawAcquisitionData`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data):
 
 ```julia
 using MRITestData
 
 entry = first(list_datasets(OCMR_SOURCE; fully_sampled = true))
-raw   = load_raw(entry)      # MRIBase.RawAcquisitionData (profiles + XML header)
+raw   = load_raw(entry)      # RawAcquisitionData (profiles + XML header)
 ```
 
-Any mridata.org UUID works even if it is not in the curated catalog:
+Any mridata.org UUID works even if it is not already in the catalog:
 
 ```julia
 raw = load_raw(dataset(MRIDATA, "52c2fd53-d233-4444-8bfd-7c454240d314"))
@@ -301,16 +326,6 @@ clear_cache(; source = OCMR_SOURCE) # one source
   `reconSize`; oversampling/partial-Fourier dimensions are preserved).
 - **Density compensation** is not estimated — non-Cartesian datasets load with
   `dcf = nothing`. Supply your own DCF if your reconstruction needs it.
-- The committed **mridata.org catalog** ([`data/mridata_index.toml`](data/mridata_index.toml))
-  is a small curated seed. Add verified UUIDs there, or pass any UUID directly to
-  `dataset(MRIDATA, uuid)`.
-
-## Adding datasets
-
-- **mridata.org**: append a `[[dataset]]` block to `data/mridata_index.toml` with
-  the UUID from the dataset's mridata.org page and whatever attributes you know.
-- **OCMR**: add a row to `data/ocmr_attributes.csv` (the file-name column drives
-  the download URL).
 
 ## Testing
 

@@ -78,6 +78,9 @@ INDEX_TTL_DAYS
 ## Download & cache
 
 ```@docs
+set_download_path!
+get_download_path
+unset_download_path!
 download_dataset
 copy_dataset
 cache_path

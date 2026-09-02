@@ -1,4 +1,4 @@
-# Thin wrappers over MRIFiles/MRIBase ISMRMRD readers. The heavy lifting
+# Thin wrappers over the MRIFiles ISMRMRD readers. The heavy lifting
 # (HDF5 + XML parsing, profile placement, trajectory assembly) lives in those
 # packages; we only re-export it under convenient names.
 
@@ -41,7 +41,7 @@ _ismrmrd_path(::FastMRI, e::DatasetEntry) = _fastmri_ismrmrd_path(e)
     load_raw(path; slice=nothing, repetition=nothing, contrast=nothing) -> RawAcquisitionData
     load_raw(entry_or_handle; kwargs...) -> RawAcquisitionData
 
-Read an ISMRMRD `.h5` file at `path` into an `MRIBase.RawAcquisitionData` (raw
+Read an ISMRMRD `.h5` file at `path` into a `MRIFiles.RawAcquisitionData` (raw
 profiles plus the parsed XML header in `.params`). Optional `slice`, `repetition`
 and `contrast` filter which profiles are loaded.
 
@@ -49,7 +49,7 @@ Given a [`DatasetEntry`](@ref) or [`DatasetHandle`](@ref), the dataset is downlo
 (and cached) first; CMRxRecon2024 entries are converted from their MATLAB k-space
 (plus the paired undersampling mask) into a cached ISMRMRD file transparently.
 
-To reconstruct, build an `MRIBase.AcquisitionData` from the result and hand it to a
+To reconstruct, build an `AcquisitionData` from the result and hand it to a
 reconstruction package such as MRIReco.jl — see the "Reconstruction with MRIReco"
 section of the documentation.
 """

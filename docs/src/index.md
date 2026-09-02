@@ -18,9 +18,11 @@ Supported sources:
 
 All sources are exposed through one uniform pipeline —
 [`list_datasets`](@ref)/[`query`](@ref) → [`download_dataset`](@ref) →
-[`load_raw`](@ref) — yielding an `MRIBase.RawAcquisitionData`. ISMRMRD files are read
-via [`MRIFiles`](https://github.com/MagneticResonanceImaging/MRIFiles.jl)/`MRIBase`; the
-`.mat` and fastMRI-layout sources are converted to a cached ISMRMRD file on first load.
+[`load_raw`](@ref) — yielding a
+[`RawAcquisitionData`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data).
+ISMRMRD files are read via
+[`MRIFiles`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data);
+the `.mat` and fastMRI-layout sources are converted to a cached ISMRMRD file on first load.
 
 **[Dataset contents](@ref)** is the authoritative per-source breakdown of every data
 type — anatomy, contrasts/modalities, sampling, coils, array layout, file counts. This
@@ -56,7 +58,7 @@ using Pkg
 Pkg.add(url = "https://github.com/hakkelt/MRITestData.jl")
 ```
 
-`MRITestData` depends on `MRIFiles`/`MRIBase` (which pull in HDF5) but **not** on any
+`MRITestData` depends on `MRIFiles` (which pulls in HDF5) but **not** on any
 reconstruction package.
 
 ## Quick start
@@ -67,11 +69,14 @@ using MRITestData
 # Discover (the dataset index self-updates from upstream; offline-safe)
 entries = list_datasets(OCMR_SOURCE; fully_sampled = true)
 
+# Pick where downloads go (once per machine; persisted). Required before any download.
+MRITestData.set_download_path!(:cache)   # the package Scratch cache, or pass a directory
+
 # Download (cached) → returns the path to the local .h5 file
 path = download_dataset(first(entries))
 
-# Load into an MRIBase container
-raw = load_raw(path)    # MRIBase.RawAcquisitionData (or pass the entry directly)
+# Load the raw data
+raw = load_raw(path)    # RawAcquisitionData (or pass the entry directly)
 ```
 
 The [Tutorial](@ref) continues from here to a reconstructed image.

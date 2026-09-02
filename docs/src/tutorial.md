@@ -13,7 +13,7 @@ using Pkg
 Pkg.add(url = "https://github.com/hakkelt/MRITestData.jl")   # not yet in the General registry
 ```
 
-`MRITestData` pulls in `MRIFiles`/`MRIBase` (and HDF5) but **no** reconstruction
+`MRITestData` pulls in `MRIFiles` (and HDF5) but **no** reconstruction
 package. For the reconstruction step below you also need:
 
 ```julia
@@ -62,13 +62,21 @@ instead — see [Searching across sources](@ref).
 
 ## 3. Download
 
+Pick a download destination once — it is persisted across sessions, and nothing
+downloads until it is set:
+
+```julia
+MRITestData.set_download_path!(:cache)          # the per-package Scratch cache
+# MRITestData.set_download_path!("/data/mri")   # …or a directory of your choice
+```
+
 ```julia
 path = download_dataset(entry)
 # progress bar …
 # "/…/scratchspaces/…/ocmr/fs_0001_1_5T.h5"
 ```
 
-The file lands in a per-package scratch cache and is **not re-downloaded** next time.
+The file lands in the configured location and is **not re-downloaded** next time.
 Transfers stream to a `.part` file and are renamed atomically, so an interrupted
 download never corrupts the cache. `is_cached(entry)` / `cache_path(entry)` query it;
 `clear_cache()` empties it.
@@ -81,7 +89,8 @@ You can skip this step — [`load_raw`](@ref) downloads on demand.
 raw = load_raw(entry)          # or load_raw(path)
 ```
 
-`raw` is an `MRIBase.RawAcquisitionData`:
+`raw` is a
+[`RawAcquisitionData`](https://magneticresonanceimaging.github.io/MRIReco.jl/latest/acquisitionData/#Raw-Data):
 
 ```julia
 julia> length(raw.profiles)               # readout lines
@@ -107,7 +116,7 @@ are on the ISMRMRD **contrast** axis.
 ```julia
 using MRIReco
 
-acq = AcquisitionData(raw)                 # re-exported from MRIBase
+acq = AcquisitionData(raw)                 # re-exported by MRIReco
 
 params = MRIReco.defaultRecoParams()
 params[:reco] = "direct"                    # inverse FFT — correct for fully-sampled data
@@ -143,7 +152,7 @@ sensitivity maps from an ESPIRiT calibration. Full runnable example:
 
 ```julia
 using MRITestData, MRIReco, MRICoilSensitivities
-using MRIBase: flag_is_set, flag_remove!
+using MRIReco: flag_is_set, flag_remove!
 
 entry = first(list_datasets(CMRXRECON300; offline = true))   # R ≈ 3, ships ACS
 raw   = load_raw(entry)

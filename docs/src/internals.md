@@ -78,8 +78,9 @@ define `_index_source_url` / `_fetch_index`:
 
 - OCMR — the authoritative `ocmr_data_attributes.csv` from OCMR's S3 bucket.
 - mridata.org — scraped from `mridata.org/list` (no JSON API exists). The committed
-  `data/mridata_index.toml` is a curated overlay merged per-field on top of a successful
-  scrape (curated values win), and used verbatim only when the scrape fails entirely.
+  `data/mridata_index.toml` is the offline fallback: a successful scrape supplies the
+  catalog and any committed field is merged on top of it per entry; the file is used on
+  its own only when the scrape fails entirely.
 
 A new map-backed source needs only `_bundled_index_path`, `_is_static_index`, its
 row→entry parser, and a `_catalog_entries` that calls `_cached_index_entries`.
@@ -110,10 +111,16 @@ for the full archive lists and the parallel-execution recipe.
   [Reconstruction with MRIReco](@ref). They are committed rather than built live because
   reconstruction needs MRIReco plus multi-GB real downloads (and a Synapse token).
 - `docs/src/assets/browser-demo.gif` is a screen recording of a real
-  `run_browser(offline = true)` session. It is regenerated (not built in CI) from
-  `docs/assets/browser-demo.cast` — an [asciinema](https://asciinema.org/) v2 cast
-  captured by driving the TUI through a pseudo-terminal
-  (`pexpect`, 150×40) and rendered to GIF with
-  [`agg`](https://github.com/asciinema/agg):
-  `agg --font-size 13 --speed 1.15 docs/assets/browser-demo.cast browser-demo.gif`.
-  Re-record it if the column set in `src/browse.jl` or the key bindings change.
+  `run_browser(offline = true)` session that walks through **paging** (`PgDn`),
+  the **details pane** (`d`), a **string query** (`s` → `dataset=ocmr AND R!=nothing`)
+  and the **column picker** (`c`). It is regenerated (not built in CI) using:
+  1. **Record the cast**: Install `pexpect` (`pip install --user pexpect`) and run:
+     ```bash
+     python3 docs/record_browser_demo.py
+     ```
+     This drives the browser inside a 150×40 pseudo-terminal and writes `docs/assets/browser-demo.cast`.
+  2. **Render to GIF**: Download [`agg`](https://github.com/asciinema/agg) (e.g., from [GitHub Releases](https://github.com/asciinema/agg/releases)) and render:
+     ```bash
+     agg --font-size 13 --fps-cap 12 --speed 1.15 --last-frame-duration 3 --theme asciinema docs/assets/browser-demo.cast docs/src/assets/browser-demo.gif
+     ```
+  Re-record it whenever the column set in `src/browse.jl` or the key bindings change.

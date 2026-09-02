@@ -47,10 +47,13 @@ with fresh links. For Synapse, regenerate the PAT if it was revoked or scoped wr
 
 ### Where are downloads stored?
 
-In a per-package [Scratch.jl](https://github.com/JuliaPackaging/Scratch.jl) space, by
-default under `~/.julia/scratchspaces/<MRITestData-UUID>/`. It persists across sessions
-and Julia versions but is garbage-collected by Pkg if the package is uninstalled.
-`cache_path(entry)` gives the exact path for one entry.
+Wherever you point `MRITestData.set_download_path!` — a directory of your choice, or the
+per-package [Scratch.jl](https://github.com/JuliaPackaging/Scratch.jl) space
+(`set_download_path!(:cache)`, under `~/.julia/scratchspaces/<MRITestData-UUID>/`). The
+choice is persisted in `LocalPreferences.toml`. **Nothing downloads until it is set.**
+The Scratch space persists across sessions and Julia versions but is garbage-collected
+by Pkg if the package is uninstalled. `cache_path(entry)` gives the exact path for one
+entry; `get_download_path()` the configured root.
 
 ```julia
 clear_cache()                       # wipe everything
@@ -99,13 +102,6 @@ The package uses Julia's `Downloads` stdlib (libcurl). Set `HTTPS_PROXY` / `HTTP
 (and `NO_PROXY`) in the environment before starting Julia.
 
 ## Loading & reconstruction
-
-### `load_raw` on an OCMR file complains about `<waveformName>` / `Float64`
-
-Known MRIFiles bug with the ECG `<waveformInformation>` block in OCMR cine files.
-[`load_raw`](@ref) strips that block from the cached HDF5 in place on first load, so the
-error should not surface through the normal path. If you call MRIFiles directly on a raw
-OCMR file you will hit it — load through `load_raw`.
 
 ### My reconstruction is aliased / folded
 
