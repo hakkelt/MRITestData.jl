@@ -13,8 +13,13 @@
 
 """Return the cache directory for `source`, creating it if necessary."""
 function _source_dir(source::AbstractSource)
-    isempty(CACHE_DIR[]) && error("cache directory not initialised; is MRITestData loaded?")
-    dir = joinpath(CACHE_DIR[], source_name(source))
+    # Path computation (cache_path, is_cached, ...) must work even before a download
+    # destination has been chosen — only an actual download is refused until then (see
+    # `_require_download_path`, enforced in `download_dataset`). A non-empty `CACHE_DIR`
+    # still wins so tests can redirect it to a temp dir.
+    root = !isempty(CACHE_DIR[]) ? CACHE_DIR[] : _SCRATCH_DIR[]
+    isempty(root) && error("cache directory not initialised; is MRITestData loaded?")
+    dir = joinpath(root, source_name(source))
     isdir(dir) || mkpath(dir)
     return dir
 end
@@ -119,14 +124,15 @@ Delete cached files. With `source = nothing` (default) clears every source;
 otherwise clears only that source's subdirectory.
 """
 function clear_cache(; source::Union{AbstractSource, Nothing} = nothing)
-    isempty(CACHE_DIR[]) && return nothing
+    root = !isempty(CACHE_DIR[]) ? CACHE_DIR[] : _SCRATCH_DIR[]
+    isempty(root) && return nothing
     if source === nothing
         for s in list_sources()
-            dir = joinpath(CACHE_DIR[], source_name(s))
+            dir = joinpath(root, source_name(s))
             isdir(dir) && rm(dir; recursive = true)
         end
     else
-        dir = joinpath(CACHE_DIR[], source_name(source))
+        dir = joinpath(root, source_name(source))
         isdir(dir) && rm(dir; recursive = true)
     end
     return nothing

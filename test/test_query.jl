@@ -179,9 +179,24 @@ end
     end
 
     @testset "size comparison with a suffix" begin
-        small = query("dataset=ocmr AND size < 100M"; offline = true)
-        @test !isempty(small)
-        @test all(e -> e.approx_size_bytes !== nothing && e.approx_size_bytes < 100_000_000, small)
+        # OCMR's committed CSV carries no size column — sizes are normally learned via HTTP
+        # HEAD requests (see `fetch_sizes`) and persisted in a sidecar. Seed that sidecar
+        # here so the size filter has offline data to compare against.
+        using MRITestData: CACHE_DIR, write_sizes
+        mktempdir() do tmp
+            old = CACHE_DIR[]
+            CACHE_DIR[] = tmp
+            try
+                ocmr = list_datasets(OCMR_SOURCE; offline = true)
+                write_sizes(OCMR_SOURCE, Dict(ocmr[1].id => 50_000_000, ocmr[2].id => 500_000_000))
+
+                small = query("dataset=ocmr AND size < 100M"; offline = true)
+                @test !isempty(small)
+                @test all(e -> e.approx_size_bytes !== nothing && e.approx_size_bytes < 100_000_000, small)
+            finally
+                CACHE_DIR[] = old
+            end
+        end
     end
 
     @testset "nothing / not-nothing" begin
