@@ -10,6 +10,7 @@ makedocs(
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",
         repolink = "https://github.com/hakkelt/MRITestData.jl",
+        assets = ["assets/favicon.ico"],
     ),
     pages = [
         "Home" => "index.md",
