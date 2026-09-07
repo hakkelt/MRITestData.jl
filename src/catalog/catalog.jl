@@ -82,56 +82,56 @@ struct DatasetEntry
     name::String
 
     # ── subject ─────────────────────────────────────────────────────────────
-    subject_id::Union{String, Nothing}
-    cohort::Union{Symbol, Nothing}
-    split::Union{Symbol, Nothing}
-    repetition::Union{Int, Nothing}
+    subject_id::Union{String,Nothing}
+    cohort::Union{Symbol,Nothing}
+    split::Union{Symbol,Nothing}
+    repetition::Union{Int,Nothing}
 
     # ── system ──────────────────────────────────────────────────────────────
-    vendor::Union{Symbol, Nothing}
-    scanner_model::Union{String, Nothing}
-    institution::Union{String, Nothing}
-    field_strength::Union{Float64, Nothing}
-    receiver_channels::Union{Int, Nothing}
+    vendor::Union{Symbol,Nothing}
+    scanner_model::Union{String,Nothing}
+    institution::Union{String,Nothing}
+    field_strength::Union{Float64,Nothing}
+    receiver_channels::Union{Int,Nothing}
     coil_data::Symbol
 
     # ── what was imaged ─────────────────────────────────────────────────────
     anatomy::Symbol
     contrast::Symbol
-    orientation::Union{Symbol, Nothing}
-    sequence::Union{String, Nothing}
-    echo_type::Union{Symbol, Nothing}
+    orientation::Union{Symbol,Nothing}
+    sequence::Union{String,Nothing}
+    echo_type::Union{Symbol,Nothing}
     quantitative::Bool
 
     # ── acquisition geometry ────────────────────────────────────────────────
     acquisition_dim::Int
-    num_slices::Union{Int, Nothing}
-    num_frames::Union{Int, Nothing}
-    num_averages::Union{Int, Nothing}
+    num_slices::Union{Int,Nothing}
+    num_frames::Union{Int,Nothing}
+    num_averages::Union{Int,Nothing}
 
     # ── sampling ────────────────────────────────────────────────────────────
     trajectory::Symbol
-    fully_sampled::Union{Bool, Nothing}
-    acceleration::Union{Float64, Nothing}
-    undersampling_pattern::Union{Symbol, Nothing}
-    partial_fourier::Union{Bool, Nothing}
+    fully_sampled::Union{Bool,Nothing}
+    acceleration::Union{Float64,Nothing}
+    undersampling_pattern::Union{Symbol,Nothing}
+    partial_fourier::Union{Bool,Nothing}
     has_acs::Bool
 
     # ── cardiac / contrast-agent flags ──────────────────────────────────────
     cardiac_sync::Symbol
     phase_contrast::Bool
     blood_signal_nulling::Bool
-    fat_suppression::Union{Symbol, Nothing}
-    contrast_agent::Union{Bool, Nothing}
+    fat_suppression::Union{Symbol,Nothing}
+    contrast_agent::Union{Bool,Nothing}
 
     # ── transport (non-DICOM) ───────────────────────────────────────────────
     file_format::Symbol
-    approx_size_bytes::Union{Int, Nothing}
-    sha256::Union{String, Nothing}
+    approx_size_bytes::Union{Int,Nothing}
+    sha256::Union{String,Nothing}
     url::String
 
-    extra::Dict{String, Any}
-    locator::Dict{String, Any}
+    extra::Dict{String,Any}
+    locator::Dict{String,Any}
 end
 
 # Validate every controlled-vocabulary field so a typo in a committed map fails at parse
@@ -164,20 +164,20 @@ function _validate_entry(e::DatasetEntry)
 end
 
 function DatasetEntry(;
-        source, id, name,
-        subject_id = nothing, cohort = nothing, split = nothing, repetition = nothing,
-        vendor = nothing, scanner_model = nothing, institution = nothing,
-        field_strength = nothing, receiver_channels = nothing, coil_data = :original,
-        anatomy = :unknown, contrast = :unknown, orientation = nothing, sequence = nothing,
-        echo_type = nothing, quantitative = false,
-        acquisition_dim = 2, num_slices = nothing, num_frames = nothing, num_averages = nothing,
-        trajectory = :unknown, fully_sampled = nothing, acceleration = nothing,
-        undersampling_pattern = nothing, partial_fourier = nothing, has_acs = false,
-        cardiac_sync = :none, phase_contrast = false, blood_signal_nulling = false,
-        fat_suppression = nothing, contrast_agent = nothing,
-        file_format = :ismrmrd, approx_size_bytes = nothing, sha256 = nothing, url = "",
-        extra = Dict{String, Any}(), locator = Dict{String, Any}(),
-    )
+    source, id, name,
+    subject_id=nothing, cohort=nothing, split=nothing, repetition=nothing,
+    vendor=nothing, scanner_model=nothing, institution=nothing,
+    field_strength=nothing, receiver_channels=nothing, coil_data=:original,
+    anatomy=:unknown, contrast=:unknown, orientation=nothing, sequence=nothing,
+    echo_type=nothing, quantitative=false,
+    acquisition_dim=2, num_slices=nothing, num_frames=nothing, num_averages=nothing,
+    trajectory=:unknown, fully_sampled=nothing, acceleration=nothing,
+    undersampling_pattern=nothing, partial_fourier=nothing, has_acs=false,
+    cardiac_sync=:none, phase_contrast=false, blood_signal_nulling=false,
+    fat_suppression=nothing, contrast_agent=nothing,
+    file_format=:ismrmrd, approx_size_bytes=nothing, sha256=nothing, url="",
+    extra=Dict{String,Any}(), locator=Dict{String,Any}(),
+)
     # Calls the positional constructor `@kwdef` derives from the struct's field order
     # (a distinct method from this keyword-only one, so no infinite recursion).
     e = DatasetEntry(
@@ -282,8 +282,8 @@ list_datasets(MRIDATA; coils = c -> c !== nothing && c >= 8)
 list_datasets(FASTMRI; coils = nothing)          # coil count not recorded
 ```
 """
-function list_datasets(source::AbstractSource; offline::Bool = false, kwargs...)
-    all_entries = _catalog_entries(source; offline = offline)
+function list_datasets(source::AbstractSource; offline::Bool=false, kwargs...)
+    all_entries = _catalog_entries(source; offline=offline)
     # `_catalog_entries` may hand back a memoised vector shared with other callers, so an
     # unfiltered listing still needs its own copy — but not a per-entry predicate call.
     isempty(kwargs) && return copy(all_entries)
@@ -297,8 +297,8 @@ Look up a dataset by `id`. If `id` is in the curated catalog the full metadata i
 used; otherwise (where the source supports it, e.g. an arbitrary mridata UUID) a
 minimal entry is synthesised from `id`.
 """
-function dataset(source::AbstractSource, id::AbstractString; offline::Bool = false)
-    for e in _catalog_entries(source; offline = offline)
+function dataset(source::AbstractSource, id::AbstractString; offline::Bool=false)
+    for e in _catalog_entries(source; offline=offline)
         e.id == id && return DatasetHandle(e)
     end
     _can_synthesize(source) || error(
@@ -335,7 +335,7 @@ end
 
 # `fetch_sizes`/`merge_sizes` only ever patch the size, so keep the old name as a thin
 # wrapper — it reads better at those call sites than a bare `_with`.
-_with_size(e::DatasetEntry, sz::Union{Int, Nothing}) = _with(e; approx_size_bytes = sz)
+_with_size(e::DatasetEntry, sz::Union{Int,Nothing}) = _with(e; approx_size_bytes=sz)
 
 # ── Shared offset-map CSV cell readers ────────────────────────────────────────────
 # The map-backed sources read `readdlm`-parsed rows whose cells arrive as Int, Float64 or
@@ -374,7 +374,7 @@ end
 # Store `value` in `extra` under `key` only when it carries information, so `extra` never
 # holds empty strings or `nothing` placeholders that callers would have to filter out.
 _put_optional!(extra::AbstractDict, key::AbstractString, value) =
-    (value === nothing || value == "") ? extra : (extra[key] = value; extra)
+    (value === nothing || value == "") ? extra : (extra[key]=value; extra)
 
 # Copy the columns named in `keys` from `row` into `extra`, reading each with `reader` and
 # skipping the ones the row leaves blank.
@@ -387,9 +387,9 @@ end
 
 # Parse an offset-map CSV into `(data, col)` where `col` maps header name → column index.
 # Returns `nothing` if the file is missing or lacks the mandatory `key_column`.
-function _read_offset_map(path::AbstractString; key_column::AbstractString = "path")
+function _read_offset_map(path::AbstractString; key_column::AbstractString="path")
     isfile(path) || return nothing
-    data, header = readdlm(path, ','; header = true)
+    data, header = readdlm(path, ','; header=true)
     col = Dict(strip(String(h)) => i for (i, h) in enumerate(vec(header)))
     haskey(col, key_column) || return nothing
     return data, col
@@ -411,7 +411,7 @@ struct ZipSpan
     end_off::Int
     lfh_size::Int
     compressed_size::Int
-    uncompressed_size::Union{Int, Nothing}
+    uncompressed_size::Union{Int,Nothing}
     compression::Int
 end
 
@@ -435,7 +435,7 @@ end
 # The `locator` keys the fetch engines read back out of a `ZipSpan`. Byte coordinates are
 # transport, not DICOM-describable metadata, so they live in `locator`, not `extra`.
 function _zip_span_locator(span::ZipSpan)
-    return Dict{String, Any}(
+    return Dict{String,Any}(
         "start_off" => span.start_off,
         "end_off" => span.end_off,
         "lfh_size" => span.lfh_size,
@@ -448,7 +448,7 @@ end
 # large (fastMRI ships ~10k rows), so memoise the parsed entries. The key carries mtime and
 # size, so a refreshed or hand-edited index invalidates the memo on its own. Entries are
 # immutable, so handing the same vector to several callers is safe.
-const _INDEX_ENTRY_CACHE = Dict{Tuple{String, Float64, Int}, Vector{DatasetEntry}}()
+const _INDEX_ENTRY_CACHE = Dict{Tuple{String,Float64,Int},Vector{DatasetEntry}}()
 
 function _cached_index_entries(path::AbstractString, parse)::Vector{DatasetEntry}
     isfile(path) || return DatasetEntry[]
@@ -460,7 +460,7 @@ function _cached_index_entries(path::AbstractString, parse)::Vector{DatasetEntry
     return entries
 end
 
-# ── Shared per-source derivation helpers (plan §6, Phase 3) ───────────────────────
+# ── Shared per-source derivation helpers (see docs/src/taxonomy.md) ──────────────
 
 """
     _normalize_split(s) -> Union{Symbol,Nothing}
@@ -482,73 +482,73 @@ _normalize_split(::Nothing) = nothing
 
 # The per-series decoded fields a CMRxRecon(-300) file stem or `modality` string implies.
 # `nothing` in any slot means "leave the DatasetEntry field at its default" — this table
-# only ever asserts what the challenge protocol actually documents (plan §6).
-const _CARDIAC_SERIES = Dict{String, NamedTuple}(
+# only ever asserts what the challenge protocol actually documents.
+const _CARDIAC_SERIES = Dict{String,NamedTuple}(
     "cine_lax" => (
-        contrast = :mixed, orientation = :long_axis,
-        sequence = "balanced steady-state free precession",
-        quantitative = false, cardiac_sync = :retrospective,
-        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+        contrast=:mixed, orientation=:long_axis,
+        sequence="balanced steady-state free precession",
+        quantitative=false, cardiac_sync=:retrospective,
+        phase_contrast=false, blood_signal_nulling=false, anatomy=:heart,
     ),
     "cine_sax" => (
-        contrast = :mixed, orientation = :short_axis,
-        sequence = "balanced steady-state free precession",
-        quantitative = false, cardiac_sync = :retrospective,
-        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+        contrast=:mixed, orientation=:short_axis,
+        sequence="balanced steady-state free precession",
+        quantitative=false, cardiac_sync=:retrospective,
+        phase_contrast=false, blood_signal_nulling=false, anatomy=:heart,
     ),
     "cine_lvot" => (
-        contrast = :mixed, orientation = :lvot,
-        sequence = "balanced steady-state free precession",
-        quantitative = false, cardiac_sync = :retrospective,
-        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+        contrast=:mixed, orientation=:lvot,
+        sequence="balanced steady-state free precession",
+        quantitative=false, cardiac_sync=:retrospective,
+        phase_contrast=false, blood_signal_nulling=false, anatomy=:heart,
     ),
     # T1/T2 mapping: SAX view and pulse sequences confirmed against the CMRxRecon2024
-    # dataset paper (Wang et al., Radiology: AI 2025, plan §12) — "the modified
+    # dataset paper (Wang et al., Radiology: AI 2025) — "the modified
     # Look-Locker inversion recovery-fast low angle shot sequence was used for T1
     # mapping" / "the T2-prepared-fast low angle shot sequence was used for T2 mapping",
     # both "with SAX view". Fixes the pre-verification guess of "T2-prepared balanced
     # SSFP" (T2-prep is FLASH/spoiled-gradient-echo based here, not bSSFP).
     "t1map" => (
-        contrast = :t1, orientation = :short_axis,
-        sequence = "modified Look-Locker inversion recovery (fast low angle shot readout)",
-        quantitative = true, cardiac_sync = :none,
-        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+        contrast=:t1, orientation=:short_axis,
+        sequence="modified Look-Locker inversion recovery (fast low angle shot readout)",
+        quantitative=true, cardiac_sync=:none,
+        phase_contrast=false, blood_signal_nulling=false, anatomy=:heart,
     ),
     "t2map" => (
-        contrast = :t2, orientation = :short_axis,
-        sequence = "T2-prepared fast low angle shot",
-        quantitative = true, cardiac_sync = :none,
-        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+        contrast=:t2, orientation=:short_axis,
+        sequence="T2-prepared fast low angle shot",
+        quantitative=true, cardiac_sync=:none,
+        phase_contrast=false, blood_signal_nulling=false, anatomy=:heart,
     ),
     "tagging" => (
-        contrast = :tagging, orientation = :short_axis, sequence = "tagged cine (SPAMM)",
-        quantitative = false, cardiac_sync = :retrospective,
-        phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+        contrast=:tagging, orientation=:short_axis, sequence="tagged cine (SPAMM)",
+        quantitative=false, cardiac_sync=:retrospective,
+        phase_contrast=false, blood_signal_nulling=false, anatomy=:heart,
     ),
     "flow2d" => (
-        contrast = :flow_encoded, orientation = nothing, sequence = nothing,
-        quantitative = false, cardiac_sync = :none,
-        phase_contrast = true, blood_signal_nulling = false, anatomy = :heart,
+        contrast=:flow_encoded, orientation=nothing, sequence=nothing,
+        quantitative=false, cardiac_sync=:none,
+        phase_contrast=true, blood_signal_nulling=false, anatomy=:heart,
     ),
     "blackblood" => (
         # Sequence and SAX view confirmed against the dataset paper: "the turbo
         # spin-echo sequence was used for black-blood under breath hold" / "black-blood
-        # with SAX view" (Wang et al. 2025, plan §12). The paper does not state a T1 vs
+        # with SAX view" (Wang et al. 2025). The paper does not state a T1 vs
         # T2 weighting for this sequence (no TE/TR given), so contrast genuinely stays
         # :unknown — that is the source's own gap, not an unverified guess.
-        contrast = :unknown, orientation = :short_axis, sequence = "turbo spin echo",
-        quantitative = false, cardiac_sync = :none,
-        phase_contrast = false, blood_signal_nulling = true, anatomy = :heart,
+        contrast=:unknown, orientation=:short_axis, sequence="turbo spin echo",
+        quantitative=false, cardiac_sync=:none,
+        phase_contrast=false, blood_signal_nulling=true, anatomy=:heart,
     ),
     "aorta_sag" => (
-        contrast = :mixed, orientation = :sagittal, sequence = nothing,
-        quantitative = false, cardiac_sync = :none,
-        phase_contrast = false, blood_signal_nulling = false, anatomy = :aorta,
+        contrast=:mixed, orientation=:sagittal, sequence=nothing,
+        quantitative=false, cardiac_sync=:none,
+        phase_contrast=false, blood_signal_nulling=false, anatomy=:aorta,
     ),
     "aorta_tra" => (
-        contrast = :mixed, orientation = :axial, sequence = nothing,
-        quantitative = false, cardiac_sync = :none,
-        phase_contrast = false, blood_signal_nulling = false, anatomy = :aorta,
+        contrast=:mixed, orientation=:axial, sequence=nothing,
+        quantitative=false, cardiac_sync=:none,
+        phase_contrast=false, blood_signal_nulling=false, anatomy=:aorta,
     ),
 )
 
@@ -565,9 +565,9 @@ function _cardiac_series(stem::AbstractString)
     return get(
         _CARDIAC_SERIES, key,
         (
-            contrast = :unknown, orientation = nothing, sequence = nothing,
-            quantitative = false, cardiac_sync = :none,
-            phase_contrast = false, blood_signal_nulling = false, anatomy = :heart,
+            contrast=:unknown, orientation=nothing, sequence=nothing,
+            quantitative=false, cardiac_sync=:none,
+            phase_contrast=false, blood_signal_nulling=false, anatomy=:heart,
         ),
     )
 end
@@ -575,9 +575,9 @@ end
 # Parse every row of an offset-map CSV with `row_to_entry(row, col)`, dropping rows it
 # rejects (`nothing`). Shared by every map-backed source.
 function _parse_offset_map(
-        path::AbstractString, row_to_entry; key_column::AbstractString = "path",
-    )::Vector{DatasetEntry}
-    parsed = _read_offset_map(path; key_column = key_column)
+    path::AbstractString, row_to_entry; key_column::AbstractString="path",
+)::Vector{DatasetEntry}
+    parsed = _read_offset_map(path; key_column=key_column)
     parsed === nothing && return DatasetEntry[]
     data, col = parsed
     entries = DatasetEntry[]

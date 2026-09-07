@@ -43,11 +43,11 @@ end
 # scn (scanner) also encodes field strength + vendor; we derive both from it and
 # only fall back to the filename suffix when the column is missing.
 const _OCMR_SCANNER = Dict(
-    "0_55freemax" => (model = "Siemens MAGNETOM Free.Max", vendor = "siemens", field = 0.55),
-    "15avan" => (model = "Siemens MAGNETOM Avanto", vendor = "siemens", field = 1.5),
-    "15sola" => (model = "Siemens MAGNETOM Sola", vendor = "siemens", field = 1.5),
-    "30pris" => (model = "Siemens MAGNETOM Prisma", vendor = "siemens", field = 3.0),
-    "30vida" => (model = "Siemens MAGNETOM Vida", vendor = "siemens", field = 3.0),
+    "0_55freemax" => (model="Siemens MAGNETOM Free.Max", vendor="siemens", field=0.55),
+    "15avan" => (model="Siemens MAGNETOM Avanto", vendor="siemens", field=1.5),
+    "15sola" => (model="Siemens MAGNETOM Sola", vendor="siemens", field=1.5),
+    "30pris" => (model="Siemens MAGNETOM Prisma", vendor="siemens", field=3.0),
+    "30vida" => (model="Siemens MAGNETOM Vida", vendor="siemens", field=3.0),
 )
 const _OCMR_SAMPLING = Dict("fs" => "fully sampled", "pse" => "pseudo-random undersampled")
 const _OCMR_ECHO = Dict("asy" => "asymmetric", "sym" => "symmetric")
@@ -56,7 +56,8 @@ const _OCMR_SLICEMODE = Dict("ind" => "individual", "mul" => "multiple", "stk" =
 const _OCMR_FOV = Dict("ali" => "with aliasing", "noa" => "no aliasing")
 const _OCMR_SUBJECT = Dict("vol" => :volunteer, "pat" => :patient)
 # `viw` (view) onto `orientation` — DICOM View Code Sequence (0054,0220); no cardiac-MR
-# Context Group exists (plan §4.6), so these are local symbols from `ORIENTATIONS`.
+# Context Group exists (see docs/src/internals.md, Taxonomy design principles), so
+# these are local symbols from `ORIENTATIONS`.
 const _OCMR_VIEW = Dict("lax" => :long_axis, "sax" => :short_axis)
 
 # A coded column, or `nothing` when the column is absent or the cell is blank.
@@ -94,42 +95,42 @@ function _ocmr_entry(row, col)
     sub = _ocmr_cell(row, col, "sub")
     cohort = sub === nothing ? nothing : get(_OCMR_SUBJECT, sub, nothing)
 
-    extra = Dict{String, Any}("file_name" => fname)
+    extra = Dict{String,Any}("file_name" => fname)
     _put_optional!(extra, "scanner_model", scanner === nothing ? nothing : scanner.model)
     _put_optional!(extra, "sampling", _ocmr_decode(_OCMR_SAMPLING, smp))
     _put_optional!(extra, "partial_fourier_direction", _ocmr_decode(_OCMR_ECHO, ech))
     for (key, column, table) in (
-            ("acquisition_duration_class", "dur", _OCMR_DURATION),
-            ("slice_mode", "sli", _OCMR_SLICEMODE),
-            ("phase_wrap", "fov", _OCMR_FOV),
-        )
+        ("acquisition_duration_class", "dur", _OCMR_DURATION),
+        ("slice_mode", "sli", _OCMR_SLICEMODE),
+        ("phase_wrap", "fov", _OCMR_FOV),
+    )
         _put_optional!(extra, key, _ocmr_decode(table, _ocmr_cell(row, col, column)))
     end
 
     return DatasetEntry(;
-        source = OCMR_SOURCE,
-        id = stem,
-        name = "OCMR $(stem)",
-        cohort = cohort,
-        vendor = vendor,
-        scanner_model = scanner === nothing ? nothing : scanner.model,
-        field_strength = field,
-        anatomy = :heart,
-        orientation = orientation,
-        partial_fourier = partial_fourier,
-        num_slices = slices,
-        trajectory = :cartesian,
-        fully_sampled = fully,
-        url = ocmr_url(fname),
-        extra = extra,
+        source=OCMR_SOURCE,
+        id=stem,
+        name="OCMR $(stem)",
+        cohort=cohort,
+        vendor=vendor,
+        scanner_model=scanner === nothing ? nothing : scanner.model,
+        field_strength=field,
+        anatomy=:heart,
+        orientation=orientation,
+        partial_fourier=partial_fourier,
+        num_slices=slices,
+        trajectory=:cartesian,
+        fully_sampled=fully,
+        url=ocmr_url(fname),
+        extra=extra,
     )
 end
 
 _ocmr_entries(path::AbstractString) =
-    _parse_offset_map(path, _ocmr_entry; key_column = "file name")
+    _parse_offset_map(path, _ocmr_entry; key_column="file name")
 
-function _catalog_entries(s::OCMR; offline::Bool = false)
-    entries = _cached_index_entries(ensure_index(s; offline = offline), _ocmr_entries)
+function _catalog_entries(s::OCMR; offline::Bool=false)
+    entries = _cached_index_entries(ensure_index(s; offline=offline), _ocmr_entries)
     return merge_sizes(entries, s)
 end
 
@@ -150,14 +151,14 @@ function _synthesize_entry(::OCMR, id::String)
     fname = endswith(id, ".h5") ? id : id * ".h5"
     stem = replace(fname, r"\.h5$" => "")
     return DatasetEntry(;
-        source = OCMR_SOURCE,
-        id = stem,
-        name = "OCMR $(stem)",
-        anatomy = :heart,
-        field_strength = _ocmr_field_strength(stem),
-        trajectory = :cartesian,
-        fully_sampled = _ocmr_fully_sampled(stem),
-        url = ocmr_url(fname),
-        extra = Dict{String, Any}("file_name" => fname),
+        source=OCMR_SOURCE,
+        id=stem,
+        name="OCMR $(stem)",
+        anatomy=:heart,
+        field_strength=_ocmr_field_strength(stem),
+        trajectory=:cartesian,
+        fully_sampled=_ocmr_fully_sampled(stem),
+        url=ocmr_url(fname),
+        extra=Dict{String,Any}("file_name" => fname),
     )
 end

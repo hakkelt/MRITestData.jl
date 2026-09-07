@@ -52,7 +52,7 @@ function _usc_speech_entry(row, col)
     locator["path"] = path    # full archive path, for reference
     locator["file_id"] = file_id
 
-    extra = Dict{String, Any}()
+    extra = Dict{String,Any}()
     _put_optional!(extra, "protocol_name", stimulus)
     extra["repetition_time_ms"] = 6.004
     extra["echo_time_ms"] = 0.8
@@ -62,29 +62,29 @@ function _usc_speech_entry(row, col)
     extra["slice_thickness_mm"] = 6.0
 
     return DatasetEntry(;
-        source = USC_SPEECH,
-        id = id,
-        name = label,
-        subject_id = isempty(subject) ? nothing : subject,
-        cohort = :volunteer,
-        repetition = repetition,
-        anatomy = :pharynx_larynx,
-        orientation = :sagittal,
-        sequence = "spoiled gradient echo (13-interleaf spiral-out)",
-        echo_type = :gradient,
-        vendor = :ge,
-        scanner_model = "GE Signa Excite",
-        field_strength = 1.5,
-        receiver_channels = 8,
-        trajectory = :spiral,
+        source=USC_SPEECH,
+        id=id,
+        name=label,
+        subject_id=isempty(subject) ? nothing : subject,
+        cohort=:volunteer,
+        repetition=repetition,
+        anatomy=:pharynx_larynx,
+        orientation=:sagittal,
+        sequence="spoiled gradient echo (13-interleaf spiral-out)",
+        echo_type=:gradient,
+        vendor=:ge,
+        scanner_model="GE Signa Excite",
+        field_strength=1.5,
+        receiver_channels=8,
+        trajectory=:spiral,
         # The 13 spiral interleaves, collected together, fulfil the Nyquist sampling rate
-        # (Lim et al., Scientific Data 2021 — plan §12); the raw file holds all 13.
-        fully_sampled = true,
-        acquisition_dim = 2,
-        approx_size_bytes = span.uncompressed_size,
-        url = "",
-        extra = extra,
-        locator = locator,
+        # (Lim et al., Scientific Data 2021); the raw file holds all 13.
+        fully_sampled=true,
+        acquisition_dim=2,
+        approx_size_bytes=span.uncompressed_size,
+        url="",
+        extra=extra,
+        locator=locator,
     )
 end
 
@@ -93,8 +93,8 @@ end
 # initialised cache directory.
 _usc_speech_entries(path::AbstractString) = _parse_offset_map(path, _usc_speech_entry)
 
-function _catalog_entries(s::USCSpeech; offline::Bool = false)
-    return _cached_index_entries(ensure_index(s; offline = offline), _usc_speech_entries)
+function _catalog_entries(s::USCSpeech; offline::Bool=false)
+    return _cached_index_entries(ensure_index(s; offline=offline), _usc_speech_entries)
 end
 
 extra_schema(::USCSpeech) = Dict(

@@ -1,6 +1,6 @@
 # Controlled vocabularies for `DatasetEntry`'s `Symbol`-typed fields. Anchored in the
-# DICOM standard where a term exists; see `docs/dev/taxonomy-refactor-plan.md` §5/§12 for
-# the external references consulted and `docs/src/taxonomy.md` for the published mapping.
+# DICOM standard where a term exists; see docs/src/internals.md (Taxonomy design
+# principles) and `docs/src/taxonomy.md` for the published mapping and references.
 #
 # `DatasetEntry`'s inner constructor validates every field below against its tuple, so a
 # typo in a committed map fails at parse time instead of producing an entry nothing can
@@ -75,7 +75,8 @@ channels, but ORIGINAL/DERIVED covers emulated/virtual coils.
 """
 const COIL_DATA = (:original, :derived)
 
-# ── Extensions (no DICOM anchor; see plan §4.2–4.6) ─────────────────────────────────
+# ── Extensions (no DICOM anchor; see docs/src/internals.md, Taxonomy design
+# principles) ────────────────────────────────────────────────────────────────────
 
 """
     SPLITS

@@ -4,7 +4,7 @@
 # generated docs table (`docs/src/taxonomy.md`) does not have to be hand-maintained.
 #
 # Extensions (fields with no DICOM attribute) map to `nothing` here and are listed with
-# their one-line justification in `TAXONOMY_EXTENSIONS` — see plan §4.1–4.10.
+# their one-line justification in `TAXONOMY_EXTENSIONS` — see docs/src/taxonomy.md.
 
 """
     DICOM_ATTRIBUTES
@@ -13,7 +13,7 @@
 a DICOM-keyword-named `extra` key (as a `Symbol`), to its `(group, element, keyword)` DICOM
 attribute. Fields with no DICOM anchor are omitted here — see [`TAXONOMY_EXTENSIONS`](@ref).
 """
-const DICOM_ATTRIBUTES = Dict{Symbol, Tuple{UInt16, UInt16, String}}(
+const DICOM_ATTRIBUTES = Dict{Symbol,Tuple{UInt16,UInt16,String}}(
     # core fields
     :name => (0x0008, 0x103E, "SeriesDescription"),
     :subject_id => (0x0012, 0x0040, "ClinicalTrialSubjectID"),
@@ -40,7 +40,7 @@ const DICOM_ATTRIBUTES = Dict{Symbol, Tuple{UInt16, UInt16, String}}(
     :blood_signal_nulling => (0x0018, 0x9022, "BloodSignalNulling"),
     :fat_suppression => (0x0018, 0x9025, "SpectrallySelectedSuppression"),
     :contrast_agent => (0x0018, 0x0010, "ContrastBolusAgent"),
-    # DICOM-keyword-named `extra` keys (see plan §8)
+    # DICOM-keyword-named `extra` keys (see docs/src/taxonomy.md)
     :repetition_time_ms => (0x0018, 0x0080, "RepetitionTime"),
     :echo_time_ms => (0x0018, 0x0081, "EchoTime"),
     :flip_angle_deg => (0x0018, 0x1314, "FlipAngle"),
@@ -76,9 +76,9 @@ end
     TAXONOMY_EXTENSIONS
 
 `Dict{Symbol,String}` mapping each field that has **no** DICOM attribute to a one-line
-justification. See `docs/src/taxonomy.md` and plan §4.1–4.10 for the full rationale.
+justification. See `docs/src/taxonomy.md` for the full rationale.
 """
-const TAXONOMY_EXTENSIONS = Dict{Symbol, String}(
+const TAXONOMY_EXTENSIONS = Dict{Symbol,String}(
     :cohort => "no DICOM research-subject-class attribute",
     :split => "ML-corpus partition, not an imaging concept",
     :receiver_channels => "DICOM enumerates coil elements (0018,9045/0018,9048) but has no count attribute; anchored on the ISMRMRD receiverChannels field",

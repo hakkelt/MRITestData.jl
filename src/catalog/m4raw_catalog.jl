@@ -16,7 +16,7 @@
 #   archive, study, contrast, repetition, set
 #
 # Scanner: 0.3 T "Oper-0.3" (Ningbo Xingaoyi), four-channel head coil, 18 axial slices
-# (Lyu et al., Scientific Data 2023 — see docs/dev/taxonomy-refactor-plan.md §12).
+# (Lyu et al., Scientific Data 2023 — see docs/src/taxonomy.md).
 
 const _M4RAW_MAP_PATH = normpath(joinpath(@__DIR__, "..", "..", "data", "m4raw_map.csv"))
 _bundled_index_path(::M4Raw) = _M4RAW_MAP_PATH
@@ -36,16 +36,16 @@ end
 # gradient echo. GRE was not part of the original M4Raw Scientific Data paper (which
 # describes only T1w/T2w TSE and FLAIR); its T1-weighting is confirmed by the M4RawV1.5
 # release notes and dataset card, which describe it as "T1w Gradient echo (GRE) data"
-# (github.com/mylyu/M4Raw, Zenodo record 8056074; plan §12).
+# (github.com/mylyu/M4Raw, Zenodo record 8056074; see docs/src/taxonomy.md).
 function _m4raw_series(contrast_str::AbstractString)
-    contrast_str == "T1" && return (contrast = :t1, sequence = "turbo spin echo", echo_type = :spin)
-    contrast_str == "T2" && return (contrast = :t2, sequence = "turbo spin echo", echo_type = :spin)
+    contrast_str == "T1" && return (contrast=:t1, sequence="turbo spin echo", echo_type=:spin)
+    contrast_str == "T2" && return (contrast=:t2, sequence="turbo spin echo", echo_type=:spin)
     contrast_str == "FLAIR" && return (
-        contrast = :fluid_attenuated, sequence = "turbo spin echo (inversion-recovery prepared)",
-        echo_type = :spin,
+        contrast=:fluid_attenuated, sequence="turbo spin echo (inversion-recovery prepared)",
+        echo_type=:spin,
     )
-    contrast_str == "GRE" && return (contrast = :t1, sequence = "spoiled gradient echo", echo_type = :gradient)
-    return (contrast = :unknown, sequence = nothing, echo_type = nothing)
+    contrast_str == "GRE" && return (contrast=:t1, sequence="spoiled gradient echo", echo_type=:gradient)
+    return (contrast=:unknown, sequence=nothing, echo_type=nothing)
 end
 
 function _m4raw_entry(row, col)
@@ -71,31 +71,31 @@ function _m4raw_entry(row, col)
     locator["archive"] = archive
 
     return DatasetEntry(;
-        source = M4RAW,
-        id = id,
-        name = label,
-        subject_id = isempty(study) ? nothing : study,
-        cohort = :volunteer,
-        split = _normalize_split(set),
-        repetition = repetition,
-        vendor = :ningbo_xingaoyi,
-        scanner_model = "Oper-0.3",
-        field_strength = 0.3,
-        receiver_channels = 4,
-        anatomy = :brain,
-        contrast = series.contrast,
-        orientation = :axial,
-        sequence = series.sequence,
-        echo_type = series.echo_type,
-        num_slices = 18,
-        trajectory = :cartesian,
+        source=M4RAW,
+        id=id,
+        name=label,
+        subject_id=isempty(study) ? nothing : study,
+        cohort=:volunteer,
+        split=_normalize_split(set),
+        repetition=repetition,
+        vendor=:ningbo_xingaoyi,
+        scanner_model="Oper-0.3",
+        field_strength=0.3,
+        receiver_channels=4,
+        anatomy=:brain,
+        contrast=series.contrast,
+        orientation=:axial,
+        sequence=series.sequence,
+        echo_type=series.echo_type,
+        num_slices=18,
+        trajectory=:cartesian,
         # Each member holds one fully-sampled multi-slice Cartesian acquisition.
-        fully_sampled = true,
-        file_format = :fastmri_h5,
-        approx_size_bytes = span.uncompressed_size,
-        url = "",
-        extra = Dict{String, Any}(),
-        locator = locator,
+        fully_sampled=true,
+        file_format=:fastmri_h5,
+        approx_size_bytes=span.uncompressed_size,
+        url="",
+        extra=Dict{String,Any}(),
+        locator=locator,
     )
 end
 
@@ -104,6 +104,6 @@ end
 # directory.
 _m4raw_entries(path::AbstractString) = _parse_offset_map(path, _m4raw_entry)
 
-function _catalog_entries(s::M4Raw; offline::Bool = false)
-    return _cached_index_entries(ensure_index(s; offline = offline), _m4raw_entries)
+function _catalog_entries(s::M4Raw; offline::Bool=false)
+    return _cached_index_entries(ensure_index(s; offline=offline), _m4raw_entries)
 end

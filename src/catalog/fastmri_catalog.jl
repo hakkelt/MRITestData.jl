@@ -16,7 +16,8 @@
 # `series_variant` is the archive filename's middle token, NOT a coil count:
 # "singlecoil"/"multicoil" for knee/brain (e.g. knee_singlecoil_train), or the sequence
 # type "T2"/"DIFF" for prostate (e.g. fastMRI_prostate_T2_IDS_001_020.tar.gz). Breast rows
-# leave it blank (its archives carry no such token). See plan §7.1 for the correctness bug
+# leave it blank (its archives carry no such token). See docs/src/internals.md (Taxonomy
+# design principles) for the correctness bug
 # this used to hide: `tryparse(Int, "singlecoil")` silently returned `nothing` on every row.
 
 const _FASTMRI_MAP_PATH = normpath(joinpath(@__DIR__, "..", "..", "data", "fastmri_map.csv"))
@@ -35,15 +36,15 @@ function _fastmri_anatomy(s::AbstractString)
     return s in ("knee", "brain", "prostate", "breast") ? Symbol(s) : nothing
 end
 
-# The per-anatomy protocol facts the fastMRI papers document (plan §6, §12). Applied on
+# The per-anatomy protocol facts the fastMRI papers document (see docs/src/taxonomy.md). Applied on
 # top of what the map row itself carries (split, patient_id, brain contrast token).
-function _fastmri_series(anatomy::Union{Symbol, Nothing}, brain_token::AbstractString)
+function _fastmri_series(anatomy::Union{Symbol,Nothing}, brain_token::AbstractString)
     anatomy === :knee && return (
-        contrast = :proton_density, orientation = :coronal, sequence = "fast spin echo",
-        vendor = :siemens, scanner_model = nothing, field_strength = nothing,
-        receiver_channels = nothing, num_slices = nothing, trajectory = :cartesian,
-        acquisition_dim = 2, acceleration = nothing, partial_fourier = nothing,
-        contrast_agent = nothing,
+        contrast=:proton_density, orientation=:coronal, sequence="fast spin echo",
+        vendor=:siemens, scanner_model=nothing, field_strength=nothing,
+        receiver_channels=nothing, num_slices=nothing, trajectory=:cartesian,
+        acquisition_dim=2, acceleration=nothing, partial_fourier=nothing,
+        contrast_agent=nothing,
     )
     if anatomy === :brain
         contrast, contrast_agent = if brain_token == "AXT1POST"
@@ -58,36 +59,36 @@ function _fastmri_series(anatomy::Union{Symbol, Nothing}, brain_token::AbstractS
             :unknown, nothing
         end
         return (
-            contrast = contrast, orientation = :axial, sequence = nothing,
-            vendor = nothing, scanner_model = nothing, field_strength = nothing,
-            receiver_channels = nothing, num_slices = nothing, trajectory = :cartesian,
-            acquisition_dim = 2, acceleration = nothing, partial_fourier = nothing,
-            contrast_agent = contrast_agent,
+            contrast=contrast, orientation=:axial, sequence=nothing,
+            vendor=nothing, scanner_model=nothing, field_strength=nothing,
+            receiver_channels=nothing, num_slices=nothing, trajectory=:cartesian,
+            acquisition_dim=2, acceleration=nothing, partial_fourier=nothing,
+            contrast_agent=contrast_agent,
         )
     end
     if anatomy === :prostate
         contrast, sequence = brain_token == "DIFF" ? (:diffusion, "echo-planar imaging") : (:t2, "turbo spin echo")
         return (
-            contrast = contrast, orientation = :axial, sequence = sequence,
-            vendor = nothing, scanner_model = nothing, field_strength = 3.0,
-            receiver_channels = nothing, num_slices = nothing, trajectory = :cartesian,
-            acquisition_dim = 2, acceleration = nothing, partial_fourier = nothing,
-            contrast_agent = nothing,
+            contrast=contrast, orientation=:axial, sequence=sequence,
+            vendor=nothing, scanner_model=nothing, field_strength=3.0,
+            receiver_channels=nothing, num_slices=nothing, trajectory=:cartesian,
+            acquisition_dim=2, acceleration=nothing, partial_fourier=nothing,
+            contrast_agent=nothing,
         )
     end
     anatomy === :breast && return (
-        contrast = :t1, orientation = nothing, sequence = "radial VIBE (stack-of-stars)",
-        vendor = :siemens, scanner_model = "Siemens MAGNETOM TimTrio", field_strength = 3.0,
-        receiver_channels = 16, num_slices = 192, trajectory = :goldenangle,
-        acquisition_dim = 3, acceleration = 2.8, partial_fourier = true,
-        contrast_agent = nothing,
+        contrast=:t1, orientation=nothing, sequence="radial VIBE (stack-of-stars)",
+        vendor=:siemens, scanner_model="Siemens MAGNETOM TimTrio", field_strength=3.0,
+        receiver_channels=16, num_slices=192, trajectory=:goldenangle,
+        acquisition_dim=3, acceleration=2.8, partial_fourier=true,
+        contrast_agent=nothing,
     )
     return (
-        contrast = :unknown, orientation = nothing, sequence = nothing,
-        vendor = nothing, scanner_model = nothing, field_strength = nothing,
-        receiver_channels = nothing, num_slices = nothing, trajectory = :unknown,
-        acquisition_dim = 2, acceleration = nothing, partial_fourier = nothing,
-        contrast_agent = nothing,
+        contrast=:unknown, orientation=nothing, sequence=nothing,
+        vendor=nothing, scanner_model=nothing, field_strength=nothing,
+        receiver_channels=nothing, num_slices=nothing, trajectory=:unknown,
+        acquisition_dim=2, acceleration=nothing, partial_fourier=nothing,
+        contrast_agent=nothing,
     )
 end
 
@@ -122,7 +123,7 @@ function _fastmri_entry(row, col)
     variant_label = isempty(brain_token) ? "" : string(" ", brain_token)
     label = string("fastMRI ", anat_label, variant_label, " — ", basename(id))
 
-    locator = Dict{String, Any}(
+    locator = Dict{String,Any}(
         "path" => path,
         "archive" => archive,
         "tar_data_offset" => tar_data_offset,
@@ -133,45 +134,46 @@ function _fastmri_entry(row, col)
     # prostate/breast are highly accelerated regardless of split — only train/val
     # knee/brain is genuinely fully sampled. Previously `anatomy !== :prostate` alone
     # decided this, so all 1342 knee/brain test-split entries claimed `fully_sampled =
-    # true` while being undersampled (fixed here; plan §7.1).
+    # true` while being undersampled (fixed here; see docs/src/internals.md, Taxonomy
+    # design principles).
     fully_sampled = anatomy in (:prostate, :breast) ? false : split !== :test
 
     return DatasetEntry(;
-        source = FASTMRI,
-        id = id,
-        name = label,
-        subject_id = isempty(patient_id) ? nothing : patient_id,
-        split = split,
-        vendor = series.vendor,
-        scanner_model = series.scanner_model,
-        field_strength = series.field_strength,
+        source=FASTMRI,
+        id=id,
+        name=label,
+        subject_id=isempty(patient_id) ? nothing : patient_id,
+        split=split,
+        vendor=series.vendor,
+        scanner_model=series.scanner_model,
+        field_strength=series.field_strength,
         # Single-coil data is 1 channel by construction (it's the RSS-combined derived
         # series, not a raw multi-coil acquisition) — the map/papers never state this
         # explicitly, so it has to be inferred from `coil_data` rather than read off a row.
-        receiver_channels = coil_data === :derived ? 1 : series.receiver_channels,
-        coil_data = coil_data,
-        anatomy = something(anatomy, :unknown),
-        contrast = series.contrast,
-        orientation = series.orientation,
-        sequence = series.sequence,
-        acquisition_dim = series.acquisition_dim,
-        num_slices = series.num_slices,
-        trajectory = series.trajectory,
-        fully_sampled = fully_sampled,
-        acceleration = series.acceleration,
-        partial_fourier = series.partial_fourier,
-        contrast_agent = series.contrast_agent,
-        file_format = :fastmri_h5,
-        approx_size_bytes = file_size,
+        receiver_channels=coil_data === :derived ? 1 : series.receiver_channels,
+        coil_data=coil_data,
+        anatomy=something(anatomy, :unknown),
+        contrast=series.contrast,
+        orientation=series.orientation,
+        sequence=series.sequence,
+        acquisition_dim=series.acquisition_dim,
+        num_slices=series.num_slices,
+        trajectory=series.trajectory,
+        fully_sampled=fully_sampled,
+        acceleration=series.acceleration,
+        partial_fourier=series.partial_fourier,
+        contrast_agent=series.contrast_agent,
+        file_format=:fastmri_h5,
+        approx_size_bytes=file_size,
         # The URL is resolved at download time from stored Preferences; leave it empty.
-        url = "",
-        extra = Dict{String, Any}(),
-        locator = locator,
+        url="",
+        extra=Dict{String,Any}(),
+        locator=locator,
     )
 end
 
 _fastmri_entries(path::AbstractString) = _parse_offset_map(path, _fastmri_entry)
 
-function _catalog_entries(s::FastMRI; offline::Bool = false)
-    return _cached_index_entries(ensure_index(s; offline = offline), _fastmri_entries)
+function _catalog_entries(s::FastMRI; offline::Bool=false)
+    return _cached_index_entries(ensure_index(s; offline=offline), _fastmri_entries)
 end
