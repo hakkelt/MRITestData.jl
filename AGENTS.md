@@ -137,4 +137,9 @@ facilitates access; it grants no rights to the data.
 - OCMR files with cardiac ECG headers: `load_raw` strips `<waveformInformation>`
   from the cached HDF5 in-place before MRIFiles reads it (workaround for a MRIFiles bug
   where `<waveformName>` is parsed as `Float64` instead of `String`).
+- USC Speech files record no dwell time (`sample_time_us = 0` in every profile), which
+  makes `MRIBase.trajectory` throw `ArgumentError: range step cannot be zero` because it
+  builds the sample times as `0:dt:(nsamples - 1) * dt`. `_fix_zero_sample_time!`
+  (`load/ismrmrd.jl`) recovers it from the sequence's `trajectoryDescription`, whose
+  `readTime_ns`/`simplingTime_ns` are microseconds in spite of the suffix.
 - Update docstrings and `docs/` when changing public API; `checkdocs=:public` is on.

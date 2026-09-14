@@ -39,6 +39,15 @@ All notable changes to MRITestData.jl are documented here. The format follows
   `MRIBase` is no longer referenced in the README/docs. The OCMR ECG-header workaround
   is no longer called out in user-facing docs (the code still applies it).
 
+### Fixed
+
+- `load_raw` fills in a missing receiver dwell time. The USC Speech exporter leaves
+  `sample_time_us = 0` in every profile header, which made `AcquisitionData(raw)` (and any
+  other consumer of the trajectory) fail with `ArgumentError: range step cannot be zero`;
+  the dwell time is now recovered from the sequence's `trajectoryDescription` (4 µs for the
+  2drt spirals: 2520 µs of readout over 630 samples). Non-Cartesian files whose header does
+  not imply a dwell time warn instead of failing later.
+
 ## [0.1.0]
 
 - Initial development version: `MRIDATA`, `OCMR_SOURCE`, `CMRXRECON2024`, `CMRXRECON300`,

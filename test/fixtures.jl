@@ -46,17 +46,34 @@
     end
 
     """
-        write_radial_fixture(path; nspokes=16, nsamp=32, ncoil=2) -> path
+        write_radial_fixture(path; nspokes=16, nsamp=32, ncoil=2,
+                             sample_time_us=nothing, trajectory_description=nothing) -> path
 
     Write a tiny 2D radial (non-Cartesian) ISMRMRD file.
+
+    `sample_time_us` overrides the dwell time in every profile header; pass `0` to imitate
+    an exporter that leaves it unset (USC Speech). `trajectory_description` is written as the
+    sequence's `<trajectoryDescription>` block, which is where the dwell time can be
+    recovered from — it must be a `Dict{String,Any}` with an `"identifier"` entry.
     """
-    function write_radial_fixture(path; nspokes = 16, nsamp = 32, ncoil = 2)
+    function write_radial_fixture(
+            path; nspokes = 16, nsamp = 32, ncoil = 2,
+            sample_time_us = nothing, trajectory_description = nothing
+        )
         tr = RadialTrajectory(Float32, nspokes, nsamp; TE = 0.0f0, AQ = 1.0f-3)
         npts = nspokes * nsamp
         kdata = Array{Matrix{ComplexF32}}(undef, 1, 1, 1)
         kdata[1, 1, 1] = ComplexF32.(reshape(1:(npts * ncoil), npts, ncoil)) ./ npts
         acq = AcquisitionData(tr, kdata; encodingSize = (nsamp, nsamp), fov = (200.0, 200.0, 1.0))
         raw = _pad_params_to_3d!(RawAcquisitionData(acq))
+        if sample_time_us !== nothing
+            for p in raw.profiles
+                p.head.sample_time_us = Float32(sample_time_us)
+            end
+        end
+        if trajectory_description !== nothing
+            raw.params["trajectoryDescription"] = trajectory_description
+        end
         save(ISMRMRDFile(path), raw)
         return path
     end

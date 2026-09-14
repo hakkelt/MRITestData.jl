@@ -123,6 +123,13 @@ non-Cartesian `AcquisitionData` with the trajectory and a density-compensation w
 (the package does **not** estimate DCF — supply your own). See
 [Reconstruction with MRIReco](@ref).
 
+The USC exporter also leaves the receiver dwell time unset (`sample_time_us = 0` in every
+profile header), which on its own makes building the trajectory fail with
+`ArgumentError: range step cannot be zero`. `load_raw` repairs it, deriving the dwell time
+from the sequence's `trajectoryDescription` — 4 µs for the 2drt spirals, 2520 µs of readout
+over 630 samples. If you read such a file with `MRIFiles` directly instead, set
+`profile.head.sample_time_us` yourself.
+
 ## Catalog
 
 ### Why is `entry.receiver_channels` (or TE, TR, FOV…) `nothing`?

@@ -77,6 +77,7 @@ end
 
 @testitem "USC Speech transparent load (network)" tags = [:network] begin
     using MRITestData
+    import MRIBase
 
     es = list_datasets(USC_SPEECH; offline = true)
     @test !isempty(es)
@@ -86,4 +87,9 @@ end
     @test !isempty(raw.profiles)
     # USC 2drt is a 13-interleaf spiral acquisition — not Cartesian.
     @test lowercase(get(raw.params, "trajectory", "")) != "cartesian"
+    # The exporter writes `sample_time_us = 0`; `load_raw` fills in the 4 µs dwell time the
+    # header implies (2520 µs of readout over 630 samples), without which building the
+    # trajectory throws "range step cannot be zero".
+    @test all(p -> p.head.sample_time_us ≈ 4.0f0, raw.profiles)
+    @test maximum(MRIBase.trajectory(raw).times) > 0
 end
